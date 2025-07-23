@@ -25,6 +25,7 @@ uint16_t cursor_y = 0;
 #undef c
 #undef s
 #undef i
+#undef p
 
 void scroll() {
     if (!framebuffer) return;
@@ -158,6 +159,17 @@ void kprintf(const char *fmt, ...) {
             } else if (*fmt == 'c') {
                 char c = (char)va_arg(args, int);
                 putchar(c);
+            } else if (*fmt == 'd') {
+                int i = va_arg(args, int);
+                kprintf_dec(i);
+            } else if (*fmt == 'x') {
+                uint64_t x = va_arg(args, uint64_t);
+                kprintf_hex(x);
+            } else if (*fmt == 'p') {
+                void *p = va_arg(args, void *);
+                kprintf_hex((uint64_t)p);
+            } else if (*fmt == '%') {
+                putchar('%');
             }
         } else {
             putchar(*fmt);
