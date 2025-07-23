@@ -8,8 +8,8 @@ static inline void panic(const char *fmt, ...) {
     
     clear_screen();
     
-    // Set background color to red for panic messages
-    setbg_color(COLOR(255, 0, 0));
+    // Set background color to black for panic messages
+    setbg_color(COLOR(0, 0, 0));
     
     // Print the panic message
     kprintf(":( Kernel panic: ");
