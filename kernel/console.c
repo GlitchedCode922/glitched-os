@@ -210,6 +210,9 @@ void kprintf_hex(uint64_t value) {
         value >>= 4;
     }
     buffer[16] = '\0';
+    if (value == 0) {
+        buffer[15] = '0'; // Ensure at least one digit is shown
+    }
     puts(buffer);
 }
 
