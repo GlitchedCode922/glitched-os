@@ -2,7 +2,7 @@
 #include "console.h"
 #include <stdarg.h>
 
-static inline void panic(const char *fmt, ...) {
+static inline __attribute__((noreturn)) void panic(const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
     
