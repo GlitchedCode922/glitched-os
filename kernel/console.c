@@ -180,27 +180,32 @@ void kprintf(const char *fmt, ...) {
 }
 
 void kvprintf(const char *fmt, va_list args){
-    char buffer[256];
-    char *buf_ptr = buffer;
     while (*fmt) {
         if (*fmt == '%') {
             fmt++;
             if (*fmt == 's') {
                 const char *s = va_arg(args, const char *);
-                while (*s) {
-                    *buf_ptr++ = *s++;
-                }
+                puts(s);
             } else if (*fmt == 'c') {
                 char c = (char)va_arg(args, int);
-                *buf_ptr++ = c;
+                putchar(c);
+            } else if (*fmt == 'd') {
+                int i = va_arg(args, int);
+                kprintf_dec(i);
+            } else if (*fmt == 'x') {
+                uint64_t x = va_arg(args, uint64_t);
+                kprintf_hex(x);
+            } else if (*fmt == 'p') {
+                void *p = va_arg(args, void *);
+                kprintf_hex((uint64_t)p);
+            } else if (*fmt == '%') {
+                putchar('%');
             }
         } else {
-            *buf_ptr++ = *fmt;
+            putchar(*fmt);
         }
         fmt++;
     }
-    *buf_ptr = '\0';
-    puts(buffer);
 }
 
 void kprintf_hex(uint64_t value) {
