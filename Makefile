@@ -9,7 +9,7 @@ override LDFLAGS += -nostdlib -ffreestanding -fno-stack-protector -fno-stack-che
 
 all: build/kernel
 
-build/kernel: build/main.o build/isr_handlers.o build/idt.o build/console.o
+build/kernel: build/main.o build/isr_handlers.o build/idt.o build/console.o build/8259pic.o build/kbd.o build/ps2_keyboard.o build/timer.o
 	$(CC) $(LDFLAGS) -o $@ $^
 
 build/main.o: kernel/main.c kernel/panic.h | build
@@ -22,6 +22,18 @@ build/idt.o: kernel/idt.c kernel/panic.h | build
 	$(CC) $(CFLAGS) -c $< -o $@
 
 build/console.o: kernel/console.c | build
+	$(CC) $(CFLAGS) -c $< -o $@
+
+build/8259pic.o: kernel/io/8259pic.c kernel/io/ports.h | build
+	$(CC) $(CFLAGS) -c $< -o $@
+
+build/kbd.o: kernel/drivers/kbd.c | build
+	$(CC) $(CFLAGS) -c $< -o $@
+
+build/ps2_keyboard.o: kernel/drivers/ps2_keyboard.c | build
+	$(CC) $(CFLAGS) -c $< -o $@
+
+build/timer.o: kernel/drivers/timer.c | build
 	$(CC) $(CFLAGS) -c $< -o $@
 
 build:

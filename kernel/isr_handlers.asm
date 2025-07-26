@@ -32,6 +32,22 @@ global isr28
 global isr29
 global isr30
 global isr31
+global isr32
+global isr33
+global isr34
+global isr35
+global isr36
+global isr37
+global isr38
+global isr39
+global isr40
+global isr41
+global isr42
+global isr43
+global isr44
+global isr45
+global isr46
+global isr47
 
 isr_common:
     push rax          ; Save registers
@@ -254,4 +270,84 @@ isr30: ; Security exception (Error code pushed by CPU)
 isr31: ; Reserved
     push 0
     push 31
+    jmp isr_common
+
+isr32: ; IRQ0
+    push 0
+    push 32
+    jmp isr_common
+
+isr33: ; IRQ1
+    push 0
+    push 33
+    jmp isr_common
+
+isr34: ; IRQ2
+    push 0
+    push 34
+    jmp isr_common
+
+isr35: ; IRQ3
+    push 0
+    push 35
+    jmp isr_common
+
+isr36: ; IRQ4
+    push 0
+    push 36
+    jmp isr_common
+
+isr37: ; IRQ5
+    push 0
+    push 37
+    jmp isr_common
+
+isr38: ; IRQ6
+    push 0
+    push 38
+    jmp isr_common
+
+isr39: ; IRQ7
+    push 0
+    push 39
+    jmp isr_common
+
+isr40: ; IRQ8
+    push 0
+    push 40
+    jmp isr_common
+
+isr41: ; IRQ9
+    push 0
+    push 41
+    jmp isr_common
+
+isr42: ; IRQ10
+    push 0
+    push 42
+    jmp isr_common
+
+isr43: ; IRQ11
+    push 0
+    push 43
+    jmp isr_common
+
+isr44: ; IRQ12
+    push 0
+    push 44
+    jmp isr_common
+
+isr45: ; IRQ13
+    push 0
+    push 45
+    jmp isr_common
+
+isr46: ; IRQ14
+    push 0
+    push 46
+    jmp isr_common
+
+isr47: ; IRQ15
+    push 0
+    push 47
     jmp isr_common

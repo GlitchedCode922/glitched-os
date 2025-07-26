@@ -1,4 +1,6 @@
 #include "idt.h"
+#include "io/8259pic.h"
+#include "drivers/timer.h"
 #include "panic.h"
 #include "console.h"
 #include <stdint.h>
@@ -36,6 +38,22 @@ extern void isr28();
 extern void isr29();
 extern void isr30();
 extern void isr31();
+extern void isr32();
+extern void isr33();
+extern void isr34();
+extern void isr35();
+extern void isr36();
+extern void isr37();
+extern void isr38();
+extern void isr39();
+extern void isr40();
+extern void isr41();
+extern void isr42();
+extern void isr43();
+extern void isr44();
+extern void isr45();
+extern void isr46();
+extern void isr47();
 // End of ISR handlers
 
 idt_entry_t idt[IDT_ENTRY_COUNT];
@@ -52,8 +70,10 @@ void interrupt_handler(uint64_t* stack) {
         uint64_t cr2;
         asm volatile("mov %%cr2, %0" : "=r"(cr2));
         panic("Page fault at address: 0x%x, error code: 0x%x\n", cr2, error_code);
+    } else if (vector < 32) {
+        panic("Unhandled exception: vector %d, error code: 0x%x\n", vector, error_code);
     } else {
-        panic("Unhandled interrupt: vector %d, error code: 0x%x\n", vector, error_code);
+        irq_handler(vector - 32);
     }
 }
 
@@ -73,6 +93,8 @@ void idt_load(idt_ptr_t* idt_ptr) {
 }
 
 void idt_init() {
+    timer_init();
+    pic_init();
     // Initialize IDT entries for each ISR
     idt_set_entry(0, isr0, 0x28, 0x8E);
     idt_set_entry(1, isr1, 0x28, 0x8E);
@@ -106,6 +128,22 @@ void idt_init() {
     idt_set_entry(29, isr29, 0x28, 0x8E);
     idt_set_entry(30, isr30, 0x28, 0x8E);
     idt_set_entry(31, isr31, 0x28, 0x8E);
+    idt_set_entry(32, isr32, 0x28, 0x8E);
+    idt_set_entry(33, isr33, 0x28, 0x8E);
+    idt_set_entry(34, isr34, 0x28, 0x8E);
+    idt_set_entry(35, isr35, 0x28, 0x8E);
+    idt_set_entry(36, isr36, 0x28, 0x8E);
+    idt_set_entry(37, isr37, 0x28, 0x8E);
+    idt_set_entry(38, isr38, 0x28, 0x8E);
+    idt_set_entry(39, isr39, 0x28, 0x8E);
+    idt_set_entry(40, isr40, 0x28, 0x8E);
+    idt_set_entry(41, isr41, 0x28, 0x8E);
+    idt_set_entry(42, isr42, 0x28, 0x8E);
+    idt_set_entry(43, isr43, 0x28, 0x8E);
+    idt_set_entry(44, isr44, 0x28, 0x8E);
+    idt_set_entry(45, isr45, 0x28, 0x8E);
+    idt_set_entry(46, isr46, 0x28, 0x8E);
+    idt_set_entry(47, isr47, 0x28, 0x8E);
     // Load the IDT
     idt_load(&idt_ptr);
     // Enable interrupts
