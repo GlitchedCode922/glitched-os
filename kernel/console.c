@@ -29,6 +29,7 @@ uint16_t cursor_y = 0;
 
 void scroll() {
     if (!framebuffer) return;
+
     for (uint32_t y = padding_lines; y < framebuffer->height - 12 - padding_lines; y++) {
         char *scanline;
         scanline = (char*)(fb_address + (y * framebuffer->width + padding_pixels) * framebuffer->bpp / 8);
@@ -51,17 +52,19 @@ void scroll() {
 }
 
 void newline() {
+    asm volatile("cli");
     cursor_x = 0;
     cursor_y++;
     if (cursor_y >= height) {
         scroll();
         cursor_y = height - 1;
     }
+    asm volatile("sti");
 }
 
 void clear_screen() {
     if (!framebuffer) return;
-
+    asm volatile("cli");
     for (uint32_t y = 0; y < framebuffer->height; y++) {
         for (uint32_t x = 0; x < framebuffer->width; x++) {
             uint32_t pixel_index = (y * framebuffer->width + x) * framebuffer->bpp / 8;
@@ -73,6 +76,7 @@ void clear_screen() {
 
     cursor_x = 0;
     cursor_y = 0;
+    asm volatile("sti");
 }
 
 void initialize_console(volatile struct limine_framebuffer *fb) {
