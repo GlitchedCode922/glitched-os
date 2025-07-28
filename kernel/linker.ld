@@ -40,6 +40,8 @@ SECTIONS {
         *(COMMON)
     } :data
 
+    __size = . - 0xffffffff80000000;
+
     /DISCARD/ : {
         *(.eh_frame*)
         *(.note .note.*)
