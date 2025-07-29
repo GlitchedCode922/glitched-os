@@ -4,6 +4,7 @@
 #include "drivers/kbd.h"
 #include "memory/mman.h"
 #include "memory/paging.h"
+#include "drivers/block/ata.h"
 #include "idt.h"
 #include <stdint.h>
 
@@ -53,6 +54,13 @@ void kernel_main() {
     init_mman((size_t)&__size);
     idt_init();
     initialize_console(framebuffer_request.response->framebuffers[0]);
+
+    unsigned char* disk_sector = kmalloc(512);
+    scan_for_devices();
+    read_sectors(0, 0, disk_sector, 1);
+    kprintf("Disk sector read successfully.\n");
+    kprintf("Disk sector data:\n");
+    kprintf("%s", disk_sector);
 
     while (1) {
         char* line = kbdinput();
