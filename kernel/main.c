@@ -60,7 +60,15 @@ void kernel_main() {
     read_sectors(0, 0, disk_sector, 1);
     kprintf("Disk sector read successfully.\n");
     kprintf("Disk sector data:\n");
-    kprintf("%s", disk_sector);
+    kprintf("%s\n", disk_sector);
+    get_smart_data(0, disk_sector);
+    kprintf("SMART data read successfully.\n");
+    kprintf("SMART data:\n");
+    for (int i = 0; i < 512; i++) {
+        kprintf_dec(disk_sector[i]);
+        kprintf(" ");
+    }
+    kfree(disk_sector);
 
     while (1) {
         char* line = kbdinput();

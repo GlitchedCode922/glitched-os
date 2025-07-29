@@ -134,3 +134,31 @@ void write_sectors(uint8_t drive, uint32_t lba, uint8_t *buffer, uint8_t count) 
         }
     }
 }
+
+void get_smart_data(uint8_t drive, uint8_t* buffer) {
+    uint16_t bus_port = (drive / 2 == 0 ? PRIMARY_BUS : SECONDARY_BUS);
+    uint8_t drive_select = (drive % 2) << 4;
+
+    select_drive(bus_port, drive_select);
+
+    // Wait for drive to be ready
+    while (inb(bus_port + 0x07) & 0x80); // Wait for BSY to clear
+
+    // Send SMART READ DATA command sequence
+    outb(bus_port + 0x01, 0xD0);                    // Feature register: SMART READ DATA subcommand
+    outb(bus_port + 0x02, 0x01);                    // Sector count = 1
+    outb(bus_port + 0x03, 0x00);                    // LBA Low = 0
+    outb(bus_port + 0x04, 0x4F);                    // LBA Mid = 0x4F
+    outb(bus_port + 0x05, 0xC2);                    // LBA High = 0xC2
+    outb(bus_port + 0x06, 0xE0 | drive_select);     // Drive/head
+    outb(bus_port + 0x07, 0xB0);                    // Command: SMART
+
+    // Wait for command to complete
+    while (inb(bus_port + 0x07) & 0x80);            // Wait for BSY to clear
+    if (!(inb(bus_port + 0x07) & 0x08)) return;     // If DRQ not set, no data to read
+
+    // Read 256 words (512 bytes) from the data port
+    for (int i = 0; i < 256; i++) {
+        ((uint16_t*)buffer)[i] = inw(bus_port);     // Read word from data port
+    }
+}
