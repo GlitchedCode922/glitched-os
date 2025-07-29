@@ -101,3 +101,36 @@ void read_sectors(uint8_t drive, uint32_t lba, uint8_t *buffer, uint8_t count) {
         }
     }
 }
+
+void write_sectors(uint8_t drive, uint32_t lba, uint8_t *buffer, uint8_t count) {
+    // Select the drive
+    if (devices[drive].exists == 0) return;
+
+    uint16_t bus_port = (drive / 2 == 0 ? PRIMARY_BUS : SECONDARY_BUS);
+    select_drive(bus_port, drive % 2 == 0 ? 0xA0 : 0xB0);
+
+    // Enable LBA
+    outb(bus_port + 6, 0xE0 | ((drive % 2) << 4));
+
+    // Set sector count
+    outb(bus_port + 2, count);
+
+    // Set LBA low, mid, high bytes
+    outb(bus_port + 3, (uint8_t)(lba & 0xFF));
+    outb(bus_port + 4, (uint8_t)((lba >> 8) & 0xFF));
+    outb(bus_port + 5, (uint8_t)((lba >> 16) & 0xFF));
+
+    // Send write sectors command (0x30)
+    outb(bus_port + 7, 0x30);
+
+    for (uint8_t sector = 0; sector < count; sector++) {
+        // Wait for BSY to clear and DRQ to set
+        while (inb(bus_port + 7) & 0x80);       // Wait while BSY (busy) is set
+        while (!(inb(bus_port + 7) & 0x08));    // Wait for DRQ (data request) set
+
+        // Write 256 words (512 bytes) per sector
+        for (int i = 0; i < 256; i++) {
+            outw(bus_port, ((uint16_t *)buffer)[sector * 256 + i]);
+        }
+    }
+}
