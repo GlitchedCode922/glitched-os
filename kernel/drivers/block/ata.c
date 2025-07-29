@@ -69,9 +69,9 @@ void select_drive(uint16_t bus_port, uint16_t disk) {
     }
 }
 
-void read_sectors(uint8_t drive, uint32_t lba, uint8_t *buffer, uint8_t count) {
+int read_sectors(uint8_t drive, uint32_t lba, uint8_t *buffer, uint8_t count) {
     // Select the drive
-    if (devices[drive].exists == 0) return;
+    if (devices[drive].exists == 0) return -2;
 
     uint16_t bus_port = (drive / 2 == 0 ? PRIMARY_BUS : SECONDARY_BUS);
     select_drive(bus_port, drive % 2 == 0 ? 0xA0 : 0xB0);
@@ -93,18 +93,24 @@ void read_sectors(uint8_t drive, uint32_t lba, uint8_t *buffer, uint8_t count) {
     for (uint8_t sector = 0; sector < count; sector++) {
         // Wait for BSY to clear and DRQ to set
         while (inb(bus_port + 7) & 0x80);       // Wait while BSY (busy) is set
-        while (!(inb(bus_port + 7) & 0x08));    // Wait for DRQ (data request) set
+        while (!(inb(bus_port + 7) & 0x09));    // Wait for DRQ (data request) or ERR set
+
+        if (inb(bus_port + 7) & 0x01) {
+            // Hardware error
+            return -1;
+        }
 
         // Read 256 words (512 bytes) per sector
         for (int i = 0; i < 256; i++) {
             ((uint16_t *)buffer)[sector * 256 + i] = inw(bus_port);
         }
     }
+    return 0;
 }
 
-void write_sectors(uint8_t drive, uint32_t lba, uint8_t *buffer, uint8_t count) {
+int write_sectors(uint8_t drive, uint32_t lba, uint8_t *buffer, uint8_t count) {
     // Select the drive
-    if (devices[drive].exists == 0) return;
+    if (devices[drive].exists == 0) return -2;
 
     uint16_t bus_port = (drive / 2 == 0 ? PRIMARY_BUS : SECONDARY_BUS);
     select_drive(bus_port, drive % 2 == 0 ? 0xA0 : 0xB0);
@@ -126,16 +132,24 @@ void write_sectors(uint8_t drive, uint32_t lba, uint8_t *buffer, uint8_t count) 
     for (uint8_t sector = 0; sector < count; sector++) {
         // Wait for BSY to clear and DRQ to set
         while (inb(bus_port + 7) & 0x80);       // Wait while BSY (busy) is set
-        while (!(inb(bus_port + 7) & 0x08));    // Wait for DRQ (data request) set
+        while (!(inb(bus_port + 7) & 0x09));    // Wait for DRQ (data request) or ERR set
+
+        if (inb(bus_port + 7) & 0x01) {
+            // Hardware error
+            return -1;
+        }
 
         // Write 256 words (512 bytes) per sector
         for (int i = 0; i < 256; i++) {
             outw(bus_port, ((uint16_t *)buffer)[sector * 256 + i]);
         }
     }
+    return 0;
 }
 
-void get_smart_data(uint8_t drive, uint8_t* buffer) {
+int get_smart_data(uint8_t drive, uint8_t* buffer) {
+    if (devices[drive].exists == 0) return -2;
+
     uint16_t bus_port = (drive / 2 == 0 ? PRIMARY_BUS : SECONDARY_BUS);
     uint8_t drive_select = (drive % 2) << 4;
 
@@ -155,10 +169,11 @@ void get_smart_data(uint8_t drive, uint8_t* buffer) {
 
     // Wait for command to complete
     while (inb(bus_port + 0x07) & 0x80);            // Wait for BSY to clear
-    if (!(inb(bus_port + 0x07) & 0x08)) return;     // If DRQ not set, no data to read
+    if (!(inb(bus_port + 0x07) & 0x08)) return -1;     // If DRQ not set, no data to read
 
     // Read 256 words (512 bytes) from the data port
     for (int i = 0; i < 256; i++) {
         ((uint16_t*)buffer)[i] = inw(bus_port);     // Read word from data port
     }
+    return 0;
 }
