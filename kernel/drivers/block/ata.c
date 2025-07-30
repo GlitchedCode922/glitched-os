@@ -90,19 +90,48 @@ int read_sectors(uint8_t drive, uint32_t lba, uint8_t *buffer, uint8_t count) {
     // Send read sectors command (0x20)
     outb(bus_port + 7, 0x20);
 
+    char to_retry[count];
+
     for (uint8_t sector = 0; sector < count; sector++) {
+        to_retry[sector] = 0;
+
         // Wait for BSY to clear and DRQ to set
         while (inb(bus_port + 7) & 0x80);       // Wait while BSY (busy) is set
         while (!(inb(bus_port + 7) & 0x09));    // Wait for DRQ (data request) or ERR set
 
         if (inb(bus_port + 7) & 0x01) {
             // Hardware error
-            return -1;
+            to_retry[sector] = 1;
         }
 
         // Read 256 words (512 bytes) per sector
         for (int i = 0; i < 256; i++) {
             ((uint16_t *)buffer)[sector * 256 + i] = inw(bus_port);
+        }
+    }
+    // Retry reading sectors that had errors
+    for (uint8_t sector = 0; sector < count; sector++) {
+        if (to_retry[sector]) {
+            // Retry reading the sector
+            outb(bus_port + 2, 1); // Set sector count to 1
+
+            uint32_t retry_lba = lba + sector;
+            outb(bus_port + 3, (uint8_t)(retry_lba & 0xFF));
+            outb(bus_port + 4, (uint8_t)((retry_lba >> 8) & 0xFF));
+            outb(bus_port + 5, (uint8_t)((retry_lba >> 16) & 0xFF));
+            
+            outb(bus_port + 7, 0x20); // Send read sectors command again
+            while (inb(bus_port + 7) & 0x80); // Wait for BSY to clear
+            while (!(inb(bus_port + 7) & 0x09)); // Wait for DRQ or ERR
+
+            if (inb(bus_port + 7) & 0x01) {
+                return -1; // Hardware error on retry
+            }
+
+            // Read the sector again
+            for (int i = 0; i < 256; i++) {
+                ((uint16_t *)buffer)[sector * 256 + i] = inw(bus_port);
+            }
         }
     }
     return 0;
@@ -129,19 +158,49 @@ int write_sectors(uint8_t drive, uint32_t lba, uint8_t *buffer, uint8_t count) {
     // Send write sectors command (0x30)
     outb(bus_port + 7, 0x30);
 
+    char to_retry[count];
+
     for (uint8_t sector = 0; sector < count; sector++) {
+        to_retry[sector] = 0;
+
         // Wait for BSY to clear and DRQ to set
         while (inb(bus_port + 7) & 0x80);       // Wait while BSY (busy) is set
         while (!(inb(bus_port + 7) & 0x09));    // Wait for DRQ (data request) or ERR set
 
         if (inb(bus_port + 7) & 0x01) {
             // Hardware error
-            return -1;
+            to_retry[sector] = 1;
         }
 
         // Write 256 words (512 bytes) per sector
         for (int i = 0; i < 256; i++) {
             outw(bus_port, ((uint16_t *)buffer)[sector * 256 + i]);
+        }
+    }
+    // Retry writing sectors that had errors
+    for (uint8_t sector = 0; sector < count; sector++) {
+        if (to_retry[sector]) {
+            // Retry writing the sector
+
+            outb(bus_port + 2, 1); // Set sector count to 1
+
+            uint32_t retry_lba = lba + sector;
+            outb(bus_port + 3, (uint8_t)(retry_lba & 0xFF));
+            outb(bus_port + 4, (uint8_t)((retry_lba >> 8) & 0xFF));
+            outb(bus_port + 5, (uint8_t)((retry_lba >> 16) & 0xFF));
+
+            outb(bus_port + 7, 0x30); // Send write sectors command again
+            while (inb(bus_port + 7) & 0x80); // Wait for BSY to clear
+            while (!(inb(bus_port + 7) & 0x09)); // Wait for DRQ or ERR
+
+            if (inb(bus_port + 7) & 0x01) {
+                return -1; // Hardware error on retry
+            }
+
+            // Write the sector again
+            for (int i = 0; i < 256; i++) {
+                outw(bus_port, ((uint16_t *)buffer)[sector * 256 + i]);
+            }
         }
     }
     return 0;
