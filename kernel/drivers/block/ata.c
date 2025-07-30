@@ -69,7 +69,7 @@ void select_drive(uint16_t bus_port, uint16_t disk) {
     }
 }
 
-int read_sectors(uint8_t drive, uint32_t lba, uint8_t *buffer, uint8_t count) {
+int read_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t count) {
     // Select the drive
     if (devices[drive].exists == 0) return -2;
 
@@ -79,16 +79,33 @@ int read_sectors(uint8_t drive, uint32_t lba, uint8_t *buffer, uint8_t count) {
     // Enable LBA
     outb(bus_port + 6, 0xE0 | ((drive % 2) << 4));
 
-    // Set sector count
-    outb(bus_port + 2, count);
+    if (supports_lba48(drive)) {
+        outb(bus_port + 2, (count >> 8) & 0xFF);  // sector count high
+        outb(bus_port + 3, (lba >> 24) & 0xFF);   // LBA low high
+        outb(bus_port + 4, (lba >> 32) & 0xFF);   // LBA mid high
+        outb(bus_port + 5, (lba >> 40) & 0xFF);   // LBA high high
 
-    // Set LBA low, mid, high bytes
-    outb(bus_port + 3, (uint8_t)(lba & 0xFF));
-    outb(bus_port + 4, (uint8_t)((lba >> 8) & 0xFF));
-    outb(bus_port + 5, (uint8_t)((lba >> 16) & 0xFF));
+        outb(bus_port + 2, count & 0xFF);         // sector count low
+        outb(bus_port + 3, lba & 0xFF);           // LBA low low
+        outb(bus_port + 4, (lba >> 8) & 0xFF);    // LBA mid low
+        outb(bus_port + 5, (lba >> 16) & 0xFF);   // LBA high low
 
-    // Send read sectors command (0x20)
-    outb(bus_port + 7, 0x20);
+        // Send extended read sectors command (0x24)
+        outb(bus_port + 7, 0x24);
+    } else if (count < 256 && lba + count < 0xFFFFFFF) {
+        // Set sector count
+        outb(bus_port + 2, count);
+
+        // Set LBA low, mid, high bytes
+        outb(bus_port + 3, (uint8_t)(lba & 0xFF));
+        outb(bus_port + 4, (uint8_t)((lba >> 8) & 0xFF));
+        outb(bus_port + 5, (uint8_t)((lba >> 16) & 0xFF));
+
+        // Send read sectors command (0x20)
+        outb(bus_port + 7, 0x20);
+    } else {
+        return -3; // Invalid LBA or sector count for non-LBA48 devices
+    }
 
     char to_retry[count];
 
@@ -116,11 +133,33 @@ int read_sectors(uint8_t drive, uint32_t lba, uint8_t *buffer, uint8_t count) {
             outb(bus_port + 2, 1); // Set sector count to 1
 
             uint32_t retry_lba = lba + sector;
-            outb(bus_port + 3, (uint8_t)(retry_lba & 0xFF));
-            outb(bus_port + 4, (uint8_t)((retry_lba >> 8) & 0xFF));
-            outb(bus_port + 5, (uint8_t)((retry_lba >> 16) & 0xFF));
-            
-            outb(bus_port + 7, 0x20); // Send read sectors command again
+
+            if (supports_lba48(drive)) {
+                outb(bus_port + 2, (count >> 8) & 0xFF);  // sector count high
+                outb(bus_port + 3, (lba >> 24) & 0xFF);   // LBA low high
+                outb(bus_port + 4, (lba >> 32) & 0xFF);   // LBA mid high
+                outb(bus_port + 5, (lba >> 40) & 0xFF);   // LBA high high
+
+                outb(bus_port + 2, count & 0xFF);         // sector count low
+                outb(bus_port + 3, lba & 0xFF);           // LBA low low
+                outb(bus_port + 4, (lba >> 8) & 0xFF);    // LBA mid low
+                outb(bus_port + 5, (lba >> 16) & 0xFF);   // LBA high low
+
+                // Send extended read sectors command (0x24)
+                outb(bus_port + 7, 0x24);
+            } else if (count < 256 && retry_lba < 0xFFFFFFF) {
+                // Set sector count
+                outb(bus_port + 2, count);
+
+                // Set LBA low, mid, high bytes
+                outb(bus_port + 3, (uint8_t)(lba & 0xFF));
+                outb(bus_port + 4, (uint8_t)((lba >> 8) & 0xFF));
+                outb(bus_port + 5, (uint8_t)((lba >> 16) & 0xFF));
+
+                // Send read sectors command (0x20)
+                outb(bus_port + 7, 0x20);
+            }
+
             while (inb(bus_port + 7) & 0x80); // Wait for BSY to clear
             while (!(inb(bus_port + 7) & 0x09)); // Wait for DRQ or ERR
 
@@ -137,7 +176,7 @@ int read_sectors(uint8_t drive, uint32_t lba, uint8_t *buffer, uint8_t count) {
     return 0;
 }
 
-int write_sectors(uint8_t drive, uint32_t lba, uint8_t *buffer, uint8_t count) {
+int write_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t count) {
     // Select the drive
     if (devices[drive].exists == 0) return -2;
 
@@ -147,16 +186,33 @@ int write_sectors(uint8_t drive, uint32_t lba, uint8_t *buffer, uint8_t count) {
     // Enable LBA
     outb(bus_port + 6, 0xE0 | ((drive % 2) << 4));
 
-    // Set sector count
-    outb(bus_port + 2, count);
+    if (supports_lba48(drive)) {
+        outb(bus_port + 2, (count >> 8) & 0xFF);  // sector count high
+        outb(bus_port + 3, (lba >> 24) & 0xFF);   // LBA low high
+        outb(bus_port + 4, (lba >> 32) & 0xFF);   // LBA mid high
+        outb(bus_port + 5, (lba >> 40) & 0xFF);   // LBA high high
 
-    // Set LBA low, mid, high bytes
-    outb(bus_port + 3, (uint8_t)(lba & 0xFF));
-    outb(bus_port + 4, (uint8_t)((lba >> 8) & 0xFF));
-    outb(bus_port + 5, (uint8_t)((lba >> 16) & 0xFF));
+        outb(bus_port + 2, count & 0xFF);         // sector count low
+        outb(bus_port + 3, lba & 0xFF);           // LBA low low
+        outb(bus_port + 4, (lba >> 8) & 0xFF);    // LBA mid low
+        outb(bus_port + 5, (lba >> 16) & 0xFF);   // LBA high low
 
-    // Send write sectors command (0x30)
-    outb(bus_port + 7, 0x30);
+        // Send extended write sectors command (0x34)
+        outb(bus_port + 7, 0x34);
+    } else if (count < 256 && lba + count < 0xFFFFFFF) {
+        // Set sector count
+        outb(bus_port + 2, count);
+
+        // Set LBA low, mid, high bytes
+        outb(bus_port + 3, (uint8_t)(lba & 0xFF));
+        outb(bus_port + 4, (uint8_t)((lba >> 8) & 0xFF));
+        outb(bus_port + 5, (uint8_t)((lba >> 16) & 0xFF));
+
+        // Send write sectors command (0x30)
+        outb(bus_port + 7, 0x30);
+    } else {
+        return -3; // Invalid LBA or sector count for non-LBA48 devices
+    }
 
     char to_retry[count];
 
@@ -185,11 +241,34 @@ int write_sectors(uint8_t drive, uint32_t lba, uint8_t *buffer, uint8_t count) {
             outb(bus_port + 2, 1); // Set sector count to 1
 
             uint32_t retry_lba = lba + sector;
-            outb(bus_port + 3, (uint8_t)(retry_lba & 0xFF));
-            outb(bus_port + 4, (uint8_t)((retry_lba >> 8) & 0xFF));
-            outb(bus_port + 5, (uint8_t)((retry_lba >> 16) & 0xFF));
+            if (supports_lba48(drive)) {
+                outb(bus_port + 2, 0);                    // sector count high
+                outb(bus_port + 3, (lba >> 24) & 0xFF);   // LBA low high
+                outb(bus_port + 4, (lba >> 32) & 0xFF);   // LBA mid high
+                outb(bus_port + 5, (lba >> 40) & 0xFF);   // LBA high high
 
-            outb(bus_port + 7, 0x30); // Send write sectors command again
+                outb(bus_port + 2, 1);                    // sector count low
+                outb(bus_port + 3, lba & 0xFF);           // LBA low low
+                outb(bus_port + 4, (lba >> 8) & 0xFF);    // LBA mid low
+                outb(bus_port + 5, (lba >> 16) & 0xFF);   // LBA high low
+
+                // Send extended write sectors command (0x34)
+                outb(bus_port + 7, 0x34);
+            } else if (retry_lba < 0xFFFFFFF) {
+                // Set sector count
+                outb(bus_port + 2, 1);
+
+                // Set LBA low, mid, high bytes
+                outb(bus_port + 3, (uint8_t)(lba & 0xFF));
+                outb(bus_port + 4, (uint8_t)((lba >> 8) & 0xFF));
+                outb(bus_port + 5, (uint8_t)((lba >> 16) & 0xFF));
+
+                // Send write sectors command (0x30)
+                outb(bus_port + 7, 0x30);
+            } else {
+                return -3; // Invalid LBA or sector count for non-LBA48 devices
+            }
+            
             while (inb(bus_port + 7) & 0x80); // Wait for BSY to clear
             while (!(inb(bus_port + 7) & 0x09)); // Wait for DRQ or ERR
 
@@ -235,6 +314,11 @@ int get_smart_data(uint8_t drive, uint8_t* buffer) {
         ((uint16_t*)buffer)[i] = inw(bus_port);     // Read word from data port
     }
     return 0;
+}
+
+int supports_lba48(int drive) {
+    if (devices[drive].exists == 0) return 0;
+    return (devices[drive].identify[83] & 0x0400) == 0; // Check bit 10 of word 83 in IDENTIFY data
 }
 
 void standby(int drive) {

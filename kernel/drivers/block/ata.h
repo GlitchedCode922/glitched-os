@@ -14,7 +14,8 @@ typedef struct {
 void scan_for_devices();
 void select_drive(uint16_t bus_port, uint16_t disk);
 ata_device_t detect_device(uint16_t bus_port, uint16_t disk);
-int read_sectors(uint8_t drive, uint32_t lba, uint8_t *buffer, uint8_t count);
-int write_sectors(uint8_t drive, uint32_t lba, uint8_t *buffer, uint8_t count);
+int read_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t count);
+int write_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t count);
 int get_smart_data(uint8_t drive, uint8_t *buffer);
 void standby(int drive);
+int supports_lba48(int drive);
