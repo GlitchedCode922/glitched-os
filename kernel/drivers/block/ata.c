@@ -321,6 +321,17 @@ int supports_lba48(int drive) {
     return (devices[drive].identify[83] & 0x0400) == 0; // Check bit 10 of word 83 in IDENTIFY data
 }
 
+uint64_t get_drive_size(int drive) {
+    if (devices[drive].exists == 0) return 0;
+    uint64_t size = 0;
+    if (supports_lba48(drive)) {
+        size = ((uint64_t)devices[drive].identify[103] << 48) | ((uint64_t)devices[drive].identify[102] << 32) | ((uint64_t)devices[drive].identify[101] << 16) | devices[drive].identify[100];
+    } else {
+        size = ((uint32_t)devices[drive].identify[61] << 16) | (uint32_t)(devices[drive].identify[60]);
+    }
+    return size;
+}
+
 void standby(int drive) {
     if (devices[drive].exists == 0) return;
     uint16_t bus_port = (drive / 2 == 0 ? PRIMARY_BUS : SECONDARY_BUS);
