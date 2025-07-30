@@ -177,3 +177,10 @@ int get_smart_data(uint8_t drive, uint8_t* buffer) {
     }
     return 0;
 }
+
+void standby(int drive) {
+    if (devices[drive].exists == 0) return;
+    uint16_t bus_port = (drive / 2 == 0 ? PRIMARY_BUS : SECONDARY_BUS);
+    select_drive(bus_port, drive % 2 == 0 ? 0xA0 : 0xB0);
+    outb(bus_port + 0x07, 0xE2);
+}
