@@ -42,9 +42,9 @@ uint8_t alt_pressed = 0;
 uint8_t caps_lock = 0;
 uint8_t num_lock = 0;
 
-char input_buffer[20][256]; // Buffer for input lines
-uint8_t line_index = 0;
-uint8_t input_index = 0;
+char input_buffer[INPUT_BUFFER_LINES][INPUT_LINE_LENGTH]; // Buffer for input lines
+uint64_t line_index = 0;
+uint64_t input_index = 0;
 
 void ps2_interrupt_handler(uint8_t scancode) {
     if (scancode == 0xE0) { // Extended key
@@ -95,14 +95,14 @@ void ps2_interrupt_handler(uint8_t scancode) {
 char* get_input_line() {
     while (line_index == 0);
 
-    static char return_value[256];
+    static char return_value[INPUT_LINE_LENGTH];
     asm volatile("cli");
 
     // Copy safely and null-terminate
-    for (uint8_t i = 0; i < 255; i++) {
+    for (uint64_t i = 0; i < INPUT_LINE_LENGTH - 1; i++) {
         return_value[i] = input_buffer[0][i];
     }
-    return_value[255] = '\0';
+    return_value[INPUT_LINE_LENGTH - 1] = '\0';
 
     // Shift remaining lines up
     for (uint8_t i = 0; i <= line_index - 1; i++) {
