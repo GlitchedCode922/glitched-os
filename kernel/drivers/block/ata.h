@@ -4,7 +4,6 @@
 
 typedef struct {
     int exists;
-    int index;
     int type; // 0 for ATA, 1 for ATAPI
     uint32_t identify[256];
 } ata_device_t;
