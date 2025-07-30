@@ -75,10 +75,13 @@ void kfree(void *ptr) {
         return; // Nothing to free
     }
 
+    uint64_t pointer_map_index = 0;
+
     uintptr_t address = (uintptr_t)ptr;
     size_t size = 0;
     for (uint64_t i = 0; i < map_index; i++) {
-        if (map[i].start = address) {
+        if (map[i].start == address) {
+            pointer_map_index = i;
             size = map[i].pages * PAGE_SIZE;
         }
     }
@@ -87,6 +90,9 @@ void kfree(void *ptr) {
     for (size_t i = 0; i < size; i += PAGE_SIZE) {
         free_page((void*)(address + i));
     }
+
+    // Mark the region as free
+    map[pointer_map_index].free = 1;
 }
 
 void* find_available_va(size_t size) {
@@ -94,7 +100,7 @@ void* find_available_va(size_t size) {
         if (map[i].free && map[i].pages >= size) {
             map[map_index].free = 1;
             map[map_index].start = map[i].start + size * PAGE_SIZE;
-            map[map_index].pages = size;
+            map[map_index].pages = map[i].pages - size;
             map[i].pages = size;
             map[i].free = 0;
 
@@ -109,7 +115,7 @@ void* find_available_va(size_t size) {
 void* kmalloc(size_t size) {
     void* ptr = find_available_va(PAGE_ALIGN(size) / PAGE_SIZE);
     // Allocate memory of the specified size
-    for (int i=0; i<= PAGE_ALIGN(size); i += PAGE_SIZE) {
+    for (int i=0; i < PAGE_ALIGN(size); i += PAGE_SIZE) {
         alloc_page((uintptr_t)ptr + i, FLAGS_PRESENT | FLAGS_RW);
     }
     memset(ptr, 0, size); // Initialize allocated memory to zero

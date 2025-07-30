@@ -222,38 +222,79 @@ int free_page(void *page) {
     uintptr_t address = (uintptr_t)page;
     page_address_t entry = get_page_entry(address);
 
-    uint64_t* pml4_entry = add_hhdm_to(page_table_to_address(((uint64_t*)pml4_address)[entry.pml4_index]));
-    if (*pml4_entry == 0) {
-        return -1; // Page not allocated
+    uint64_t* pml4 = (uint64_t*)pml4_address;
+    if (!(pml4[entry.pml4_index] & FLAGS_PRESENT)) {
+        return -1; // PML4 entry not present
     }
 
-    uint64_t* pdpt_entry = page_table_to_address(add_hhdm_to(page_table_to_address((uint64_t)pml4_entry))[entry.pdpt_index]);
-    if (*pdpt_entry == 0) {
+    uint64_t* pdpt = add_hhdm_to(page_table_to_address(pml4[entry.pml4_index]));
+    if (!(pdpt[entry.pdpt_index] & FLAGS_PRESENT)) {
         return -1; // PDPT entry not present
     }
 
-    uint64_t* pd_entry = page_table_to_address(add_hhdm_to(page_table_to_address((uint64_t)pdpt_entry))[entry.pd_index]);
-    if (*pd_entry == 0) {
+    uint64_t* pd = add_hhdm_to(page_table_to_address(pdpt[entry.pdpt_index]));
+    if (!(pd[entry.pd_index] & FLAGS_PRESENT)) {
         return -1; // PD entry not present
     }
 
-    uint64_t* pt_entry = page_table_to_address(add_hhdm_to(page_table_to_address((uint64_t)pd_entry))[entry.pt_index]);
-    if (*pt_entry == 0) {
+    uint64_t* pt = add_hhdm_to(page_table_to_address(pd[entry.pd_index]));
+    if (!(pt[entry.pt_index] & FLAGS_PRESENT)) {
         return -1; // PT entry not present
     }
 
     // Free the page and clear the entry
-    *pt_entry = 0;
+    uintptr_t phys = pt[entry.pt_index] & PAGE_MASK;
+    pt[entry.pt_index] = 0;
+
+    // Invalidate the TLB for the virtual address
+    asm volatile("invlpg (%0)" ::"r"(page) : "memory");
 
     // Remove the used region
     for (int i = 0; i < used_region_count; i++) {
-        if (used_regions[i].min_addr == address && used_regions[i].max_addr == address + PAGE_SIZE) {
+        if (used_regions[i].min_addr == phys && used_regions[i].max_addr == phys + PAGE_SIZE) {
             for (int j = i; j < used_region_count - 1; j++) {
                 used_regions[j] = used_regions[j + 1];
             }
             used_region_count--;
             break;
         }
+    }
+
+    // Check if the PT, PD, or PDPT can be freed
+    int empty = 1;
+    for (int i = 0; i < 512; i++) {
+        if (pt[i] & FLAGS_PRESENT) {
+            empty = 0;
+            break;
+        }
+    }
+    if (empty) {
+        pd[entry.pd_index] = 0;
+        asm volatile("invlpg (%0)" ::"r"(pd) : "memory");
+    }
+
+    empty = 1;
+    for (int i = 0; i < 512; i++) {
+        if (pd[i] & FLAGS_PRESENT) {
+            empty = 0;
+            break;
+        }
+    }
+    if (empty) {
+        pdpt[entry.pdpt_index] = 0;
+        asm volatile("invlpg (%0)" ::"r"(pdpt) : "memory");
+    }
+
+    empty = 1;
+    for (int i = 0; i < 512; i++) {
+        if (pdpt[i] & FLAGS_PRESENT) {
+            empty = 0;
+            break;
+        }
+    }
+    if (empty) {
+        pml4[entry.pml4_index] = 0;
+        asm volatile("invlpg (%0)" ::"r"(pml4) : "memory");
     }
 
     return 0; // Success
