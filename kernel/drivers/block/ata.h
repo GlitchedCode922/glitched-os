@@ -5,7 +5,7 @@
 typedef struct {
     int exists;
     int type; // 0 for ATA, 1 for ATAPI
-    uint32_t identify[256];
+    uint16_t identify[256];
 } ata_device_t;
 
 #define PRIMARY_BUS 0x1F0
