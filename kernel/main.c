@@ -6,7 +6,7 @@
 #include "memory/paging.h"
 #include "drivers/block/ata.h"
 #include "idt.h"
-#include "drivers/block.h"
+#include "drivers/partitions/mbr.h"
 #include <stdint.h>
 
 extern uint64_t __size;
@@ -57,19 +57,9 @@ void kernel_main() {
     initialize_console(framebuffer_request.response->framebuffers[0]);
     ata_register();
 
-    unsigned char* disk_sector = kmalloc(512);
-    read_sectors(0, 0, disk_sector, 1);
-    kprintf("Disk sector read successfully.\n");
-    kprintf("Disk sector data:\n");
-    kprintf("%s\n", disk_sector);
-    get_smart_data(0, disk_sector);
-    kprintf("SMART data read successfully.\n");
-    kprintf("SMART data:\n");
-    for (int i = 0; i < 512; i++) {
-        kprintf_dec(disk_sector[i]);
-        kprintf(" ");
-    }
-    kfree(disk_sector);
+    print_partition_table(0);
+    char buffer[512] = "MBR partition relative R/W works";
+    write_sectors_relative(0,0,0,(uint8_t*)&buffer,1);
 
     while (1) {
         char* line = kbdinput();
