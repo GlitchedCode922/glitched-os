@@ -73,6 +73,13 @@ int read_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t count) {
     // Select the drive
     if (devices[drive].exists == 0) return -2;
 
+    // Check if sectors to read exceed the disk capacity
+    uint64_t disk_size = get_drive_size(drive);
+    if (lba + count > disk_size) return -3;
+
+    // Verify that count != 0
+    if (count == 0) return -3;
+
     uint16_t bus_port = (drive / 2 == 0 ? PRIMARY_BUS : SECONDARY_BUS);
     select_drive(bus_port, drive % 2 == 0 ? 0xA0 : 0xB0);
 
@@ -179,6 +186,13 @@ int read_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t count) {
 int write_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t count) {
     // Select the drive
     if (devices[drive].exists == 0) return -2;
+
+    // Check if sectors to write exceed the disk capacity
+    uint64_t disk_size = get_drive_size(drive);
+    if (lba + count > disk_size) return -3;
+
+    // Verify that count != 0
+    if (count == 0) return -3;
 
     uint16_t bus_port = (drive / 2 == 0 ? PRIMARY_BUS : SECONDARY_BUS);
     select_drive(bus_port, drive % 2 == 0 ? 0xA0 : 0xB0);
