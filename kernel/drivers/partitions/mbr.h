@@ -29,6 +29,7 @@ typedef struct {
     uint16_t signature; // MBR signature (0x55AA)
 } __attribute__((packed)) mbr_t;
 
+int has_mbr(uint8_t disk);
 void get_bootloader(uint8_t *buffer, uint8_t disk);
 void get_partition_table(uint8_t *buffer, uint8_t disk);
 int is_bootable_disk(uint8_t disk);
