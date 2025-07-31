@@ -6,6 +6,7 @@
 #include "memory/paging.h"
 #include "drivers/block/ata.h"
 #include "idt.h"
+#include "drivers/block.h"
 #include <stdint.h>
 
 extern uint64_t __size;
@@ -54,9 +55,9 @@ void kernel_main() {
     init_mman((size_t)&__size);
     idt_init();
     initialize_console(framebuffer_request.response->framebuffers[0]);
+    ata_register();
 
     unsigned char* disk_sector = kmalloc(512);
-    scan_for_devices();
     read_sectors(0, 0, disk_sector, 1);
     kprintf("Disk sector read successfully.\n");
     kprintf("Disk sector data:\n");

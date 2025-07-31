@@ -1,5 +1,6 @@
 #include "ata.h"
 #include "../../io/ports.h"
+#include "../block.h"
 #include <stdint.h>
 
 ata_device_t devices[4] = {0};
@@ -69,12 +70,12 @@ void select_drive(uint16_t bus_port, uint16_t disk) {
     }
 }
 
-int read_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t count) {
+int ata_read_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t count) {
     // Select the drive
     if (devices[drive].exists == 0) return -2;
 
     // Check if sectors to read exceed the disk capacity
-    uint64_t disk_size = get_drive_size(drive);
+    uint64_t disk_size = ata_get_drive_size(drive);
     if (lba + count > disk_size) return -3;
 
     // Verify that count != 0
@@ -86,7 +87,7 @@ int read_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t count) {
     // Enable LBA
     outb(bus_port + 6, 0xE0 | ((drive % 2) << 4));
 
-    if (supports_lba48(drive)) {
+    if (ata_supports_lba48(drive)) {
         outb(bus_port + 2, (count >> 8) & 0xFF);  // sector count high
         outb(bus_port + 3, (lba >> 24) & 0xFF);   // LBA low high
         outb(bus_port + 4, (lba >> 32) & 0xFF);   // LBA mid high
@@ -141,7 +142,7 @@ int read_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t count) {
 
             uint32_t retry_lba = lba + sector;
 
-            if (supports_lba48(drive)) {
+            if (ata_supports_lba48(drive)) {
                 outb(bus_port + 2, (count >> 8) & 0xFF);  // sector count high
                 outb(bus_port + 3, (lba >> 24) & 0xFF);   // LBA low high
                 outb(bus_port + 4, (lba >> 32) & 0xFF);   // LBA mid high
@@ -183,12 +184,12 @@ int read_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t count) {
     return 0;
 }
 
-int write_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t count) {
+int ata_write_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t count) {
     // Select the drive
     if (devices[drive].exists == 0) return -2;
 
     // Check if sectors to write exceed the disk capacity
-    uint64_t disk_size = get_drive_size(drive);
+    uint64_t disk_size = ata_get_drive_size(drive);
     if (lba + count > disk_size) return -3;
 
     // Verify that count != 0
@@ -200,7 +201,7 @@ int write_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t count) 
     // Enable LBA
     outb(bus_port + 6, 0xE0 | ((drive % 2) << 4));
 
-    if (supports_lba48(drive)) {
+    if (ata_supports_lba48(drive)) {
         outb(bus_port + 2, (count >> 8) & 0xFF);  // sector count high
         outb(bus_port + 3, (lba >> 24) & 0xFF);   // LBA low high
         outb(bus_port + 4, (lba >> 32) & 0xFF);   // LBA mid high
@@ -255,7 +256,7 @@ int write_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t count) 
             outb(bus_port + 2, 1); // Set sector count to 1
 
             uint32_t retry_lba = lba + sector;
-            if (supports_lba48(drive)) {
+            if (ata_supports_lba48(drive)) {
                 outb(bus_port + 2, 0);                    // sector count high
                 outb(bus_port + 3, (lba >> 24) & 0xFF);   // LBA low high
                 outb(bus_port + 4, (lba >> 32) & 0xFF);   // LBA mid high
@@ -299,7 +300,7 @@ int write_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t count) 
     return 0;
 }
 
-int get_smart_data(uint8_t drive, uint8_t* buffer) {
+int ata_get_smart_data(uint8_t drive, uint8_t* buffer) {
     if (devices[drive].exists == 0) return -2;
 
     uint16_t bus_port = (drive / 2 == 0 ? PRIMARY_BUS : SECONDARY_BUS);
@@ -330,15 +331,15 @@ int get_smart_data(uint8_t drive, uint8_t* buffer) {
     return 0;
 }
 
-int supports_lba48(int drive) {
+int ata_supports_lba48(int drive) {
     if (devices[drive].exists == 0) return 0;
     return (devices[drive].identify[83] & 0x0400) == 0; // Check bit 10 of word 83 in IDENTIFY data
 }
 
-uint64_t get_drive_size(int drive) {
+uint64_t ata_get_drive_size(uint8_t drive) {
     if (devices[drive].exists == 0) return 0;
     uint64_t size = 0;
-    if (supports_lba48(drive)) {
+    if (ata_supports_lba48(drive)) {
         size = ((uint64_t)devices[drive].identify[103] << 48) | ((uint64_t)devices[drive].identify[102] << 32) | ((uint64_t)devices[drive].identify[101] << 16) | devices[drive].identify[100];
     } else {
         size = ((uint32_t)devices[drive].identify[61] << 16) | (uint32_t)(devices[drive].identify[60]);
@@ -346,9 +347,36 @@ uint64_t get_drive_size(int drive) {
     return size;
 }
 
-void standby(int drive) {
+void ata_standby(uint8_t drive) {
     if (devices[drive].exists == 0) return;
     uint16_t bus_port = (drive / 2 == 0 ? PRIMARY_BUS : SECONDARY_BUS);
     select_drive(bus_port, drive % 2 == 0 ? 0xA0 : 0xB0);
     outb(bus_port + 0x07, 0xE2);
+}
+
+void ata_register() {
+    // Register ATA driver with the block subsystem
+    block_driver_t ata_driver = {
+        .driver_index = 1,
+        .read = ata_read_sectors,
+        .write = ata_write_sectors,
+        .get_size = ata_get_drive_size,
+        .get_smart_data = ata_get_smart_data,
+        .standby = ata_standby
+    };
+
+    register_block_driver(&ata_driver);
+
+    // Scan for ATA devices
+    scan_for_devices();
+
+    for (int i = 0; i < 4; i++) {
+        if (devices[i].exists) {
+            block_device_t device = {
+                .driver_index = 1, // ATA driver index
+                .disk_index = i    // Disk index
+            };
+            register_block_device(&device);
+        }
+    }
 }
