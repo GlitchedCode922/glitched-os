@@ -1,13 +1,10 @@
 #include "ata.h"
+#include "atapi.h"
 #include "../../io/ports.h"
 #include "../block.h"
 #include <stdint.h>
 
 ata_device_t devices[4] = {0};
-
-ata_device_t detect_packet_device(uint16_t bus_port, uint16_t disk) {
-    return (ata_device_t){0}; // Placeholder, wwill be added in ATAPI driver
-}
 
 void scan_for_devices() {
     devices[0] = detect_device(PRIMARY_BUS, 0xA0);
@@ -39,7 +36,7 @@ ata_device_t detect_device(uint16_t bus_port, uint16_t disk) {
     }
 
     if (inb(bus_port + 0x01) != 0) {
-         return detect_packet_device(bus_port, disk);
+        return detect_packet_device(bus_port, disk);
     }
 
     while (inb(bus_port + 0x07) & 0x80);
@@ -73,6 +70,11 @@ void select_drive(uint16_t bus_port, uint16_t disk) {
 int ata_read_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t count) {
     // Select the drive
     if (devices[drive].exists == 0) return -2;
+
+    // Check if the drive is an ATAPI device
+    if (devices[drive].type == 1) {
+        return atapi_read_sectors(drive, lba, buffer, count);
+    }
 
     // Check if sectors to read exceed the disk capacity
     uint64_t disk_size = ata_get_drive_size(drive);
@@ -187,6 +189,11 @@ int ata_read_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t coun
 int ata_write_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t count) {
     // Select the drive
     if (devices[drive].exists == 0) return -2;
+
+    // Check if the drive is an ATAPI device
+    if (devices[drive].type == 1) {
+        return -4; // Not implemented yet
+    }
 
     // Check if sectors to write exceed the disk capacity
     uint64_t disk_size = ata_get_drive_size(drive);
@@ -303,6 +310,11 @@ int ata_write_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t cou
 int ata_get_smart_data(uint8_t drive, uint8_t* buffer) {
     if (devices[drive].exists == 0) return -2;
 
+    // Check if the drive is an ATAPI device
+    if (devices[drive].type == 1) {
+        return -4; // Not supported for ATAPI devices
+    }
+
     uint16_t bus_port = (drive / 2 == 0 ? PRIMARY_BUS : SECONDARY_BUS);
     uint8_t drive_select = (drive % 2) << 4;
 
@@ -338,6 +350,12 @@ int ata_supports_lba48(int drive) {
 
 uint64_t ata_get_drive_size(uint8_t drive) {
     if (devices[drive].exists == 0) return 0;
+
+    // Check if the drive is an ATAPI device
+    if (devices[drive].type == 1) {
+        return -4; // Not implemented yet
+    }
+
     uint64_t size = 0;
     if (ata_supports_lba48(drive)) {
         size = ((uint64_t)devices[drive].identify[103] << 48) | ((uint64_t)devices[drive].identify[102] << 32) | ((uint64_t)devices[drive].identify[101] << 16) | devices[drive].identify[100];
@@ -349,6 +367,12 @@ uint64_t ata_get_drive_size(uint8_t drive) {
 
 void ata_standby(uint8_t drive) {
     if (devices[drive].exists == 0) return;
+
+    // Check if the drive is an ATAPI device
+    if (devices[drive].type == 1) {
+        return;
+    }
+
     uint16_t bus_port = (drive / 2 == 0 ? PRIMARY_BUS : SECONDARY_BUS);
     select_drive(bus_port, drive % 2 == 0 ? 0xA0 : 0xB0);
     outb(bus_port + 0x07, 0xE2);
