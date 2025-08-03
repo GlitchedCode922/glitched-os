@@ -62,3 +62,45 @@ int atapi_read_sectors(uint8_t drive, uint64_t lba, uint8_t* buffer, uint32_t co
     }
     return 0;
 }
+
+int atapi_write_sectors(uint8_t drive, uint64_t lba, uint8_t* buffer, uint32_t count) {
+    uint16_t bus_port = (drive / 2 == 0 ? PRIMARY_BUS : SECONDARY_BUS);
+    select_drive(bus_port, drive % 2 == 0 ? 0xA0 : 0xB0);
+
+    outb(bus_port + 0x04, 2048 & 0xFF);
+    outb(bus_port + 0x05, 2048 >> 8);
+    outb(bus_port + 0x07, 0xA0); // Send PACKET command
+    
+    volatile uint8_t write_cmd[12] = {0xAA, 0,
+                                      (lba >> 0x18) & 0xFF, (lba >> 0x10) & 0xFF, (lba >> 0x08) & 0xFF,
+                                      (lba >> 0x00) & 0xFF,
+                                      (count >> 0x18) & 0xFF, (count >> 0x10) & 0xFF, (count >> 0x08) & 0xFF,
+                                      (count >> 0x00) & 0xFF,
+                                          0, 0};
+
+    while (inb(bus_port + 0x07) & 0x80); // Wait for BSY to clear
+    while (!(inb(bus_port + 0x07) & 0x09)); // Wait for DRQ or ERR to be set
+
+    if (inb(bus_port + 0x07) & 0x01) return -1; // Error occurred
+
+    outw(bus_port, ((uint16_t*)&write_cmd)[0]); // Send command
+    outw(bus_port, ((uint16_t*)&write_cmd)[1]);
+    outw(bus_port, ((uint16_t*)&write_cmd)[2]);
+    outw(bus_port, ((uint16_t*)&write_cmd)[3]);
+    outw(bus_port, ((uint16_t*)&write_cmd)[4]);
+    outw(bus_port, ((uint16_t*)&write_cmd)[5]);
+
+    for (int i = 0; i < count; i++) {
+        while (inb(bus_port + 0x07) & 0x80); // Wait for BSY to clear
+        while (!(inb(bus_port + 0x07) & 0x09)); // Wait for DRQ or ERR to be set
+        if (inb(bus_port + 0x07) & 0x01) return -1; // Error occurred
+
+        uint64_t size = inb(bus_port + 0x04) | (inb(bus_port + 0x05) << 8);
+
+        for (int i = 0; i < size; i += 2) {
+            uint16_t data = (buffer[i] & 0xFF) | ((buffer[i + 1] & 0xFF) << 8);
+            outw(bus_port, data);
+        }
+    }
+    return 0;
+}

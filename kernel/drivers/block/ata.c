@@ -192,7 +192,7 @@ int ata_write_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t cou
 
     // Check if the drive is an ATAPI device
     if (devices[drive].type == 1) {
-        return -4; // Not implemented yet
+        return atapi_write_sectors(drive, lba, buffer, count);
     }
 
     // Check if sectors to write exceed the disk capacity
