@@ -357,7 +357,6 @@ void ata_standby(uint8_t drive) {
 void ata_register() {
     // Register ATA driver with the block subsystem
     block_driver_t ata_driver = {
-        .driver_index = 1,
         .read = ata_read_sectors,
         .write = ata_write_sectors,
         .get_size = ata_get_drive_size,
@@ -365,7 +364,12 @@ void ata_register() {
         .standby = ata_standby
     };
 
-    register_block_driver(&ata_driver);
+    int driver_idx = register_block_driver(&ata_driver);
+
+    if (driver_idx < 0) {
+        // Handle error: registration failed
+        return;
+    }
 
     // Scan for ATA devices
     scan_for_devices();
@@ -373,8 +377,8 @@ void ata_register() {
     for (int i = 0; i < 4; i++) {
         if (devices[i].exists) {
             block_device_t device = {
-                .driver_index = 1, // ATA driver index
-                .disk_index = i    // Disk index
+                .driver_index = driver_idx, // ATA driver index
+                .disk_index = i             // Disk index
             };
             register_block_device(&device);
         }

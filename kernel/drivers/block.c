@@ -1,7 +1,10 @@
 #include "block.h"
+#include <stdint.h>
 
 block_driver_t block_drivers[8] = {0};
 block_device_t block_devices[32] = {0};
+int block_driver_count = 0;
+int block_device_count = 0;
 
 int read_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t count) {
     if (block_devices[drive].driver_index == 0) return -2;
@@ -29,12 +32,23 @@ int standby(uint8_t drive) {
     return 0;
 }
 
-void register_block_driver(block_driver_t *driver) {
-    if (driver->driver_index >= 8 || driver->driver_index == 0) return; // Ensure we don't exceed the array bounds
-    block_drivers[driver->driver_index] = *driver;
+int get_disk_index(uint8_t driver, uint8_t disk) {
+    for (int i = 0; i < block_device_count; i++) {
+        if (block_devices[i].driver_index == driver && block_devices[i].disk_index == disk) {
+            return i;
+        }
+    }
+    return -1; // Device not found
 }
 
-void register_block_device(block_device_t *device) {
-    if (device->disk_index >= 32 || device->driver_index >= 8) return; // Ensure we don't exceed the array bounds
-    block_devices[device->disk_index] = *device;
+int register_block_driver(block_driver_t *driver) {
+    if (block_driver_count >= 7) return -1; // Ensure we don't exceed the array bounds
+    block_drivers[++block_driver_count] = *driver;
+    return block_driver_count;
+}
+
+int register_block_device(block_device_t *device) {
+    if (block_device_count >= 32) return -1; // Ensure we don't exceed the array bounds
+    block_devices[block_device_count++] = *device;
+    return block_device_count - 1;
 }
