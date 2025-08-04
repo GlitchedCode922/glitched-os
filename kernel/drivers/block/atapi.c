@@ -54,10 +54,10 @@ int atapi_read_sectors(uint8_t drive, uint64_t lba, uint8_t* buffer, uint32_t co
 
         uint64_t size = inb(bus_port + 0x04) | (inb(bus_port + 0x05) << 8);
 
-        for (int i = 0; i < size; i += 2) {
+        for (int v = 0; v < size; v += 2) {
             uint16_t data = inw(bus_port);
-            buffer[i] = data & 0xFF;
-            buffer[i + 1] = (data >> 8) & 0xFF;
+            buffer[i * 2048 + v] = data & 0xFF;
+            buffer[i * 2048 + v + 1] = (data >> 8) & 0xFF;
         }
     }
     return 0;
@@ -97,8 +97,8 @@ int atapi_write_sectors(uint8_t drive, uint64_t lba, uint8_t* buffer, uint32_t c
 
         uint64_t size = inb(bus_port + 0x04) | (inb(bus_port + 0x05) << 8);
 
-        for (int i = 0; i < size; i += 2) {
-            uint16_t data = (buffer[i] & 0xFF) | ((buffer[i + 1] & 0xFF) << 8);
+        for (int v = 0; v < size; v += 2) {
+            uint16_t data = (buffer[i * 2048 + v] & 0xFF) | ((buffer[i * 2048 + v + 1] & 0xFF) << 8);
             outw(bus_port, data);
         }
     }
