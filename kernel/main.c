@@ -74,6 +74,18 @@ void kernel_main() {
         i++;
     } while (*buffer);
 
+    if (file_exists("TEST/HELLO")) {
+        kprintf("File 'HELLO' exists in 'TEST' directory.\n");
+    } else {
+        kprintf("File 'HELLO' does not exist in 'TEST' directory.\n");
+    }
+
+    if (file_exists("TEST/TEXT.TXT")) {
+        kprintf("File 'TEXT.TXT' exists in 'TEST' directory.\n");
+    } else {
+        kprintf("File 'TEXT.TXT' does not exist in 'TEST' directory.\n");
+    }
+
     while (1) {
         char* line = kbdinput();
         if (line != NULL) kprintf(line);

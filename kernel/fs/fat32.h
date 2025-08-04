@@ -76,3 +76,4 @@ fsinfo_t get_fsinfo(uint32_t fsinfo_sector);
 uint32_t get_next_cluster(uint32_t cluster);
 uint32_t get_cluster_size();
 int lsdir(const char* path, char* element, uint64_t element_index);
+int file_exists(const char* path);

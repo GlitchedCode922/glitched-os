@@ -1,6 +1,7 @@
 #include "fat32.h"
 #include "../drivers/partitions/mbr.h"
 #include "../memory/mman.h"
+#include <stddef.h>
 #include <stdint.h>
 
 uint8_t active_disk;
@@ -70,13 +71,18 @@ int lsdir(const char* path, char* element, uint64_t element_index) {
     char subdir[12] = {0};  // 8.3 name + null terminator
     int path_pos = 0;
 
-    // Step 1: Walk through the path
+    // Step 1: Trim trailing slashes
+    int path_len = 0;
+    while (path[path_len] != '\0') path_len++; // Get path length
+    while (path_len > 0 && path[path_len - 1] == '/') path_len--; // Remove trailing slashes
+
+    // Step 2: Walk through the path
     while (path[path_pos] == '/') path_pos++; // Skip leading '/'
-    while (path[path_pos] != '\0') {
+    while (path_pos < path_len) {
         int subdir_len = 0;
 
         // Extract next path component
-        while (path[path_pos] != '/' && path[path_pos] != '\0' && subdir_len < 11) {
+        while (path[path_pos] != '/' && path_pos < path_len && subdir_len < 11) {
             subdir[subdir_len++] = path[path_pos++];
         }
         while (path[path_pos] == '/') path_pos++; // Skip consecutive slashes
@@ -119,7 +125,7 @@ int lsdir(const char* path, char* element, uint64_t element_index) {
         for (int i = 0; i < 12; i++) subdir[i] = 0;
     }
 
-    // Step 2: We are now in the target directory
+    // Step 3: We are now in the target directory
     uint64_t current_index = 0;
 
     while (cluster < 0x0FFFFFF8) {
@@ -159,4 +165,53 @@ int lsdir(const char* path, char* element, uint64_t element_index) {
 
     element[0] = '\0'; // No entry at given index
     return -2;
+}
+
+int file_exists(const char* path) {
+    char* path_copy = (char*)path;
+    size_t path_length = 0;
+    while (*path_copy) {
+        path_copy++;
+        path_length++;
+    }
+    char directory[path_length];
+    char filename[path_length];
+    int filename_length = 0;
+    int slashes = 0;
+    path_copy = (char*)path;
+    for (int i = 0; i < path_length; i++) {
+        if (path[i] == '/') {
+            slashes++;
+        }
+    }
+    for (int i = 0; i < path_length && slashes; i++) {
+        if (path[i] == '/') {
+            slashes--;
+        }
+        directory[i] = path[i];
+        path_copy++;
+    }
+
+    int i = 0;
+    while (*path_copy) {
+        filename[i++] = *path_copy++;
+    }
+    filename[i] = '\0';
+
+    filename_length = i;
+
+    char element[13] = {0}; // 8.3 name + null terminator
+    i = 0;
+    do {
+        lsdir(path, element, i);
+        // Remove trailing spaces from element
+        for (int j = 11; j >= 0 && element[j] == ' '; j--) {
+            element[j] = '\0';
+        }
+        if (memcmp(element, filename, filename_length) == 0) {
+            return 1; // File exists
+        }
+        i++;
+    } while (*element);
+    return 0; // File does not exist    
 }
