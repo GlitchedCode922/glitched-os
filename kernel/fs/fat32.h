@@ -1,7 +1,7 @@
 #pragma once
 #include <stdint.h>
 
-typedef struct {
+typedef struct __attribute__((packed)) {
     uint8_t jmp[3];          // Jump instruction to boot code
     char oem_name[8];        // OEM name
     uint16_t bytes_per_sector; // Bytes per sector
@@ -33,7 +33,7 @@ typedef struct {
     uint16_t boot_sector_signature; // Boot sector signature (0x55AA)
 } bpb_t;
 
-typedef struct {
+typedef struct __attribute__((packed)) {
     uint32_t signature; // Signature (0x41615252)
     uint8_t reserved[480]; // Reserved bytes
     uint32_t signature2;
@@ -43,7 +43,7 @@ typedef struct {
     uint32_t signature3;
 } fsinfo_t;
 
-typedef struct {
+typedef struct __attribute__((packed)) {
     char name[11];    // File name (8.3 format)
     uint8_t attributes; // File attributes (e.g., read-only, hidden, system, volume label, directory, archive)
     uint8_t reserved;  // Reserved byte
@@ -68,3 +68,11 @@ typedef struct {
 
 #define CLUSTER_CHAIN_END 0x0FFFFFFF
 #define CLUSTER_FREE 0x00000000
+
+void select_partition(uint8_t disk, uint8_t partition);
+void init_fat32(uint8_t disk, uint8_t partition);
+bpb_t get_bpb();
+fsinfo_t get_fsinfo(uint32_t fsinfo_sector);
+uint32_t get_next_cluster(uint32_t cluster);
+uint32_t get_cluster_size();
+int lsdir(const char* path, char* element, uint64_t element_index);

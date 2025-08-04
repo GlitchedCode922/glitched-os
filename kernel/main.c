@@ -5,6 +5,7 @@
 #include "memory/mman.h"
 #include "memory/paging.h"
 #include "drivers/block/ata.h"
+#include "fs/fat32.h"
 #include "idt.h"
 #include "drivers/partitions/mbr.h"
 #include <stdint.h>
@@ -57,9 +58,21 @@ void kernel_main() {
     initialize_console(framebuffer_request.response->framebuffers[0]);
     ata_register();
 
-    print_partition_table(0);
-    char buffer[512] = "MBR partition relative R/W works";
-    write_sectors_relative(0,0,0,(uint8_t*)&buffer,1);
+    if (has_mbr(0) == 0) {
+        select_partition(0, 0);
+        init_fat32(0, 0);
+        kprintf("FAT32 initialized on disk 0, partition 0.\n");
+    } else {
+        kprintf("No MBR found on disk 0.\n");
+    }
+
+    char* buffer = (char*)kmalloc(13);
+    int i = 0;
+    do {
+        lsdir("TEST", buffer, i);
+        if (*buffer) kprintf("Directory entry %d: %s\n", i, buffer);
+        i++;
+    } while (*buffer);
 
     while (1) {
         char* line = kbdinput();
