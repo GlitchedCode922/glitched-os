@@ -50,11 +50,11 @@ uint32_t get_next_cluster(uint32_t cluster) {
     uint32_t fat_sector = fat_start + (fat_offset / bpb.bytes_per_sector);
     uint32_t fat_entry_offset = fat_offset % bpb.bytes_per_sector;
 
-    uint32_t next_cluster;
-    read_sectors_relative(active_disk, active_partition, fat_sector, (uint8_t*)&next_cluster, 1);
-    next_cluster >>= (fat_entry_offset * 8); // Adjust for the offset in the sector
-
-    return next_cluster & 0x0FFFFFFF; // Mask to get the cluster number
+    uint8_t sector[512];
+    read_sectors_relative(active_disk, active_partition, fat_sector, sector, 1);
+    uint32_t entry = *(uint32_t*)&sector[fat_entry_offset];
+    uint32_t next = entry & 0x0FFFFFFF;
+    return next;
 }
 
 uint32_t get_cluster_size() {
