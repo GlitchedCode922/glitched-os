@@ -104,3 +104,32 @@ int atapi_write_sectors(uint8_t drive, uint64_t lba, uint8_t* buffer, uint32_t c
     }
     return 0;
 }
+
+void atapi_load_or_eject(uint8_t drive, uint8_t load) {
+    uint16_t bus_port = (drive / 2 == 0 ? PRIMARY_BUS : SECONDARY_BUS);
+    select_drive(bus_port, drive % 2 == 0 ? 0xA0 : 0xB0);
+    uint8_t to_load = load ? 0x01 : 0x00;
+    uint8_t scsi_eject_cmd[6] = {
+        0x1B,  // Operation Code: START STOP UNIT
+        0x00,  // Reserved
+        0x00,  // Reserved
+        0x00,  // Reserved
+        0x02 | to_load, // LoEj = 1 (bit 1)
+        0x00   // Control
+    };
+
+    outb(bus_port + 0x07, 0xA0); // Send PACKET command
+
+    while (inb(bus_port + 0x07) & 0x80); // Wait for BSY to clear
+    while (!(inb(bus_port + 0x07) & 0x09)); // Wait for DRQ or ERR to be set
+
+    if (inb(bus_port + 0x07) & 0x01) return; // Error occurred
+
+    for (int i = 0; i < sizeof(scsi_eject_cmd); i += 2) {
+        uint16_t data = scsi_eject_cmd[i] | (scsi_eject_cmd[i + 1] << 8);
+        outw(bus_port, data); // Send command bytes
+    }
+
+    while (inb(bus_port + 0x07) & 0x80); // Wait for BSY to clear
+    if (inb(bus_port + 0x07) & 0x01) return; // Error occurred
+}
