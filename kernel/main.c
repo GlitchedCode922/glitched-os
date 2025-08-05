@@ -86,6 +86,10 @@ void kernel_main() {
         kprintf("File 'TEXT.TXT' does not exist in 'TEST' directory.\n");
     }
 
+    read_from_file("TEST/TEXT.TXT", buffer, 0, 12);
+    buffer[13] = 0;
+    kprintf("Contents of TEST/TEXT.TXT: %s\n", buffer);
+
     while (1) {
         char* line = kbdinput();
         if (line != NULL) kprintf(line);

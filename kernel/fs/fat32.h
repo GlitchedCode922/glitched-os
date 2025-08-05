@@ -1,5 +1,6 @@
 #pragma once
 #include <stdint.h>
+#include <stddef.h>
 
 typedef struct __attribute__((packed)) {
     uint8_t jmp[3];          // Jump instruction to boot code
@@ -77,3 +78,4 @@ uint32_t get_next_cluster(uint32_t cluster);
 uint32_t get_cluster_size();
 int lsdir(const char* path, char* element, uint64_t element_index);
 int file_exists(const char* path);
+int read_from_file(const char* path, uint8_t* buffer, size_t offset, size_t size);
