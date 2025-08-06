@@ -66,7 +66,26 @@ uint32_t get_cluster_start(uint32_t cluster) {
     return first_data_sector + (cluster - 2) * bpb.sectors_per_cluster;
 }
 
+static void copy_and_to_upper(const char* src, char* dest, size_t max_len) {
+    size_t i = 0;
+    while (i < max_len - 1 && src[i] != '\0') {
+        char c = src[i];
+        if (c >= 'a' && c <= 'z') {
+            c -= 32; // Convert to uppercase
+        }
+        dest[i] = c;
+        i++;
+    }
+    dest[i] = '\0'; // Null-terminate the destination string
+}
+
 int lsdir(const char* path, char* element, uint64_t element_index) {
+    char upper_path[256] = {0};
+    copy_and_to_upper(path, upper_path, sizeof(upper_path));
+
+    // Replace `path` with `upper_path` in the rest of the function
+    path = upper_path;
+
     uint32_t cluster = bpb.root_cluster;
     char subdir[12] = {0};  // 8.3 name + null terminator
     int path_pos = 0;
@@ -168,6 +187,12 @@ int lsdir(const char* path, char* element, uint64_t element_index) {
 }
 
 int file_exists(const char* path) {
+    char upper_path[256] = {0};
+    copy_and_to_upper(path, upper_path, sizeof(upper_path));
+
+    // Replace `path` with `upper_path` in the rest of the function
+    path = upper_path;
+
     char* path_copy = (char*)path;
     size_t path_length = 0;
     while (*path_copy) {
@@ -176,6 +201,10 @@ int file_exists(const char* path) {
     }
     char directory[path_length];
     char filename[path_length];
+
+    memset(directory, 0, path_length);
+    memset(filename, 0 , path_length);
+
     int filename_length = 0;
     int slashes = 0;
     path_copy = (char*)path;
@@ -203,7 +232,7 @@ int file_exists(const char* path) {
     char element[13] = {0}; // 8.3 name + null terminator
     i = 0;
     do {
-        lsdir(path, element, i);
+        lsdir(directory, element, i);
         // Remove trailing spaces from element
         for (int j = 11; j >= 0 && element[j] == ' '; j--) {
             element[j] = '\0';
@@ -217,6 +246,12 @@ int file_exists(const char* path) {
 }
 
 int read_from_file(const char* path, uint8_t* buffer, size_t offset, size_t size) {
+    char upper_path[256] = {0};
+    copy_and_to_upper(path, upper_path, sizeof(upper_path));
+
+    // Replace `path` with `upper_path` in the rest of the function
+    path = upper_path;
+
     // Step 1: Separate directory and filename
     int path_len = 0;
     while (path[path_len] != '\0') path_len++;

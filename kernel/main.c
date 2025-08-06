@@ -69,26 +69,26 @@ void kernel_main() {
     char* buffer = (char*)kmalloc(13);
     int i = 0;
     do {
-        lsdir("TEST", buffer, i);
+        lsdir("test", buffer, i);
         if (*buffer) kprintf("Directory entry %d: %s\n", i, buffer);
         i++;
     } while (*buffer);
 
-    if (file_exists("TEST/HELLO")) {
-        kprintf("File 'HELLO' exists in 'TEST' directory.\n");
+    if (file_exists("test/hello")) {
+        kprintf("File 'hello' exists in 'test' directory.\n");
     } else {
-        kprintf("File 'HELLO' does not exist in 'TEST' directory.\n");
+        kprintf("File 'hello' does not exist in 'test' directory.\n");
     }
 
-    if (file_exists("TEST/TEXT.TXT")) {
-        kprintf("File 'TEXT.TXT' exists in 'TEST' directory.\n");
+    if (file_exists("test/text.txt")) {
+        kprintf("File 'text.txt' exists in 'test' directory.\n");
     } else {
-        kprintf("File 'TEXT.TXT' does not exist in 'TEST' directory.\n");
+        kprintf("File 'text.txt' does not exist in 'test' directory.\n");
     }
 
-    read_from_file("TEST/TEXT.TXT", buffer, 0, 12);
+    read_from_file("test/text.txt", (uint8_t*)buffer, 0, 12);
     buffer[13] = 0;
-    kprintf("Contents of TEST/TEXT.TXT: %s\n", buffer);
+    kprintf("Contents of test/text.txt: %s\n", buffer);
 
     while (1) {
         char* line = kbdinput();
