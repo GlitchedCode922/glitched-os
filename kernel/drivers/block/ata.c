@@ -404,3 +404,8 @@ void ata_register() {
         }
     }
 }
+
+int is_atapi_device(uint8_t drive) {
+    if (devices[drive].exists == 0) return 0;
+    return devices[drive].type == 1; // Check if the device is an ATAPI device
+}

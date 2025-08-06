@@ -21,3 +21,4 @@ uint64_t ata_get_drive_size(uint8_t drive);
 void ata_standby(uint8_t drive);
 int ata_supports_lba48(int drive);
 void ata_register();
+int is_atapi_device(uint8_t drive);
