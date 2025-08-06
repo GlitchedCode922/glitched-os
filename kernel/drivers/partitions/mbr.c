@@ -92,8 +92,8 @@ int read_sectors_relative(uint8_t disk, uint8_t partition, uint64_t lba, uint8_t
     }
     // Adjust LBA to be relative to the partition start
     uint64_t adjusted_lba = partition_start + lba;
-    if (adjusted_lba < get_partition_start(disk, partition) || 
-        adjusted_lba + count > get_partition_start(disk, partition) + get_partition_size(disk, partition)) {
+    if (adjusted_lba < partition_start || 
+        adjusted_lba + count > partition_start + get_partition_size(disk, partition)) {
         return -3; // Out of bounds
     }
     return read_sectors(disk, adjusted_lba, buffer, count);
@@ -109,8 +109,8 @@ int write_sectors_relative(uint8_t disk, uint8_t partition, uint64_t lba, uint8_
     }
     // Adjust LBA to be relative to the partition start
     uint64_t adjusted_lba = partition_start + lba;
-    if (adjusted_lba < get_partition_start(disk, partition) || 
-        adjusted_lba + count > get_partition_start(disk, partition) + get_partition_size(disk, partition)) {
+    if (adjusted_lba < partition_start || 
+        adjusted_lba + count > partition_start + get_partition_size(disk, partition)) {
         return -3; // Out of bounds
     }
     return write_sectors(disk, adjusted_lba, buffer, count);
