@@ -245,6 +245,11 @@ int file_exists(const char* path) {
     return 0; // File does not exist    
 }
 
+int is_directory(const char* path) {
+    char element[13] = {0};
+    return lsdir(path, element, 1) == 0;
+}
+
 int read_from_file(const char* path, uint8_t* buffer, size_t offset, size_t size) {
     char upper_path[256] = {0};
     copy_and_to_upper(path, upper_path, sizeof(upper_path));
