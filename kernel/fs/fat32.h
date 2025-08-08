@@ -85,3 +85,4 @@ int add_dirent(const char* path, dirent_t dirent);
 uint32_t get_free_cluster();
 uint32_t update_free_cluster();
 void create_file(const char* path);
+int write_to_file(const char* path, const uint8_t* buffer, size_t offset, size_t size);

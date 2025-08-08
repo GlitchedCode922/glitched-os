@@ -797,10 +797,6 @@ void create_file(const char* path) {
     dirent_t new_file;
     memset(&new_file, 0, sizeof(dirent_t));
     new_file.attributes = DIRENT_ARCHIVE; // Set file attribute
-    new_file.first_cluster_low = get_free_cluster(); // Get a free cluster for the file
-    if (new_file.first_cluster_low == 0) {
-        return; // No free cluster available
-    }
     
     // Set the name in 8.3 format
 
@@ -853,4 +849,213 @@ void create_file(const char* path) {
     new_file.file_size = 0; // Initial file size is 0
 
     add_dirent(path, new_file);
+}
+
+int write_to_file(const char* path, const uint8_t* buffer, size_t offset, size_t size) {
+    if (size == 0) return 0; // Nothing to write
+    if (!file_exists(path)) create_file(path); // Create the file if it doesn't exist
+    if (!file_exists(path)) return -1; // Still not found after creation attempt
+    if (is_directory(path)) return -2; // Cannot write to a directory
+
+    char upper_path[256] = {0};
+    copy_and_to_upper(path, upper_path, sizeof(upper_path));
+
+    // Replace `path` with `upper_path` in the rest of the function
+    path = upper_path;
+
+    // Step 1: Separate directory and filename
+
+    // Handle leading/trailing slashes
+    while (*path == '/') path++; // Skip leading slashes
+
+    int path_len = 0;
+    while (path[path_len] != '\0') path_len++;
+
+    int last_slash = -1;
+    for (int i = 0; i < path_len; i++) {
+        if (path[i] == '/') last_slash = i;
+    }
+
+    while (path_len > 0 && path[path_len - 1] == '/') path_len--; // Remove trailing slashes
+
+    char dir_path[256] = {0};
+    char file_name[12] = {0}; // 8.3 padded name (no dot), 11 chars + null
+
+    // Copy directory path
+    for (int i = 0; i < last_slash && i < sizeof(dir_path) - 1; i++) {
+        dir_path[i] = path[i];
+    }
+
+    // Prepare file name (strip dot if present)
+    int name_index = 0;
+    int i = last_slash + 1;
+    while (i < path_len && name_index < 11) {
+        if (path[i] == '.') {
+            while (name_index < 8) file_name[name_index++] = ' '; // pad name
+            i++;
+            continue;
+        }
+        file_name[name_index++] = path[i++];
+    }
+    while (name_index < 11) file_name[name_index++] = ' ';
+
+    // Step 2: Traverse to directory cluster
+    uint32_t cluster = bpb.root_cluster;
+    if (dir_path[0] != '\0') {
+        char subdir[12] = {0}; // 8.3 name + null terminator
+        int path_pos = 0;
+        int dir_path_len = 0;
+
+        // Get the length of the directory path
+        while (dir_path[dir_path_len] != '\0') dir_path_len++;
+
+        // Walk through the directory path
+        while (path_pos < dir_path_len) {
+            int subdir_len = 0;
+
+            // Extract the next subdirectory name
+            while (dir_path[path_pos] != '/' && path_pos < dir_path_len && subdir_len < 11) {
+                subdir[subdir_len++] = dir_path[path_pos++];
+            }
+            while (dir_path[path_pos] == '/') path_pos++; // Skip consecutive slashes
+            for (int i = subdir_len; i < 11; i++) subdir[i] = ' '; // Pad with spaces
+
+            // Search for the subdirectory in the current cluster
+            int found = 0;
+            while (!found && cluster < 0x0FFFFFF8) {
+                for (uint32_t sector = 0; sector < bpb.sectors_per_cluster; sector++) {
+                    uint8_t buffer[512];
+                    read_sectors_relative(active_disk, active_partition,
+                        get_cluster_start(cluster) + sector, buffer, 1);
+
+                    dirent_t* dirent = (dirent_t*)buffer;
+                    for (int entry = 0; entry < 512 / sizeof(dirent_t); entry++, dirent++) {
+                        if (dirent->name[0] == 0x00) break; // End of entries
+                        if (dirent->name[0] == 0xE5 || dirent->attributes & DIRENT_VOLUME_LABEL) continue;
+
+                        if (memcmp(dirent->name, subdir, 11) == 0 &&
+                            (dirent->attributes & DIRENT_DIRECTORY)) {
+                            // Found the subdirectory; update the cluster
+                            cluster = ((uint32_t)dirent->first_cluster_high << 16) | dirent->first_cluster_low;
+                            found = 1;
+                            break;
+                        }
+                    }
+                }
+
+                if (!found) {
+                    cluster = get_next_cluster(cluster);
+                }
+            }
+
+            if (!found) {
+                return -2; // Subdirectory not found
+            }
+        }
+    }
+
+    // Step 3: Find the file dirent
+    uint32_t file_cluster = 0;
+    dirent_t file_dirent = {0};
+    uint32_t file_dirent_position[2]; // To store the position of the file dirent
+    int file_found = 0;
+
+    while (cluster < 0x0FFFFFF8) {
+        for (uint32_t sector = 0; sector < bpb.sectors_per_cluster; sector++) {
+            uint8_t sector_buffer[512];
+            read_sectors_relative(active_disk, active_partition,
+                get_cluster_start(cluster) + sector, sector_buffer, 1);
+
+            dirent_t* dirent = (dirent_t*)sector_buffer;
+            for (int entry = 0; entry < 512 / sizeof(dirent_t); entry++, dirent++) {
+                if (dirent->name[0] == 0x00) break; // End of entries
+                if (dirent->name[0] == 0xE5 || dirent->attributes & DIRENT_VOLUME_LABEL) continue;
+
+                if (memcmp(dirent->name, file_name, 11) == 0 && !(dirent->attributes & DIRENT_DIRECTORY)) {
+                    file_cluster = ((uint32_t)dirent->first_cluster_high << 16) | dirent->first_cluster_low;
+                    file_dirent = *dirent;
+                    file_dirent_position[0] = get_cluster_start(cluster) + sector;
+                    file_dirent_position[1] = entry * sizeof(dirent_t); // Position within the sector
+                    file_found = 1;
+                    break;
+                }
+            }
+            if (file_found) break;
+        }
+        if (file_found) break;
+        cluster = get_next_cluster(cluster);
+    }
+
+    if (!file_found || file_cluster >= 0x0FFFFFF8) {
+        return -3; // File not found
+    }
+
+    // Step 4: Write data to the file
+    uint32_t file_size = file_dirent.file_size;
+    if (offset + size > file_size) {
+        while (offset + size > file_size && file_size != 0) {
+            // If the file size is less than the offset + size, we need to extend the file
+            uint32_t new_cluster = add_to_chain(file_cluster);
+            if (new_cluster == 0) {
+                return -4; // No free cluster available
+            }
+            file_size += get_cluster_size();
+        }
+        file_size = offset + size; // Update file size
+        file_dirent.file_size = file_size;
+        uint8_t sector_buffer[512] = {0};
+        read_sectors_relative(active_disk, active_partition,
+            file_dirent_position[0], sector_buffer, 1);
+        dirent_t* dirent_cast = (dirent_t*)(sector_buffer + file_dirent_position[1]);
+        memcpy(dirent_cast, &file_dirent, sizeof(dirent_t));
+        write_sectors_relative(active_disk, active_partition,
+            file_dirent_position[0], sector_buffer, 1);
+    }
+
+    uint32_t bytes_written = 0;
+    uint32_t cluster_size = get_cluster_size();
+    uint32_t current_cluster = file_cluster;
+    uint32_t current_offset = 0;
+    uint8_t sector_buffer[512] = {0};
+    // Skip clusters until offset is reached
+    while (current_offset < (offset / cluster_size) * cluster_size) {
+        current_cluster = get_next_cluster(current_cluster);
+        if (current_cluster >= 0x0FFFFFF8) add_to_chain(current_cluster); // If we reach the end of chain, add a new cluster
+        current_offset += cluster_size;
+    }
+
+    // Now we are at the correct cluster
+    offset %= cluster_size; // Adjust offset to be within the cluster
+    while (bytes_written < size) {
+        uint32_t cluster_start_sector = get_cluster_start(current_cluster);
+        uint32_t sector_in_cluster = (current_offset + offset) / bpb.bytes_per_sector;
+        uint32_t byte_offset_in_sector = (current_offset + offset) % bpb.bytes_per_sector;
+
+        read_sectors_relative(active_disk, active_partition,
+            cluster_start_sector + sector_in_cluster, sector_buffer, 1);
+
+        uint32_t bytes_to_copy = bpb.bytes_per_sector - byte_offset_in_sector;
+        if (bytes_to_copy > size - bytes_written)
+            bytes_to_copy = size - bytes_written;
+
+        for (uint32_t i = 0; i < bytes_to_copy; i++) {
+            sector_buffer[byte_offset_in_sector + i] = buffer[bytes_written + i];
+        }
+
+        write_sectors_relative(active_disk, active_partition,
+            cluster_start_sector + sector_in_cluster, sector_buffer, 1);
+
+        bytes_written += bytes_to_copy;
+        current_offset += bytes_to_copy;
+
+        if (current_offset >= cluster_size) {
+            current_cluster = get_next_cluster(current_cluster);
+            if (current_cluster >= 0x0FFFFFF8) {
+                current_cluster = add_to_chain(current_cluster);
+                if (current_cluster == 0) return -5; // No free cluster available
+            }
+            current_offset = 0;
+        }
+    }
+    return bytes_written; // Return the number of bytes written
 }

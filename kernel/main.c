@@ -87,8 +87,11 @@ void kernel_main() {
     }
 
     read_from_file("test/text.txt", (uint8_t*)buffer, 0, 12);
-    buffer[13] = 0;
+    buffer[12] = 0;
     kprintf("Contents of test/text.txt: %s\n", buffer);
+
+    memset(buffer, 'a', 12);
+    write_to_file("text.txt", (uint8_t*)buffer, 0, 13);
 
     while (1) {
         char* line = kbdinput();
