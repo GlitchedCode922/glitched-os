@@ -596,6 +596,12 @@ int add_dirent(const char* path, dirent_t dirent) {
                 if (dirent_ptr->name[0] == 0x00) {
                     // Empty entry found, use this one
                     memcpy(dirent_ptr, &dirent, sizeof(dirent_t));
+
+                    // Add the terminating entry
+                    dirent_t end_entry; // Create an empty entry to mark the end
+                    end_entry.name[0] = 0x00; // Set the first byte to 0x00 to indicate end of entries
+                    memcpy(dirent_ptr + 1, &end_entry, sizeof(dirent_t));
+
                     write_sectors_relative(active_disk, active_partition,
                         get_cluster_start(current_cluster) + sector, sector_buffer, 1);
                     return 0; // Successfully added
@@ -620,6 +626,12 @@ int add_dirent(const char* path, dirent_t dirent) {
         get_cluster_start(new_cluster), sector_buffer, 1);
     dirent_t* dirent_cast = (dirent_t*)sector_buffer;
     memcpy(dirent_cast, &dirent, sizeof(dirent_t));
+
+    // Add the terminating entry
+    dirent_t end_entry; // Create an empty entry to mark the end
+    end_entry.name[0] = 0x00; // Set the first byte to 0x00 to indicate end of entries
+    memcpy(dirent_cast + 1, &end_entry, sizeof(dirent_t));
+
     write_sectors_relative(active_disk, active_partition,
         get_cluster_start(new_cluster), sector_buffer, 1);
 
@@ -771,4 +783,74 @@ int delete_entry(const char* path) {
     write_sectors_relative(active_disk, active_partition,
         file_dirent_position[0], sector_buffer, 1);
     return 0; // Successfully deleted
+}
+
+void create_file(const char* path) {
+    if (file_exists(path) || is_directory(path)) return; // File already exists or path is a directory
+
+    char upper_path[256] = {0};
+    copy_and_to_upper(path, upper_path, sizeof(upper_path));
+
+    // Replace `path` with `upper_path` in the rest of the function
+    path = upper_path;
+
+    dirent_t new_file;
+    memset(&new_file, 0, sizeof(dirent_t));
+    new_file.attributes = DIRENT_ARCHIVE; // Set file attribute
+    new_file.first_cluster_low = get_free_cluster(); // Get a free cluster for the file
+    if (new_file.first_cluster_low == 0) {
+        return; // No free cluster available
+    }
+    
+    // Set the name in 8.3 format
+
+    // Handle leading/trailing slashes
+    while (*path == '/') path++; // Skip leading slashes
+
+    int path_len = 0;
+    while (path[path_len] != '\0') path_len++;
+
+    int last_slash = -1;
+    for (int i = 0; i < path_len; i++) {
+        if (path[i] == '/') last_slash = i;
+    }
+
+    while (path_len > 0 && path[path_len - 1] == '/') path_len--; // Remove trailing slashes
+
+    char dir_path[256] = {0};
+    char file_name[12] = {0}; // 8.3 padded name (no dot), 11 chars + null
+
+    // Copy directory path
+    for (int i = 0; i < last_slash && i < sizeof(dir_path) - 1; i++) {
+        dir_path[i] = path[i];
+    }
+
+    // Prepare file name (strip dot if present)
+    int name_index = 0;
+    int i = last_slash + 1;
+    while (i < path_len && name_index < 11) {
+        if (path[i] == '.') {
+            while (name_index < 8) file_name[name_index++] = ' '; // pad name
+            i++;
+            continue;
+        }
+        file_name[name_index++] = path[i++];
+    }
+    while (name_index < 11) file_name[name_index++] = ' ';
+
+    // Copy the file name into the dirent
+    memcpy(new_file.name, file_name, 11);
+
+    // Allocate a cluster for the file
+    uint32_t free_cluster = get_free_cluster();
+
+    if (free_cluster == 0) {
+        return; // No free cluster available
+    }
+
+    new_file.first_cluster_high = (free_cluster >> 16) & 0xFFFF; // High part of the cluster number
+    new_file.first_cluster_low = free_cluster & 0xFFFF; // Low part of the cluster number
+    new_file.file_size = 0; // Initial file size is 0
+
+    add_dirent(path, new_file);
 }

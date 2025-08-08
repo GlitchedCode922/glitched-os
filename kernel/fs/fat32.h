@@ -84,3 +84,4 @@ int delete_entry(const char* path);
 int add_dirent(const char* path, dirent_t dirent);
 uint32_t get_free_cluster();
 uint32_t update_free_cluster();
+void create_file(const char* path);
