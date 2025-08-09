@@ -1059,3 +1059,145 @@ int write_to_file(const char* path, const uint8_t* buffer, size_t offset, size_t
     }
     return bytes_written; // Return the number of bytes written
 }
+
+void create_directory(const char* path) {
+    if (file_exists(path) || is_directory(path)) return; // Directory already exists or path is a file
+
+    char upper_path[256] = {0};
+    copy_and_to_upper(path, upper_path, sizeof(upper_path));
+
+    // Replace `path` with `upper_path` in the rest of the function
+    path = upper_path;
+
+    dirent_t new_dir;
+    memset(&new_dir, 0, sizeof(dirent_t));
+    new_dir.attributes = DIRENT_DIRECTORY; // Set directory attribute
+
+    // Set the name in 8.3 format
+
+    // Handle leading/trailing slashes
+    while (*path == '/') path++; // Skip leading slashes
+
+    int path_len = 0;
+    while (path[path_len] != '\0') path_len++;
+
+    int last_slash = -1;
+    for (int i = 0; i < path_len; i++) {
+        if (path[i] == '/') last_slash = i;
+    }
+
+    while (path_len > 0 && path[path_len - 1] == '/') path_len--; // Remove trailing slashes
+
+    char dir_path[256] = {0};
+    char dir_name[12] = {0}; // 8.3 padded name, 11 chars + null
+
+    // Copy directory path
+    for (int i = 0; i < last_slash && i < sizeof(dir_path) - 1; i++) {
+        dir_path[i] = path[i];
+    }
+
+    // Prepare directory name
+    int name_index = 0;
+    int i = last_slash + 1;
+    while (i < path_len && name_index < 11) dir_name[name_index++] = path[i++];
+    while (name_index < 11) dir_name[name_index++] = ' ';
+
+    // Copy the directory name into the dirent
+    memcpy(new_dir.name, dir_name, 11);
+
+    // Allocate a cluster for the directory
+    uint32_t free_cluster = get_free_cluster();
+
+    if (free_cluster == 0) {
+        return; // No free cluster available
+    }
+
+    new_dir.first_cluster_high = (free_cluster >> 16) & 0xFFFF; // High part of the cluster number
+    new_dir.first_cluster_low = free_cluster & 0xFFFF; // Low part of the cluster number
+    new_dir.file_size = sizeof(dirent_t) * 3; // Initial directory size is 3 dirents (., .. and end marker)
+
+    add_dirent(dir_path, new_dir);
+
+    // Create the ., .. and end entries
+
+    dirent_t current_entry;
+    dirent_t parent_entry;
+
+    memset(&current_entry, 0, sizeof(dirent_t));
+    memset(&parent_entry, 0, sizeof(dirent_t));
+    current_entry.attributes = DIRENT_DIRECTORY;
+    parent_entry.attributes = DIRENT_DIRECTORY;
+    current_entry.name[0] = '.'; // Current directory
+    memset(current_entry.name + 1, ' ', 10);
+    parent_entry.name[0] = '.'; // Parent directory
+    parent_entry.name[1] = '.';
+    memset(parent_entry.name + 2, ' ', 9); // Pad the rest with spaces
+    current_entry.first_cluster_high = new_dir.first_cluster_high;
+    current_entry.first_cluster_low = new_dir.first_cluster_low; // Set to the new directory's cluster
+
+    uint32_t cluster = bpb.root_cluster;
+    if (dir_path[0] != '\0') {
+        char subdir[12] = {0}; // 8.3 name + null terminator
+        int path_pos = 0;
+        int dir_path_len = 0;
+
+        // Get the length of the directory path
+        while (dir_path[dir_path_len] != '\0') dir_path_len++;
+
+        // Walk through the directory path
+        while (path_pos < dir_path_len) {
+            int subdir_len = 0;
+
+            // Extract the next subdirectory name
+            while (dir_path[path_pos] != '/' && path_pos < dir_path_len && subdir_len < 11) {
+                subdir[subdir_len++] = dir_path[path_pos++];
+            }
+            while (dir_path[path_pos] == '/') path_pos++; // Skip consecutive slashes
+            for (int i = subdir_len; i < 11; i++) subdir[i] = ' '; // Pad with spaces
+
+            // Search for the subdirectory in the current cluster
+            int found = 0;
+            while (!found && cluster < 0x0FFFFFF8) {
+                for (uint32_t sector = 0; sector < bpb.sectors_per_cluster; sector++) {
+                    uint8_t buffer[512];
+                    read_sectors_relative(active_disk, active_partition,
+                        get_cluster_start(cluster) + sector, buffer, 1);
+
+                    dirent_t* dirent = (dirent_t*)buffer;
+                    for (int entry = 0; entry < 512 / sizeof(dirent_t); entry++, dirent++) {
+                        if (dirent->name[0] == 0x00) break; // End of entries
+                        if (dirent->name[0] == 0xE5 || dirent->attributes & DIRENT_VOLUME_LABEL) continue;
+
+                        if (memcmp(dirent->name, subdir, 11) == 0 &&
+                            (dirent->attributes & DIRENT_DIRECTORY)) {
+                            // Found the subdirectory; update the cluster
+                            cluster = ((uint32_t)dirent->first_cluster_high << 16) | dirent->first_cluster_low;
+                            found = 1;
+                            break;
+                        }
+                    }
+                }
+
+                if (!found) {
+                    cluster = get_next_cluster(cluster);
+                }
+            }
+
+            if (!found) {
+                return; // Subdirectory not found
+            }
+        }
+    }
+
+    parent_entry.first_cluster_high = (cluster >> 16) & 0xFFFF; // High part of the cluster number
+    parent_entry.first_cluster_low = cluster & 0xFFFF; // Low part of the cluster number
+
+    uint8_t empty_cluster[bpb.sectors_per_cluster * 512];
+    memset(empty_cluster, 0, sizeof(empty_cluster)); // Clear the cluster buffer
+
+    write_sectors_relative(active_disk, active_partition, get_cluster_start(free_cluster), empty_cluster, bpb.sectors_per_cluster); // Clear the new directory cluster
+
+    // Step 5: Write the entries to the new directory
+    add_dirent(path, current_entry); // Add the current directory entry
+    add_dirent(path, parent_entry); // Add the parent directory entry
+}
