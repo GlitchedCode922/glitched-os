@@ -9,6 +9,11 @@ uint8_t active_partition;
 bpb_t bpb;
 fsinfo_t fsinfo;
 
+void get_wall_clock_time(uint32_t* year, uint32_t* month, uint32_t* day,
+                         uint32_t* hour, uint32_t* minute, uint32_t* second) {
+    // This function is a placeholder. It will be added with the RTC driver in timer.c.
+}
+
 void select_partition(uint8_t disk, uint8_t partition) {
     if (has_mbr(disk)) {
         active_disk = disk;
@@ -865,6 +870,13 @@ int write_to_file(const char* path, const uint8_t* buffer, size_t offset, size_t
     // Replace `path` with `upper_path` in the rest of the function
     path = upper_path;
 
+    // Create the timestamp
+    uint16_t fat_time;
+    uint16_t fat_date;
+    uint32_t year, month, day, hour, minute, second;
+    get_wall_clock_time(&year, &month, &day, &hour, &minute, &second);
+    wall_clock_to_fat32_timestamp(year, month, day, hour, minute, second, &fat_time, &fat_date);
+
     // Step 1: Separate directory and filename
 
     // Handle leading/trailing slashes
@@ -1059,6 +1071,11 @@ int write_to_file(const char* path, const uint8_t* buffer, size_t offset, size_t
             current_offset = 0;
         }
     }
+
+    // Step 5: Update the file's last modification time
+    file_dirent.last_modification_time = fat_time; // Set last modification time
+    file_dirent.last_modification_date = fat_date; // Set last modification date
+    
     return bytes_written; // Return the number of bytes written
 }
 
@@ -1074,6 +1091,19 @@ void create_directory(const char* path) {
     dirent_t new_dir;
     memset(&new_dir, 0, sizeof(dirent_t));
     new_dir.attributes = DIRENT_DIRECTORY; // Set directory attribute
+
+    // Create the timestamp
+    uint16_t fat_time;
+    uint16_t fat_date;
+    uint32_t year, month, day, hour, minute, second;
+    get_wall_clock_time(&year, &month, &day, &hour, &minute, &second);
+    wall_clock_to_fat32_timestamp(year, month, day, hour, minute, second, &fat_time, &fat_date);
+
+    // Set the creation and modification time and date
+    new_dir.creation_time = fat_time; // Set creation time
+    new_dir.creation_date = fat_date; // Set creation date
+    new_dir.last_modification_time = fat_time; // Set last modification time
+    new_dir.last_modification_date = fat_date; // Set last modification date
 
     // Set the name in 8.3 format
 
@@ -1202,4 +1232,20 @@ void create_directory(const char* path) {
     // Step 5: Write the entries to the new directory
     add_dirent(path, current_entry); // Add the current directory entry
     add_dirent(path, parent_entry); // Add the parent directory entry
+}
+
+void wall_clock_to_fat32_timestamp(int year, int month, int day, int hour, int min, int sec, uint16_t *fat_date, uint16_t *fat_time) {
+    // FAT stores year as years since 1980
+    if (year < 1980) year = 1980;
+    int year_since_1980 = year - 1980;
+
+    // Pack date field
+    *fat_date = ((year_since_1980 & 0x7F) << 9)  // bits 9-15
+                | ((month & 0x0F) << 5)          // bits 5-8
+                | (day & 0x1F);                  // bits 0-4
+
+    // Pack time field
+    *fat_time = ((hour & 0x1F) << 11)            // bits 11-15
+                | ((min & 0x3F) << 5)            // bits 5-10
+                | ((sec / 2) & 0x1F);           // bits 0-4 (seconds / 2)
 }

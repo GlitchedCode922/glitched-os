@@ -87,3 +87,4 @@ uint32_t update_free_cluster();
 void create_file(const char* path);
 void create_directory(const char* path);
 int write_to_file(const char* path, const uint8_t* buffer, size_t offset, size_t size);
+void wall_clock_to_fat32_timestamp(int year, int month, int day, int hour, int min, int sec, uint16_t *fat_date, uint16_t *fat_time);
