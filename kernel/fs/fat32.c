@@ -1261,3 +1261,16 @@ void wall_clock_to_fat32_timestamp(int year, int month, int day, int hour, int m
                 | ((min & 0x3F) << 5)            // bits 5-10
                 | ((sec / 2) & 0x1F);           // bits 0-4 (seconds / 2)
 }
+
+void fat32_timestamp_to_wall_clock(uint16_t fat_date, uint16_t fat_time, int *year, int *month, int *day, int *hour, int *min, int *sec) {
+    // Extract year, month, day from fat_date
+    int year_since_1980 = (fat_date >> 9) & 0x7F; // bits 9-15
+    *year = year_since_1980 + 1980; // FAT year is years since 1980
+    *month = (fat_date >> 5) & 0x0F; // bits 5-8
+    *day = fat_date & 0x1F; // bits 0-4
+
+    // Extract hour, minute, second from fat_time
+    *hour = (fat_time >> 11) & 0x1F; // bits 11-15
+    *min = (fat_time >> 5) & 0x3F; // bits 5-10
+    *sec = (fat_time & 0x1F) * 2; // bits 0-4, seconds are stored as half-seconds in FAT
+}
