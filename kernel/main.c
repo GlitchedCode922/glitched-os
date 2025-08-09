@@ -5,6 +5,7 @@
 #include "memory/mman.h"
 #include "memory/paging.h"
 #include "drivers/block/ata.h"
+#include "fs/fat32.h"
 #include "idt.h"
 #include "drivers/partitions/mbr.h"
 #include <stdint.h>
@@ -56,10 +57,6 @@ void kernel_main() {
     idt_init();
     initialize_console(framebuffer_request.response->framebuffers[0]);
     ata_register();
-
-    print_partition_table(0);
-    char buffer[512] = "MBR partition relative R/W works";
-    write_sectors_relative(0,0,0,(uint8_t*)&buffer,1);
 
     while (1) {
         char* line = kbdinput();
