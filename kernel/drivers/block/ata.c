@@ -87,6 +87,8 @@ int ata_read_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t coun
     // Enable LBA
     outb(bus_port + 6, 0xE0 | ((drive % 2) << 4));
 
+    while (inb(bus_port + 7) & 0x80);
+
     if (ata_supports_lba48(drive)) {
         outb(bus_port + 2, (count >> 8) & 0xFF);  // sector count high
         outb(bus_port + 3, (lba >> 24) & 0xFF);   // LBA low high
@@ -141,6 +143,8 @@ int ata_read_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t coun
             outb(bus_port + 2, 1); // Set sector count to 1
 
             uint32_t retry_lba = lba + sector;
+
+            while (inb(bus_port + 7) & 0x80);
 
             if (ata_supports_lba48(drive)) {
                 outb(bus_port + 2, (count >> 8) & 0xFF);  // sector count high
@@ -201,6 +205,8 @@ int ata_write_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t cou
     // Enable LBA
     outb(bus_port + 6, 0xE0 | ((drive % 2) << 4));
 
+    while (inb(bus_port + 7) & 0x80);
+
     if (ata_supports_lba48(drive)) {
         outb(bus_port + 2, (count >> 8) & 0xFF);  // sector count high
         outb(bus_port + 3, (lba >> 24) & 0xFF);   // LBA low high
@@ -256,6 +262,9 @@ int ata_write_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t cou
             outb(bus_port + 2, 1); // Set sector count to 1
 
             uint32_t retry_lba = lba + sector;
+
+            while (inb(bus_port + 7) & 0x80);
+
             if (ata_supports_lba48(drive)) {
                 outb(bus_port + 2, 0);                    // sector count high
                 outb(bus_port + 3, (lba >> 24) & 0xFF);   // LBA low high
@@ -351,6 +360,9 @@ void ata_standby(uint8_t drive) {
     if (devices[drive].exists == 0) return;
     uint16_t bus_port = (drive / 2 == 0 ? PRIMARY_BUS : SECONDARY_BUS);
     select_drive(bus_port, drive % 2 == 0 ? 0xA0 : 0xB0);
+
+    while (inb(bus_port + 7) & 0x80);
+
     outb(bus_port + 0x07, 0xE2);
 }
 
