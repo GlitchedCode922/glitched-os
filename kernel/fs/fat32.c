@@ -501,61 +501,25 @@ int add_dirent(const char* path, dirent_t dirent) {
     // Replace `path` with `upper_path` in the rest of the function
     path = upper_path;
 
-    // Step 1: Separate directory and filename
-
-    // Handle leading/trailing slashes
-    while (*path == '/') path++; // Skip leading slashes
-
-    int path_len = 0;
-    while (path[path_len] != '\0') path_len++;
-
-    int last_slash = -1;
-    for (int i = 0; i < path_len; i++) {
-        if (path[i] == '/') last_slash = i;
-    }
-
-    while (path_len > 0 && path[path_len - 1] == '/') path_len--; // Remove trailing slashes
-
-    char dir_path[256] = {0};
-    char file_name[12] = {0}; // 8.3 padded name (no dot), 11 chars + null
-
-    // Copy directory path
-    for (int i = 0; i < last_slash && i < sizeof(dir_path) - 1; i++) {
-        dir_path[i] = path[i];
-    }
-
-    // Prepare file name (strip dot if present)
-    int name_index = 0;
-    int i = last_slash + 1;
-    while (i < path_len && name_index < 11) {
-        if (path[i] == '.') {
-            while (name_index < 8) file_name[name_index++] = ' '; // pad name
-            i++;
-            continue;
-        }
-        file_name[name_index++] = path[i++];
-    }
-    while (name_index < 11) file_name[name_index++] = ' ';
-
     // Step 2: Traverse to directory cluster
     uint32_t cluster = bpb.root_cluster;
-    if (dir_path[0] != '\0') {
+    if (path[0] != '\0') {
         char subdir[12] = {0}; // 8.3 name + null terminator
         int path_pos = 0;
-        int dir_path_len = 0;
+        int path_len = 0;
 
         // Get the length of the directory path
-        while (dir_path[dir_path_len] != '\0') dir_path_len++;
+        while (path[path_len] != '\0') path_len++;
 
         // Walk through the directory path
-        while (path_pos < dir_path_len) {
+        while (path_pos < path_len) {
             int subdir_len = 0;
 
             // Extract the next subdirectory name
-            while (dir_path[path_pos] != '/' && path_pos < dir_path_len && subdir_len < 11) {
-                subdir[subdir_len++] = dir_path[path_pos++];
+            while (path[path_pos] != '/' && path_pos < path_len && subdir_len < 11) {
+                subdir[subdir_len++] = path[path_pos++];
             }
-            while (dir_path[path_pos] == '/') path_pos++; // Skip consecutive slashes
+            while (path[path_pos] == '/') path_pos++; // Skip consecutive slashes
             for (int i = subdir_len; i < 11; i++) subdir[i] = ' '; // Pad with spaces
 
             // Search for the subdirectory in the current cluster
@@ -865,7 +829,7 @@ void create_file(const char* path) {
     new_file.first_cluster_low = free_cluster & 0xFFFF; // Low part of the cluster number
     new_file.file_size = 0; // Initial file size is 0
 
-    add_dirent(path, new_file);
+    add_dirent(dir_path, new_file);
 }
 
 int write_to_file(const char* path, const uint8_t* buffer, size_t offset, size_t size) {
