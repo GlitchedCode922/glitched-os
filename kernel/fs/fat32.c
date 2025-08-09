@@ -8,6 +8,7 @@ uint8_t active_disk;
 uint8_t active_partition;
 bpb_t bpb;
 fsinfo_t fsinfo;
+uint8_t read_only = 0;
 
 void get_wall_clock_time(uint32_t* year, uint32_t* month, uint32_t* day,
                          uint32_t* hour, uint32_t* minute, uint32_t* second) {
@@ -25,6 +26,10 @@ void init_fat32(uint8_t disk, uint8_t partition) {
     select_partition(disk, partition);
     bpb = get_bpb();
     fsinfo = get_fsinfo(bpb.fs_info);
+}
+
+void set_read_only(uint8_t read_only_flag) {
+    read_only = read_only_flag;
 }
 
 bpb_t get_bpb() {
@@ -433,6 +438,7 @@ int read_from_file(const char* path, uint8_t* buffer, size_t offset, size_t size
 }
 
 uint32_t update_free_cluster() {
+    if (read_only) return 1; // Cannot update free cluster in read-only mode
     fsinfo.free_clusters--;
     int query_cluster = fsinfo.next_free_cluster;
     int clusters_existing = get_fat_size() * bpb.bytes_per_sector / 4; // Number of clusters in FAT
@@ -455,6 +461,7 @@ uint32_t get_free_cluster() {
 }
 
 uint32_t add_to_chain(uint32_t previous_eoc) {
+    if (read_only) return 1; // Cannot add to chain in read-only mode
     uint32_t new_cluster = get_free_cluster();
     if (new_cluster == 0) {
         return 0; // No free cluster available
@@ -487,7 +494,8 @@ uint32_t add_to_chain(uint32_t previous_eoc) {
 }
 
 int add_dirent(const char* path, dirent_t dirent) {
-        char upper_path[256] = {0};
+    if (read_only) return -10; // Cannot add dirent in read-only mode
+    char upper_path[256] = {0};
     copy_and_to_upper(path, upper_path, sizeof(upper_path));
 
     // Replace `path` with `upper_path` in the rest of the function
@@ -646,6 +654,7 @@ int add_dirent(const char* path, dirent_t dirent) {
 }
 
 int delete_entry(const char* path) {
+    if (read_only) return -10; // Cannot delete entry in read-only mode
     char upper_path[256] = {0};
     copy_and_to_upper(path, upper_path, sizeof(upper_path));
 
@@ -793,6 +802,7 @@ int delete_entry(const char* path) {
 }
 
 void create_file(const char* path) {
+    if (read_only) return; // Cannot create file in read-only mode
     if (file_exists(path) || is_directory(path)) return; // File already exists or path is a directory
 
     char upper_path[256] = {0};
@@ -859,6 +869,7 @@ void create_file(const char* path) {
 }
 
 int write_to_file(const char* path, const uint8_t* buffer, size_t offset, size_t size) {
+    if (read_only) return -10; // Cannot write to file in read-only mode
     if (size == 0) return 0; // Nothing to write
     if (!file_exists(path)) create_file(path); // Create the file if it doesn't exist
     if (!file_exists(path)) return -1; // Still not found after creation attempt
@@ -1080,6 +1091,7 @@ int write_to_file(const char* path, const uint8_t* buffer, size_t offset, size_t
 }
 
 void create_directory(const char* path) {
+    if (read_only) return; // Cannot create directory in read-only mode
     if (file_exists(path) || is_directory(path)) return; // Directory already exists or path is a file
 
     char upper_path[256] = {0};

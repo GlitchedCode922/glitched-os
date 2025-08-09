@@ -72,6 +72,7 @@ typedef struct __attribute__((packed)) {
 
 void select_partition(uint8_t disk, uint8_t partition);
 void init_fat32(uint8_t disk, uint8_t partition);
+void set_read_only(uint8_t read_only_flag);
 bpb_t get_bpb();
 fsinfo_t get_fsinfo(uint32_t fsinfo_sector);
 uint32_t get_next_cluster(uint32_t cluster);
