@@ -462,9 +462,11 @@ uint32_t add_to_chain(uint32_t previous_eoc) {
     uint32_t fat_entry_offset = fat_offset % bpb.bytes_per_sector;
 
     uint8_t sector[512];
-    read_sectors_relative(active_disk, active_partition, fat_sector, sector, 1);
-    *(uint32_t*)&sector[fat_entry_offset] = new_cluster | 0x0FFFFFFF; // Set EOC marker
-    write_sectors_relative(active_disk, active_partition, fat_sector, sector, 1);
+    if (previous_eoc < 0x0FFFFFF8) { // Check if previous_eoc is a valid cluster, if not, create a new chain
+        read_sectors_relative(active_disk, active_partition, fat_sector, sector, 1);
+        *(uint32_t*)&sector[fat_entry_offset] = new_cluster & 0x0FFFFFFF; // Set next cluster
+        write_sectors_relative(active_disk, active_partition, fat_sector, sector, 1);
+    }
 
     fat_offset = new_cluster * 4; // Update offset for the new cluster
     fat_sector = fat_start + (fat_offset / bpb.bytes_per_sector);
@@ -838,7 +840,7 @@ void create_file(const char* path) {
     memcpy(new_file.name, file_name, 11);
 
     // Allocate a cluster for the file
-    uint32_t free_cluster = get_free_cluster();
+    uint32_t free_cluster = add_to_chain(CLUSTER_CHAIN_END);
 
     if (free_cluster == 0) {
         return; // No free cluster available
@@ -1106,7 +1108,7 @@ void create_directory(const char* path) {
     memcpy(new_dir.name, dir_name, 11);
 
     // Allocate a cluster for the directory
-    uint32_t free_cluster = get_free_cluster();
+    uint32_t free_cluster = add_to_chain(CLUSTER_CHAIN_END);
 
     if (free_cluster == 0) {
         return; // No free cluster available
@@ -1114,7 +1116,7 @@ void create_directory(const char* path) {
 
     new_dir.first_cluster_high = (free_cluster >> 16) & 0xFFFF; // High part of the cluster number
     new_dir.first_cluster_low = free_cluster & 0xFFFF; // Low part of the cluster number
-    new_dir.file_size = sizeof(dirent_t) * 3; // Initial directory size is 3 dirents (., .. and end marker)
+    new_dir.file_size = 0; // Initial directory size is 0
 
     add_dirent(dir_path, new_dir);
 
