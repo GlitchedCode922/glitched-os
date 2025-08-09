@@ -58,41 +58,6 @@ void kernel_main() {
     initialize_console(framebuffer_request.response->framebuffers[0]);
     ata_register();
 
-    if (has_mbr(0) == 0) {
-        select_partition(0, 0);
-        init_fat32(0, 0);
-        kprintf("FAT32 initialized on disk 0, partition 0.\n");
-    } else {
-        kprintf("No MBR found on disk 0.\n");
-    }
-
-    char* buffer = (char*)kmalloc(13);
-    int i = 0;
-    do {
-        lsdir("test", buffer, i);
-        if (*buffer) kprintf("Directory entry %d: %s\n", i, buffer);
-        i++;
-    } while (*buffer);
-
-    if (file_exists("test/hello")) {
-        kprintf("File 'hello' exists in 'test' directory.\n");
-    } else {
-        kprintf("File 'hello' does not exist in 'test' directory.\n");
-    }
-
-    if (file_exists("test/text.txt")) {
-        kprintf("File 'text.txt' exists in 'test' directory.\n");
-    } else {
-        kprintf("File 'text.txt' does not exist in 'test' directory.\n");
-    }
-
-    read_from_file("test/text.txt", (uint8_t*)buffer, 0, 12);
-    buffer[12] = 0;
-    kprintf("Contents of test/text.txt: %s\n", buffer);
-
-    memset(buffer, 'a', 12);
-    write_to_file("text.txt", (uint8_t*)buffer, 0, 13);
-
     while (1) {
         char* line = kbdinput();
         if (line != NULL) kprintf(line);
