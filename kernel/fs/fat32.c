@@ -260,6 +260,76 @@ int is_directory(const char* path) {
     return lsdir(path, element, 1) == 0;
 }
 
+uint64_t get_file_size(const char *path) {
+    if (is_directory(path)) return 0;
+
+    char upper_path[256] = {0};
+    copy_and_to_upper(path, upper_path, sizeof(upper_path));
+
+    // Replace `path` with `upper_path` in the rest of the function
+    path = upper_path;
+
+    uint32_t cluster = bpb.root_cluster;
+    char subdir[12] = {0}; // 8.3 name + null terminator
+    int path_pos = 0;
+
+    dirent_t dirent_copy;
+
+    // Step 1: Trim trailing slashes
+    int path_len = 0;
+    while (path[path_len] != '\0') path_len++; // Get path length
+    while (path_len > 0 && path[path_len - 1] == '/') path_len--; // Remove trailing slashes
+
+    // Step 2: Walk through the path
+    while (path[path_pos] == '/') path_pos++; // Skip leading '/'
+    while (path_pos < path_len) {
+        int subdir_len = 0;
+
+        // Extract next path component
+        while (path[path_pos] != '/' && path_pos < path_len && subdir_len < 11) {
+            subdir[subdir_len++] = path[path_pos++];
+        }
+        while (path[path_pos] == '/') path_pos++; // Skip consecutive slashes
+        for (int i = subdir_len; i < 11; i++) subdir[i] = ' '; // Pad with spaces
+
+        // Search for matching subdir in the current cluster
+        int found = 0;
+        while (!found && cluster < 0x0FFFFFF8) {
+            for (uint32_t sector = 0; sector < bpb.sectors_per_cluster; sector++) {
+                uint8_t buffer[512];
+                read_sectors_relative(active_disk, active_partition,
+                    get_cluster_start(cluster) + sector, buffer, 1);
+
+                dirent_t* dirent = (dirent_t*)buffer;
+                for (int entry = 0; entry < 512 / sizeof(dirent_t); entry++, dirent++) {
+                    if (dirent->name[0] == 0x00) break; // End of entries
+                    if (dirent->name[0] == 0xE5 || dirent->attributes & DIRENT_VOLUME_LABEL) continue;
+
+                    if (memcmp(dirent->name, subdir, 11) == 0) {
+                        // Found subdir; move to its cluster
+                        cluster = ((uint32_t)dirent->first_cluster_high << 16) | dirent->first_cluster_low;
+                        found = 1;
+                        // Copy the dirent for later use
+                        dirent_copy = *dirent;
+                        break;
+                    }
+                }
+            }
+
+            if (!found) {
+                cluster = get_next_cluster(cluster);
+            }
+        }
+
+        if (!found) {
+            return 0; // Subdirectory not found
+        }
+    }
+
+    // Step 3: Return file size
+    return dirent_copy.file_size;
+}
+
 int read_from_file(const char* path, uint8_t* buffer, size_t offset, size_t size) {
     char upper_path[256] = {0};
     copy_and_to_upper(path, upper_path, sizeof(upper_path));

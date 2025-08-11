@@ -80,6 +80,7 @@ uint32_t get_cluster_size();
 int lsdir(const char* path, char* element, uint64_t element_index);
 int file_exists(const char* path);
 int is_directory(const char* path);
+uint64_t get_file_size(const char* path);
 int read_from_file(const char* path, uint8_t* buffer, size_t offset, size_t size);
 int delete_entry(const char* path);
 int add_dirent(const char* path, dirent_t dirent);
