@@ -5,7 +5,7 @@
 #include "memory/mman.h"
 #include "memory/paging.h"
 #include "drivers/block/ata.h"
-#include "fs/fat32.h"
+#include "mount.h"
 #include "idt.h"
 #include "drivers/partitions/mbr.h"
 #include <stdint.h>
@@ -57,6 +57,7 @@ void kernel_main() {
     idt_init();
     initialize_console(framebuffer_request.response->framebuffers[0]);
     ata_register();
+    register_intree_filesystems();
 
     while (1) {
         char* line = kbdinput();

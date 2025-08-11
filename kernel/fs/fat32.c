@@ -1,6 +1,7 @@
 #include "fat32.h"
 #include "../drivers/partitions/mbr.h"
 #include "../memory/mman.h"
+#include "../mount.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -15,7 +16,7 @@ void get_wall_clock_time(uint32_t* year, uint32_t* month, uint32_t* day,
     // This function is a placeholder. It will be added with the RTC driver in timer.c.
 }
 
-void select_partition(uint8_t disk, uint8_t partition) {
+void fat32_select(uint8_t disk, uint8_t partition) {
     if (has_mbr(disk)) {
         active_disk = disk;
         active_partition = partition;
@@ -23,12 +24,12 @@ void select_partition(uint8_t disk, uint8_t partition) {
 }
 
 void init_fat32(uint8_t disk, uint8_t partition) {
-    select_partition(disk, partition);
+    fat32_select(disk, partition);
     bpb = get_bpb();
     fsinfo = get_fsinfo(bpb.fs_info);
 }
 
-void set_read_only(uint8_t read_only_flag) {
+void fat32_set_read_only(uint8_t read_only_flag) {
     read_only = read_only_flag;
 }
 
@@ -89,7 +90,7 @@ static void copy_and_to_upper(const char* src, char* dest, size_t max_len) {
     dest[i] = '\0'; // Null-terminate the destination string
 }
 
-int lsdir(const char* path, char* element, uint64_t element_index) {
+int fat32_list(const char* path, char* element, uint64_t element_index) {
     char upper_path[256] = {0};
     copy_and_to_upper(path, upper_path, sizeof(upper_path));
 
@@ -196,7 +197,7 @@ int lsdir(const char* path, char* element, uint64_t element_index) {
     return -2;
 }
 
-int file_exists(const char* path) {
+int fat32_file_exists(const char* path) {
     char upper_path[256] = {0};
     copy_and_to_upper(path, upper_path, sizeof(upper_path));
 
@@ -242,7 +243,7 @@ int file_exists(const char* path) {
     char element[13] = {0}; // 8.3 name + null terminator
     i = 0;
     do {
-        lsdir(directory, element, i);
+        fat32_list(directory, element, i);
         // Remove trailing spaces from element
         for (int j = 11; j >= 0 && element[j] == ' '; j--) {
             element[j] = '\0';
@@ -255,13 +256,13 @@ int file_exists(const char* path) {
     return 0; // File does not exist    
 }
 
-int is_directory(const char* path) {
+int fat32_is_directory(const char* path) {
     char element[13] = {0};
-    return lsdir(path, element, 1) == 0;
+    return fat32_list(path, element, 1) == 0;
 }
 
-uint64_t get_file_size(const char *path) {
-    if (is_directory(path)) return 0;
+uint64_t fat32_get_file_size(const char *path) {
+    if (fat32_is_directory(path)) return 0;
 
     char upper_path[256] = {0};
     copy_and_to_upper(path, upper_path, sizeof(upper_path));
@@ -330,7 +331,7 @@ uint64_t get_file_size(const char *path) {
     return dirent_copy.file_size;
 }
 
-int read_from_file(const char* path, uint8_t* buffer, size_t offset, size_t size) {
+int fat32_read(const char* path, uint8_t* buffer, size_t offset, size_t size) {
     char upper_path[256] = {0};
     copy_and_to_upper(path, upper_path, sizeof(upper_path));
 
@@ -338,6 +339,10 @@ int read_from_file(const char* path, uint8_t* buffer, size_t offset, size_t size
     path = upper_path;
 
     // Step 1: Separate directory and filename
+
+    // Handle leading/trailing slashes
+    if (path[0] == '/') path++; // Skip leading slash
+
     int path_len = 0;
     while (path[path_len] != '\0') path_len++;
 
@@ -346,9 +351,7 @@ int read_from_file(const char* path, uint8_t* buffer, size_t offset, size_t size
         if (path[i] == '/') last_slash = i;
     }
 
-    if (last_slash == -1 || last_slash == path_len - 1) {
-        return -1; // Invalid path
-    }
+    while (path_len > 0 && path[path_len - 1] == '/') path_len--; // Remove trailing slashes
 
     char dir_path[256] = {0};
     char file_name[12] = {0}; // 8.3 padded name (no dot), 11 chars + null
@@ -687,7 +690,7 @@ int add_dirent(const char* path, dirent_t dirent) {
     return 0; // Successfully added to new cluster
 }
 
-int delete_entry(const char* path) {
+int fat32_delete(const char* path) {
     if (read_only) return -10; // Cannot delete entry in read-only mode
     char upper_path[256] = {0};
     copy_and_to_upper(path, upper_path, sizeof(upper_path));
@@ -835,9 +838,9 @@ int delete_entry(const char* path) {
     return 0; // Successfully deleted
 }
 
-void create_file(const char* path) {
+void fat32_create_file(const char* path) {
     if (read_only) return; // Cannot create file in read-only mode
-    if (file_exists(path) || is_directory(path)) return; // File already exists or path is a directory
+    if (fat32_file_exists(path) || fat32_is_directory(path)) return; // File already exists or path is a directory
 
     char upper_path[256] = {0};
     copy_and_to_upper(path, upper_path, sizeof(upper_path));
@@ -902,12 +905,12 @@ void create_file(const char* path) {
     add_dirent(dir_path, new_file);
 }
 
-int write_to_file(const char* path, const uint8_t* buffer, size_t offset, size_t size) {
+int fat32_write_to_file(const char* path, const uint8_t* buffer, size_t offset, size_t size) {
     if (read_only) return -10; // Cannot write to file in read-only mode
     if (size == 0) return 0; // Nothing to write
-    if (!file_exists(path)) create_file(path); // Create the file if it doesn't exist
-    if (!file_exists(path)) return -1; // Still not found after creation attempt
-    if (is_directory(path)) return -2; // Cannot write to a directory
+    if (!fat32_file_exists(path)) fat32_create_file(path); // Create the file if it doesn't exist
+    if (!fat32_file_exists(path)) return -1; // Still not found after creation attempt
+    if (fat32_is_directory(path)) return -2; // Cannot write to a directory
 
     char upper_path[256] = {0};
     copy_and_to_upper(path, upper_path, sizeof(upper_path));
@@ -1124,9 +1127,9 @@ int write_to_file(const char* path, const uint8_t* buffer, size_t offset, size_t
     return bytes_written; // Return the number of bytes written
 }
 
-void create_directory(const char* path) {
+void fat32_create_directory(const char* path) {
     if (read_only) return; // Cannot create directory in read-only mode
-    if (file_exists(path) || is_directory(path)) return; // Directory already exists or path is a file
+    if (fat32_file_exists(path) || fat32_is_directory(path)) return; // Directory already exists or path is a file
 
     char upper_path[256] = {0};
     copy_and_to_upper(path, upper_path, sizeof(upper_path));
@@ -1307,4 +1310,24 @@ void fat32_timestamp_to_wall_clock(uint16_t fat_date, uint16_t fat_time, int *ye
     *hour = (fat_time >> 11) & 0x1F; // bits 11-15
     *min = (fat_time >> 5) & 0x3F; // bits 5-10
     *sec = (fat_time & 0x1F) * 2; // bits 0-4, seconds are stored as half-seconds in FAT
+}
+
+void fat32_register() {
+    filesystem_t fat32_fs;
+    memset(&fat32_fs, 0, sizeof(filesystem_t));
+    memcpy(fat32_fs.name, "FAT32", 6);
+    fat32_fs.select = init_fat32;
+    fat32_fs.set_read_only = fat32_set_read_only;
+    fat32_fs.exists = fat32_file_exists;
+    fat32_fs.is_directory = fat32_is_directory;
+    fat32_fs.get_file_size = fat32_get_file_size;
+    fat32_fs.read = fat32_read;
+    fat32_fs.write = fat32_write_to_file;
+    fat32_fs.create_file = fat32_create_file;
+    fat32_fs.create_directory = fat32_create_directory;
+    fat32_fs.remove = fat32_delete;
+    fat32_fs.get_creation_time = NULL;
+    fat32_fs.get_last_modification_time = NULL;
+
+    register_filesystem(fat32_fs);
 }
