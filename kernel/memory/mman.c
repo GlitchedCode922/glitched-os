@@ -150,3 +150,14 @@ void* krealloc(void* ptr, size_t old_size, size_t new_size) {
     
     return new_ptr;
 }
+
+void* alloc_region(uintptr_t vaddr, size_t size, uint64_t flags) {
+    for (int i = vaddr; i < PAGE_ALIGN((vaddr + size)); i += PAGE_SIZE) {
+        // Allocate memory for the segment
+        void* addr = alloc_page(i, flags | FLAGS_PRESENT);
+        if (!addr) {
+            return 0; // Memory allocation failed
+        }
+    }
+    return (void*)vaddr;
+}
