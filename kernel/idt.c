@@ -3,6 +3,7 @@
 #include "drivers/timer.h"
 #include "panic.h"
 #include "console.h"
+#include "usermode/syscalls.h"
 #include <stdint.h>
 
 // ISR handlers (defined in assembly)
@@ -54,6 +55,7 @@ extern void isr44();
 extern void isr45();
 extern void isr46();
 extern void isr47();
+extern void isr128(); // System call handler
 // End of ISR handlers
 
 idt_entry_t idt[IDT_ENTRY_COUNT];
@@ -72,6 +74,19 @@ void interrupt_handler(uint64_t* stack) {
         panic("Page fault at address: 0x%x, error code: 0x%x\n", cr2, error_code);
     } else if (vector < 32) {
         panic("Unhandled exception: vector %d, error code: 0x%x\n", vector, error_code);
+    } else if (vector == 128) {
+        uint64_t syscall_number, arg1, arg2, arg3, arg4, arg5;
+        asm volatile(
+            "mov %%rax, %0\n"
+            "mov %%r12, %1\n"
+            "mov %%rsi, %2\n"
+            "mov %%rdx, %3\n"
+            "mov %%r10, %4\n"
+            "mov %%r8, %5\n"
+            : "=r"(syscall_number), "=r"(arg1), "=r"(arg2), "=r"(arg3), "=r"(arg4), "=r"(arg5)
+        );
+        uint64_t result = syscall(syscall_number, arg1, arg2, arg3, arg4, arg5);
+        asm volatile("mov %0, %%rax" : : "r"(result));
     } else {
         irq_handler(vector - 32);
     }
@@ -144,6 +159,7 @@ void idt_init() {
     idt_set_entry(45, isr45, 0x28, 0x8E);
     idt_set_entry(46, isr46, 0x28, 0x8E);
     idt_set_entry(47, isr47, 0x28, 0x8E);
+    idt_set_entry(128, isr128, 0x28, 0x8E);
     // Load the IDT
     idt_load(&idt_ptr);
     // Enable interrupts

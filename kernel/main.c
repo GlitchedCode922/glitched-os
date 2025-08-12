@@ -60,7 +60,13 @@ void kernel_main() {
     register_intree_filesystems();
 
     while (1) {
-        char* line = kbdinput();
-        if (line != NULL) kprintf(line);
+        char* input;
+        asm volatile(
+            "mov $17, %%rax\n"
+            "int $0x80\n"
+            "mov %%rax, %0\n"
+            : "=a"(input)
+        );
+        kprintf(input);
     }
 }

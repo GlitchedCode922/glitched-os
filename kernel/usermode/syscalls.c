@@ -1,0 +1,73 @@
+#include "syscalls.h"
+#include "../drivers/block.h"
+#include "../mount.h"
+#include "../drivers/timer.h"
+#include "../memory/paging.h"
+#include "../drivers/kbd.h"
+#include "../console.h"
+#include <stdint.h>
+
+uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5) {
+    asm volatile("sti");
+    switch (syscall_number) {
+    case SYSCALL_EXIT:
+        // Not implemented, will come with process management
+        return 0;
+    case SYSCALL_READ_FILE:
+        return read_file((const char*)arg1, (uint8_t*)arg2, arg3, arg4);
+    case SYSCALL_WRITE_FILE:
+        return write_file((const char*)arg1, (const uint8_t*)arg2, arg3, arg4);
+    case SYSCALL_CREATE_FILE:
+        return create_file((const char*)arg1);
+    case SYSCALL_DELETE_FILE:
+        return remove_file((const char*)arg1);
+    case SYSCALL_CREATE_DIR:
+        return create_directory((const char*)arg1);
+    case SYSCALL_GET_PPID:
+        // Not implemented, will come with process management
+        return 0;
+    case SYSCALL_READ_SECTORS:
+        return read_sectors(arg1, arg2, (uint8_t*)arg3, arg4);
+    case SYSCALL_WRITE_SECTORS:
+        return write_sectors(arg1, arg2, (uint8_t*)arg3, arg4);
+    case SYSCALL_LIST_DIR:
+        return list_directory((const char*)arg1, (char*)arg2, arg3);
+    case SYSCALL_GET_FILE_SIZE:
+        return get_file_size((const char*)arg1);
+    case SYSCALL_FORK:
+        // Not implemented, will come with process management
+        return 0;
+    case SYSCALL_EXECUTE:
+        // Not implemented, will come with process management
+        return 0;
+    case SYSCALL_GET_TIME:
+        // Not implemented, will come with RTC
+        return 0;
+    case SYSCALL_GET_PID:
+        // Not implemented, will come with process management
+        return 0;
+    case SYSCALL_GET_UPTIME:
+        return get_uptime_milliseconds();
+    case SYSCALL_DELAY: {
+        // When process management is implemented, this will yield the process
+        uint64_t start_time = get_uptime_milliseconds();
+        while (get_uptime_milliseconds() - start_time < arg1) {
+            // Busy wait
+        }
+        return 0;
+    }
+    case SYSCALL_READ_CONSOLE:
+        return (uintptr_t)kbdinput();
+    case SYSCALL_WRITE_CONSOLE:
+        kprintf((const char*)arg1, arg2, arg3, arg4, arg5);
+        return 0;
+    case SYSCALL_ALLOC_PAGE:
+        return (uintptr_t)alloc_page(arg1, arg2);
+    case SYSCALL_FREE_PAGE:
+        free_page((void*)arg1);
+        return 0;
+    default:
+        // Invalid syscall, return an error code
+        return 0xFFFFFFFFFFFFFFFF;
+    }
+}
