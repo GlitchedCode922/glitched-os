@@ -152,7 +152,7 @@ void* krealloc(void* ptr, size_t old_size, size_t new_size) {
 }
 
 void* alloc_region(uintptr_t vaddr, size_t size, uint64_t flags) {
-    for (int i = vaddr; i < PAGE_ALIGN((vaddr + size)); i += PAGE_SIZE) {
+    for (uintptr_t i = vaddr; i < PAGE_ALIGN((vaddr + size)); i += PAGE_SIZE) {
         // Allocate memory for the segment
         void* addr = alloc_page(i, flags | FLAGS_PRESENT);
         if (!addr) {
@@ -160,4 +160,11 @@ void* alloc_region(uintptr_t vaddr, size_t size, uint64_t flags) {
         }
     }
     return (void*)vaddr;
+}
+
+void free_region(uintptr_t vaddr, size_t size) {
+    for (uintptr_t i = vaddr; i < PAGE_ALIGN((vaddr + size)); i += PAGE_SIZE) {
+        // Free the allocated memory for the segment
+        free_page((void*)i);
+    }
 }
