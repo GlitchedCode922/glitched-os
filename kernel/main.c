@@ -8,6 +8,7 @@
 #include "mount.h"
 #include "idt.h"
 #include "drivers/partitions/mbr.h"
+#include "usermode/elf.h"
 #include <stdint.h>
 
 extern uint64_t __size;
@@ -43,8 +44,76 @@ static volatile struct limine_stack_size_request stack_size_request = {
     .stack_size = 0x1000000 // 10 MiB
 };
 
+__attribute__((used, section(".limine_requests")))
+static volatile struct limine_executable_cmdline_request cmdline_request = {
+    .id = LIMINE_EXECUTABLE_CMDLINE_REQUEST,
+    .revision = 0
+};
+
 __attribute__((used, section(".limine_requests_end")))
 static volatile LIMINE_REQUESTS_END_MARKER;
+
+void parse_kernel_cmdline() {
+    uint8_t root_disk = 0;
+    uint8_t root_partition = 0;
+    uint8_t root_readonly = 0;
+    char init_binary_path[64] = "/bin/init";
+    if (cmdline_request.response && cmdline_request.response->cmdline) {
+        char* cmdline = cmdline_request.response->cmdline;
+        while (*cmdline) {
+            if (*cmdline == ' ') {
+                cmdline++;
+                continue;
+            }
+            if (cmdline[0] == 'r' && cmdline[1] == 'o' && cmdline[2] != 'o') {
+                root_readonly = 1;
+                cmdline += 2;
+                continue;
+            }
+
+            if (cmdline[0] == 'r' && cmdline[1] == 'o' && cmdline[2] == 'o' && cmdline[3] == 't' && cmdline[4] == '=') {
+                cmdline += 5;
+                // Parse root=disk,partition
+                while ((*cmdline) != ' ' && *cmdline != ',') {
+                    if (*cmdline >= '0' && *cmdline <= '9') {
+                        root_disk = root_disk * 10 + (*cmdline - '0');
+                        cmdline++;
+                    }
+                }
+
+                // Read the second number
+                while ((*cmdline) != ' ' && *cmdline != ',') {
+                    if (*cmdline >= '0' && *cmdline <= '9') {
+                        root_partition = root_partition * 10 + (*cmdline - '0');
+                        cmdline++;
+                    }
+                }
+                continue;
+            }
+
+
+            if (cmdline[0] == 'i' && cmdline[1] == 'n' && cmdline[2] == 'i' && cmdline[3] == 't' && cmdline[4] == '=') {
+                cmdline += 5;
+                // Read the init binary path
+                int i = 0;
+                while (*cmdline != ' ' && *cmdline != '\0' && i < sizeof(init_binary_path) - 1) {
+                    init_binary_path[i++] = *cmdline++;
+                }
+                init_binary_path[i] = '\0';
+                continue;
+            }
+
+            panic("Unknown kernel command line argument here: %s", cmdline);
+        }
+    }
+    mount_filesystem("/", "FAT32", root_disk, root_partition, root_readonly);
+    void* addr = load_elf(init_binary_path);
+    if (!addr) {
+        panic("Failed to load init binary: %s", init_binary_path);
+    }
+    void (*init_entry)(int, char*[]) = (void (*)(int, char*[]))addr;
+    init_entry(0, (char*[]){""});
+}
 
 void kernel_main() {
     uintptr_t cr3;
@@ -59,14 +128,7 @@ void kernel_main() {
     ata_register();
     register_intree_filesystems();
 
-    while (1) {
-        char* input;
-        asm volatile(
-            "mov $17, %%rax\n"
-            "int $0x80\n"
-            "mov %%rax, %0\n"
-            : "=a"(input)
-        );
-        kprintf(input);
-    }
+    parse_kernel_cmdline();
+
+    panic("Init process exited unexpectedly!");
 }
