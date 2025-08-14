@@ -23,5 +23,6 @@
 #define SYSCALL_WRITE_CONSOLE 18
 #define SYSCALL_ALLOC_PAGE 19
 #define SYSCALL_FREE_PAGE 20
+#define SYSCALL_GETENV 21
 
 uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5);

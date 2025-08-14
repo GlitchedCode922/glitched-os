@@ -5,6 +5,7 @@
 #include "../memory/paging.h"
 #include "../drivers/kbd.h"
 #include "../console.h"
+#include "exec.h"
 #include <stdint.h>
 
 uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5) {
@@ -38,8 +39,7 @@ uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t
         // Not implemented, will come with process management
         return 0;
     case SYSCALL_EXECUTE:
-        // Not implemented, will come with process management
-        return 0;
+        return execve((const char*)arg1, (const char**)arg2, (const char**)arg3);
     case SYSCALL_GET_TIME:
         // Not implemented, will come with RTC
         return 0;
@@ -66,6 +66,8 @@ uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t
     case SYSCALL_FREE_PAGE:
         free_page((void*)arg1);
         return 0;
+    case SYSCALL_GETENV:
+        return (uintptr_t)getenv((const char *)arg1);
     default:
         // Invalid syscall, return an error code
         return 0xFFFFFFFFFFFFFFFF;

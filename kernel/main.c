@@ -9,6 +9,7 @@
 #include "idt.h"
 #include "drivers/partitions/mbr.h"
 #include "usermode/elf.h"
+#include "usermode/exec.h"
 #include <stdint.h>
 
 extern uint64_t __size;
@@ -122,6 +123,7 @@ void kernel_main() {
         : "=r"(cr3)
     );
     init_paging(cr3, memmap_request.response, hhdm_request.response->offset);
+    init_exec(cr3);
     init_mman((size_t)&__size);
     idt_init();
     initialize_console(framebuffer_request.response->framebuffers[0]);
