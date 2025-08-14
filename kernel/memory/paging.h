@@ -36,5 +36,7 @@ void* alloc_page(uintptr_t addr, uint64_t flags);
 int free_page(void* page);
 int check_reserved(uintptr_t addr);
 int check_used(uintptr_t addr);
+void* clone_page_tables(void* pml4_address);
+void change_pml4(void* pml4);
 
 page_address_t get_page_entry(uintptr_t addr);

@@ -1,4 +1,5 @@
 #include "paging.h"
+#include "mman.h"
 #include "../panic.h"
 #include <stddef.h>
 #include <stdint.h>
@@ -298,4 +299,75 @@ int free_page(void *page) {
     }
 
     return 0; // Success
+}
+
+void* clone_page_tables(void* pml4_address) {
+    uint64_t* new_pml4 = allocate_page_table();
+    uint64_t* old_pml4 = add_hhdm_to(pml4_address);
+
+    for (int i = 0; i < 512; i++) {
+        uint64_t pml4e = old_pml4[i];
+
+        if (i >= 256) {
+            // Upper half (kernel space): share mappings
+            add_hhdm_to(new_pml4)[i] = pml4e;
+            continue;
+        }
+
+        if (pml4e & FLAGS_PRESENT) {
+            uint64_t* pdpt = add_hhdm_to(page_table_to_address(pml4e));
+            uint64_t* new_pdpt = allocate_page_table();
+
+            for (int j = 0; j < 512; j++) {
+                uint64_t pdpte = pdpt[j];
+                if (pdpte & FLAGS_PRESENT) {
+                    uint64_t* pd = add_hhdm_to(page_table_to_address(pdpte));
+                    uint64_t* new_pd = allocate_page_table();
+
+                    for (int k = 0; k < 512; k++) {
+                        uint64_t pde = pd[k];
+                        if (pde & FLAGS_PRESENT) {
+                            uint64_t* pt = add_hhdm_to(page_table_to_address(pde));
+                            uint64_t* new_pt = allocate_page_table();
+
+                            for (int l = 0; l < 512; l++) {
+                                if (pt[l] & FLAGS_PRESENT) {
+                                    uintptr_t old_phys = pt[l] & PAGE_MASK;
+                                    uintptr_t new_phys = get_available_address();
+
+                                    // Directly copy contents using HHDM
+                                    void* src = add_hhdm_to((uint64_t*)old_phys);
+                                    void* dst = add_hhdm_to((uint64_t*)new_phys);
+                                    memcpy(dst, src, PAGE_SIZE);
+
+                                    // Add the used region for the new page
+                                    used_regions[used_region_count].min_addr = new_phys;
+                                    used_regions[used_region_count].max_addr = new_phys + PAGE_SIZE;
+                                    used_regions[used_region_count].type = 0;
+                                    used_region_count++;
+                                    if (used_region_count >= 1024) {
+                                        merge_used_regions();
+                                        if (used_region_count >= 1024) {
+                                            panic("clone_page_tables: Used regions overflow");
+                                        }
+                                    }
+
+                                    // Point to new frame
+                                    new_pt[l] = (new_phys & PAGE_MASK) | (uint64_t)page_table_to_address(pt[l]);
+                                }
+                            }
+                            new_pd[k] = ((uintptr_t)new_pt & PAGE_MASK) | (pde & HIGHER_LEVEL_FLAGS);
+                        }
+                    }
+                    new_pdpt[j] = ((uintptr_t)new_pd & PAGE_MASK) | (pdpte & HIGHER_LEVEL_FLAGS);
+                }
+            }
+            add_hhdm_to(new_pml4)[i] = ((uintptr_t)new_pdpt & PAGE_MASK) | (pml4e & HIGHER_LEVEL_FLAGS);
+        }
+    }
+    return new_pml4;
+}
+
+void change_pml4(void* pml4) {
+    pml4_address = add_hhdm_to(pml4);
 }
