@@ -1,6 +1,7 @@
 #include "exec.h"
 #include "elf.h"
 #include "../memory/paging.h"
+#include "../memory/mman.h"
 #include <stdint.h>
 
 char** env = {NULL};
@@ -12,6 +13,66 @@ void init_exec(uintptr_t cr3) {
 }
 
 int execve(const char *path, const char **argv, const char **envp) {
+    // --- Clone argv ---
+    uint64_t argc = 0;
+    while (argv[argc]) argc++;
+
+    char* new_path = kmalloc(1024);
+    if (new_path == NULL) {
+        return -1; // Memory allocation failed
+    }
+    // Copy the path string
+    uint64_t path_len = 0;
+    while (*path != '\0') new_path[path_len++] = *path++;
+    new_path[path_len] = '\0'; // Null-terminate the new path
+    path = new_path;
+
+    // Allocate new pointer array (+1 for NULL)
+    char** new_argv = kmalloc((argc + 1) * sizeof(char*));
+
+    // Copy strings
+    for (uint64_t i = 0; i < argc; i++) {
+        const char* src = argv[i];
+
+        // Count string length manually
+        uint64_t len = 0;
+        while (src[len] != '\0') len++;
+
+        // Allocate new string and copy
+        char* dst = kmalloc(len + 1);
+        for (uint64_t j = 0; j <= len; j++) {
+            dst[j] = src[j];
+        }
+
+        new_argv[i] = dst;
+    }
+    new_argv[argc] = 0;
+
+    // --- Clone envp ---
+    uint64_t envc = 0;
+    while (envp[envc]) envc++;
+
+    char** new_envp = kmalloc((envc + 1) * sizeof(char*));
+
+    for (uint64_t i = 0; i < envc; i++) {
+        const char* src = envp[i];
+
+        uint64_t len = 0;
+        while (src[len] != '\0') len++;
+
+        char* dst = kmalloc(len + 1);
+        for (uint64_t j = 0; j <= len; j++) {
+            dst[j] = src[j];
+        }
+
+        new_envp[i] = dst;
+    }
+    new_envp[envc] = 0;
+
+    argv = (const char**)new_argv;
+    envp = (const char**)new_envp;
+
+    // Replace PML4
     void* old_pml4;
     asm volatile("mov %%cr3, %0" : "=r"(old_pml4) : : "memory");
     asm volatile("mov %0, %%cr3" : : "r"(base_pml4) : "memory");
@@ -20,6 +81,7 @@ int execve(const char *path, const char **argv, const char **envp) {
         return -1; // Failed to clone page tables
     }
     asm volatile("mov %0, %%cr3" : : "r"(new_pml4) : "memory");
+    change_pml4(new_pml4);
 
     // Check if the path is NULL
     if (path == NULL) {
@@ -34,12 +96,6 @@ int execve(const char *path, const char **argv, const char **envp) {
     // Set up the environment variables
     char** parent_env = env;
     env = (char**)envp;
-
-    // Find argument count
-    int argc = 0;
-    while (argv[argc] != NULL) {
-        argc++;
-    }
 
     // Load the executable into memory
     void* entry_point = load_elf(path);
