@@ -129,6 +129,7 @@ void kernel_main() {
     initialize_console(framebuffer_request.response->framebuffers[0]);
     ata_register();
     register_intree_filesystems();
+    free_region(0x0, 0x100000000);
 
     parse_kernel_cmdline();
 
