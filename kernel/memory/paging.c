@@ -152,9 +152,10 @@ void* alloc_page(uintptr_t vaddr, uint64_t flags) {
     uint64_t pml4e = pml4[idx.pml4_index];
     if (!(pml4e & FLAGS_PRESENT)) {
         uint64_t *new_pdpt = allocate_page_table();
+        uint64_t *new_pdpt_hhdm = add_hhdm_to(new_pdpt);
         if (!new_pdpt) panic("alloc_page: cannot allocate PDPT");
         // clear entries
-        for (int i = 0; i < 512; i++) new_pdpt[i] = 0;
+        for (int i = 0; i < 512; i++) new_pdpt_hhdm[i] = 0;
         // install
         pml4[idx.pml4_index] = ((uintptr_t)new_pdpt & PAGE_MASK)
                               | (flags & HIGHER_LEVEL_FLAGS)
@@ -167,8 +168,9 @@ void* alloc_page(uintptr_t vaddr, uint64_t flags) {
     uint64_t pdpte = pdpt[idx.pdpt_index];
     if (!(pdpte & FLAGS_PRESENT)) {
         uint64_t *new_pd = allocate_page_table();
+        uint64_t *new_pd_hhdm = add_hhdm_to(new_pd);
         if (!new_pd) panic("alloc_page: cannot allocate PD");
-        for (int i = 0; i < 512; i++) new_pd[i] = 0;
+        for (int i = 0; i < 512; i++) new_pd_hhdm[i] = 0;
         pdpt[idx.pdpt_index] = ((uintptr_t)new_pd & PAGE_MASK)
                               | (flags & HIGHER_LEVEL_FLAGS)
                               | FLAGS_PRESENT;
@@ -180,8 +182,9 @@ void* alloc_page(uintptr_t vaddr, uint64_t flags) {
     uint64_t pde = pd[idx.pd_index];
     if (!(pde & FLAGS_PRESENT)) {
         uint64_t *new_pt = allocate_page_table();
+        uint64_t *new_pt_hhdm = add_hhdm_to(new_pt);
         if (!new_pt) panic("alloc_page: cannot allocate PT");
-        for (int i = 0; i < 512; i++) new_pt[i] = 0;
+        for (int i = 0; i < 512; i++) new_pt_hhdm[i] = 0;
         pd[idx.pd_index] = ((uintptr_t)new_pt & PAGE_MASK)
                           | (flags & HIGHER_LEVEL_FLAGS)
                           | FLAGS_PRESENT;
