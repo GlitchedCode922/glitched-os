@@ -5,6 +5,7 @@
 #include "../memory/paging.h"
 #include "../drivers/kbd.h"
 #include "../console.h"
+#include "../power.h"
 #include "exec.h"
 #include <stdint.h>
 
@@ -68,6 +69,11 @@ uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t
         return 0;
     case SYSCALL_GETENV:
         return (uintptr_t)getenv((const char *)arg1);
+    case SYSCALL_REBOOT:
+        // Reboot the system
+        asm volatile("cli"); // Disable interrupts
+        reboot();
+        return 0; // This line will not be reached
     default:
         // Invalid syscall, return an error code
         return 0xFFFFFFFFFFFFFFFF;
