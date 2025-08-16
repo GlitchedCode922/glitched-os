@@ -13,6 +13,7 @@
 #include <stdint.h>
 
 extern uint64_t __size;
+extern void init_fpu();
 
 __attribute__((used, section(".limine_requests_start")))
 static volatile LIMINE_REQUESTS_START_MARKER;
@@ -130,6 +131,7 @@ void kernel_main() {
     ata_register();
     register_intree_filesystems();
     free_region(0x0, 0x100000000);
+    init_fpu();
 
     parse_kernel_cmdline();
 

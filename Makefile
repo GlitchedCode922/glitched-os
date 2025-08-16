@@ -11,7 +11,7 @@ ARFLAGS =
 
 all: build/kernel build/libc.a
 
-build/kernel: build/kernelobj/main.o build/kernelobj/isr_handlers.o build/kernelobj/idt.o build/kernelobj/console.o build/kernelobj/8259pic.o build/kernelobj/kbd.o build/kernelobj/ps2_keyboard.o build/kernelobj/timer.o build/kernelobj/mman.o build/kernelobj/paging.o build/kernelobj/ata.o build/kernelobj/block.o build/kernelobj/mbr.o build/kernelobj/fat32.o build/kernelobj/mount.o build/kernelobj/syscalls.o build/kernelobj/elf.o build/kernelobj/exec.o build/kernelobj/power.o
+build/kernel: build/kernelobj/main.o build/kernelobj/isr_handlers.o build/kernelobj/idt.o build/kernelobj/console.o build/kernelobj/8259pic.o build/kernelobj/kbd.o build/kernelobj/ps2_keyboard.o build/kernelobj/timer.o build/kernelobj/mman.o build/kernelobj/paging.o build/kernelobj/ata.o build/kernelobj/block.o build/kernelobj/mbr.o build/kernelobj/fat32.o build/kernelobj/mount.o build/kernelobj/syscalls.o build/kernelobj/elf.o build/kernelobj/exec.o build/kernelobj/power.o build/kernelobj/fpu.o
 	$(CC) $(LDFLAGS) -o $@ $^
 
 build/kernelobj/main.o: kernel/main.c kernel/panic.h | build/kernelobj
@@ -70,6 +70,9 @@ build/kernelobj/exec.o: kernel/usermode/exec.c | build/kernelobj
 
 build/kernelobj/power.o: kernel/power.c | build/kernelobj
 	$(CC) $(CFLAGS) -c $< -o $@
+
+build/kernelobj/fpu.o: kernel/drivers/fpu.asm | build/kernelobj
+	$(AS) $(ASFLAGS) $< -o $@
 
 build/kernelobj: | build
 	mkdir -p build/kernelobj
