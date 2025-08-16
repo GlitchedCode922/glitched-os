@@ -7,6 +7,7 @@
 #include "../console.h"
 #include "../power.h"
 #include "exec.h"
+#include <stdarg.h>
 #include <stdint.h>
 
 uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5) {
@@ -74,6 +75,8 @@ uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t
         asm volatile("cli"); // Disable interrupts
         reboot();
         return 0; // This line will not be reached
+    case SYSCALL_VPRINTF:
+        kvprintf((const char*)arg1, *(va_list*)arg2);
     default:
         // Invalid syscall, return an error code
         return 0xFFFFFFFFFFFFFFFF;
