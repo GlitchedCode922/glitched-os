@@ -1,5 +1,6 @@
 #include "mount.h"
 #include "memory/mman.h"
+#include "usermode/exec.h"
 #include "fs/fat32.h"
 #include <stdint.h>
 
@@ -7,6 +8,14 @@ filesystem_t filesystems[24] = {0};
 mountpoint_t mountpoints[48] = {0};
 
 int filesystem_count = 0;
+
+static size_t strlen(const char *s) {
+    size_t len = 0;
+    while (s[len] != '\0') {
+        len++;
+    }
+    return len;
+}
 
 int register_filesystem(filesystem_t fs) {
     if (filesystem_count >= 24) {
@@ -28,6 +37,59 @@ static char *strcpy(char *dest, const char *src) {
     char *ret = dest;
     while ((*dest++ = *src++)); // copy until '\0'
     return ret;
+}
+
+static void strcat(char *dest, const char *src) {
+    while (*dest) dest++;
+    while (*src) *dest++ = *src++;
+    *dest = '\0';
+}
+
+// Resolve relative path to absolute
+char* resolve_path(char *rel_path) {
+    static char temp[MAX_PATH];
+    char *stack[MAX_PATH];
+    int top = 0;
+
+    // If path starts with '/', use it as absolute
+    if (rel_path[0] == '/') {
+        return rel_path;
+    } else {
+        strcpy(temp, wd);
+        size_t len = strlen(temp);
+        if (len > 0 && temp[len - 1] != '/') temp[len++] = '/';
+        size_t i = 0;
+        while (rel_path[i] && len < MAX_PATH - 1) {
+            temp[len++] = rel_path[i++];
+        }
+        temp[len] = '\0';
+    }
+
+    // Manual split by '/'
+    char *p = temp;
+    while (*p) {
+        // Skip consecutive '/'
+        while (*p == '/') p++;
+
+        // Extract next component
+        static char component[128];
+        int ci = 0;
+        while (*p && *p != '/' && ci < 127) {
+            component[ci++] = *p++;
+        }
+        component[ci] = '\0';
+
+        if (ci == 0) break;
+
+        if (component[0] == '.' && component[1] == '\0') {
+            // ignore '.'
+        } else if (component[0] == '.' && component[1] == '.' && component[2] == '\0') {
+            if (top > 0) top--; // go up one directory
+        } else {
+            stack[top++] = component; // push
+        }
+    }
+    return temp;
 }
 
 static int matching_chars(const char *s1, const char *s2) {
@@ -134,6 +196,7 @@ static void separate_mount_point_and_path(const char *path, char *mount_point, c
 }
 
 int mount_filesystem(const char *path, const char *type, int drive, int partition, int flags) {
+    path = resolve_path((char*)path);
     if (filesystem_count == 0) {
         return -1; // No filesystems registered
     }
@@ -177,6 +240,7 @@ int mount_filesystem(const char *path, const char *type, int drive, int partitio
 }
 
 int unmount_filesystem(const char *path) {
+    path = resolve_path((char*)path);
     for (int i = 0; i < 48; i++) {
         if (strcmp(mountpoints[i].mount_point, path) == 0) {
             mountpoints[i].mount_point[0] = '\0'; // Clear the mount point
@@ -194,6 +258,7 @@ int unmount_all_filesystems() {
 }
 
 int list_directory(const char *path, char *element, uint64_t element_index) {
+    path = resolve_path((char*)path);
     char resolved_path[256] = {0};
     resolve_dot_or_dotdot(path, resolved_path);
     path = resolved_path;
@@ -218,6 +283,7 @@ int list_directory(const char *path, char *element, uint64_t element_index) {
 }
 
 int exists(const char *path) {
+    path = resolve_path((char*)path);
     char resolved_path[256] = {0};
     resolve_dot_or_dotdot(path, resolved_path);
     path = resolved_path;
@@ -242,6 +308,7 @@ int exists(const char *path) {
 }
 
 int is_directory(const char *path) {
+    path = resolve_path((char*)path);
     char resolved_path[256] = {0};
     resolve_dot_or_dotdot(path, resolved_path);
     path = resolved_path;
@@ -266,6 +333,7 @@ int is_directory(const char *path) {
 }
 
 uint64_t get_file_size(const char *path) {
+    path = resolve_path((char*)path);
     char resolved_path[256] = {0};
     resolve_dot_or_dotdot(path, resolved_path);
     path = resolved_path;
@@ -290,6 +358,7 @@ uint64_t get_file_size(const char *path) {
 }
 
 int read_file(const char *path, uint8_t *buffer, size_t offset, size_t size) {
+    path = resolve_path((char*)path);
     char resolved_path[256] = {0};
     resolve_dot_or_dotdot(path, resolved_path);
     path = resolved_path;
@@ -314,6 +383,7 @@ int read_file(const char *path, uint8_t *buffer, size_t offset, size_t size) {
 }
 
 int write_file(const char *path, const uint8_t *buffer, size_t offset, size_t size) {
+    path = resolve_path((char*)path);
     char resolved_path[256] = {0};
     resolve_dot_or_dotdot(path, resolved_path);
     path = resolved_path;
@@ -341,6 +411,7 @@ int write_file(const char *path, const uint8_t *buffer, size_t offset, size_t si
 }
 
 int remove_file(const char *path) {
+    path = resolve_path((char*)path);
     char resolved_path[256] = {0};
     resolve_dot_or_dotdot(path, resolved_path);
     path = resolved_path;
@@ -368,6 +439,7 @@ int remove_file(const char *path) {
 }
 
 int create_file(const char *path) {
+    path = resolve_path((char*)path);
     char resolved_path[256] = {0};
     resolve_dot_or_dotdot(path, resolved_path);
     path = resolved_path;
@@ -396,6 +468,7 @@ int create_file(const char *path) {
 }
 
 int create_directory(const char *path) {
+    path = resolve_path((char*)path);
     char resolved_path[256] = {0};
     resolve_dot_or_dotdot(path, resolved_path);
     path = resolved_path;
@@ -424,6 +497,7 @@ int create_directory(const char *path) {
 }
 
 int get_creation_time(const char *path, uint64_t *timestamp) {
+    path = resolve_path((char*)path);
     char resolved_path[256] = {0};
     resolve_dot_or_dotdot(path, resolved_path);
     path = resolved_path;
@@ -448,6 +522,7 @@ int get_creation_time(const char *path, uint64_t *timestamp) {
 }
 
 int get_last_modification_time(const char *path, uint64_t *timestamp) {
+    path = resolve_path((char*)path);
     char resolved_path[256] = {0};
     resolve_dot_or_dotdot(path, resolved_path);
     path = resolved_path;
@@ -473,4 +548,18 @@ int get_last_modification_time(const char *path, uint64_t *timestamp) {
 
 void register_intree_filesystems() {
     fat32_register();
+}
+
+void getcwd(char *buffer) {
+    strcpy(buffer, wd);
+}
+
+int chdir(char *path) {
+    path = resolve_path(path);
+    char resolved_path[1024];
+    resolve_dot_or_dotdot(path, resolved_path);
+    path = resolved_path;
+    if (!exists(path)) return -1;
+    strcpy(wd, path);
+    return 0;
 }

@@ -2,14 +2,30 @@
 #include "elf.h"
 #include "../memory/paging.h"
 #include "../memory/mman.h"
+#include "../mount.h"
 #include <stdint.h>
 
 char** env = {NULL};
 void* base_pml4 = NULL;
+char* wd = "/";
 
 void init_exec(uintptr_t cr3) {
     // Initialize the base PML4 address for user mode execution
     base_pml4 = clone_page_tables((void*)cr3);
+}
+
+static int strcmp(const char *s1, const char *s2) {
+    while (*s1 && *s2 && (*s1 == *s2)) {
+        s1++;
+        s2++;
+    }
+    return *(unsigned char *)s1 - *(unsigned char *)s2;
+}
+
+static char* strcpy(char *dest, const char *src) {
+    char *ptr = dest;
+    while ((*ptr++ = *src++) != '\0');
+    return dest;
 }
 
 int execve(const char *path, const char **argv, const char **envp) {
@@ -97,6 +113,10 @@ int execve(const char *path, const char **argv, const char **envp) {
     char** parent_env = env;
     env = (char**)envp;
 
+    char* parent_wd = wd;
+    wd = kmalloc(4096);
+    strcpy(wd, parent_wd);
+
     // Load the executable into memory
     void* entry_point = load_elf(path);
     if (entry_point == 0) {
@@ -112,16 +132,10 @@ int execve(const char *path, const char **argv, const char **envp) {
     change_pml4(old_pml4);
     // Restore the parent environment
     env = parent_env;
+    kfree(wd);
+    wd = parent_wd;
 
     return result; // Success
-}
-
-static int strcmp(const char *s1, const char *s2) {
-    while (*s1 && *s2 && (*s1 == *s2)) {
-        s1++;
-        s2++;
-    }
-    return *(unsigned char *)s1 - *(unsigned char *)s2;
 }
 
 char* getenv(const char *name) {

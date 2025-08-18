@@ -32,6 +32,7 @@ typedef struct {
 } mountpoint_t;
 
 #define FLAG_READ_ONLY 0x01
+#define MAX_PATH 1024
 
 int register_filesystem(filesystem_t fs);
 int mount_filesystem(const char *path, const char *type, int drive, int partition, int flags);
@@ -49,3 +50,5 @@ int create_directory(const char *path);
 int get_creation_time(const char *path, uint64_t *timestamp);
 int get_last_modification_time(const char *path, uint64_t *timestamp);
 void register_intree_filesystems();
+void getcwd(char* buffer);
+int chdir(char* path);
