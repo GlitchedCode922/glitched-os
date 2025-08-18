@@ -26,6 +26,41 @@ char* strncpy(char *dest, const char *src, size_t n) {
     return dest;
 }
 
+char* strcat(char* dest, const char* src) {
+    char* ptr = dest;
+
+    while (*ptr != '\0') {
+        ptr++;
+    }
+
+    while (*src != '\0') {
+        *ptr = *src;
+        ptr++;
+        src++;
+    }
+
+    *ptr = '\0';
+    return dest;
+}
+
+char* strncat(char* dest, const char* src, size_t n) {
+    char* ptr = dest;
+
+    while (*ptr != '\0') {
+        ptr++;
+    }
+
+    while (*src != '\0' && n > 0) {
+        *ptr = *src;
+        ptr++;
+        src++;
+        n--;
+    }
+
+    *ptr = '\0';
+    return dest;
+}
+
 int strcmp(const char *s1, const char *s2) {
     while (*s1 && *s2 && (*s1 == *s2)) {
         s1++;
