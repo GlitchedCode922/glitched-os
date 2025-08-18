@@ -77,6 +77,7 @@ uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t
         return 0; // This line will not be reached
     case SYSCALL_VPRINTF:
         kvprintf((const char*)arg1, *(va_list*)arg2);
+        return 0;
     default:
         // Invalid syscall, return an error code
         return 0xFFFFFFFFFFFFFFFF;
