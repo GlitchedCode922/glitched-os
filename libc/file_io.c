@@ -25,3 +25,11 @@ void create_file(const char* path) {
 void create_directory(const char* path) {
     syscall(SYSCALL_CREATE_DIR, (uint64_t)path, 0, 0, 0, 0);
 }
+
+void getcwd(char *buffer) {
+    syscall(SYSCALL_GETCWD, (uint64_t)buffer, 0, 0, 0, 0);
+}
+
+int chdir(char *path) {
+    return syscall(SYSCALL_CHDIR, (uint64_t)path, 0, 0, 0, 0);
+}

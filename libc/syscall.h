@@ -26,5 +26,7 @@
 #define SYSCALL_GETENV 21
 #define SYSCALL_REBOOT 22
 #define SYSCALL_VPRINTF 23
+#define SYSCALL_CHDIR 24
+#define SYSCALL_GETCWD 25
 
 uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5);
