@@ -5,7 +5,8 @@
 #include "../mount.h"
 #include <stdint.h>
 
-char** env = {NULL};
+char* env_arr[] = {NULL};
+char** env = env_arr;
 void* base_pml4 = NULL;
 char* wd = "/";
 
@@ -94,6 +95,9 @@ int execve(const char *path, const char **argv, const char **envp) {
     asm volatile("mov %0, %%cr3" : : "r"(base_pml4) : "memory");
     void* new_pml4 = clone_page_tables(base_pml4);
     if (new_pml4 == NULL) {
+        // Restore the old PML4
+        asm volatile("mov %0, %%cr3" : : "r"(old_pml4) : "memory");
+        change_pml4(old_pml4);
         return -1; // Failed to clone page tables
     }
     asm volatile("mov %0, %%cr3" : : "r"(new_pml4) : "memory");
@@ -101,11 +105,17 @@ int execve(const char *path, const char **argv, const char **envp) {
 
     // Check if the path is NULL
     if (path == NULL) {
+        // Restore the old PML4
+        asm volatile("mov %0, %%cr3" : : "r"(old_pml4) : "memory");
+        change_pml4(old_pml4);
         return -1; // Invalid path
     }
 
     // Check if the executable exists and is valid
     if (!is_compatible_binary(path)) {
+        // Restore the old PML4
+        asm volatile("mov %0, %%cr3" : : "r"(old_pml4) : "memory");
+        change_pml4(old_pml4);
         return -2; // Executable not found or invalid
     }
 
@@ -120,6 +130,13 @@ int execve(const char *path, const char **argv, const char **envp) {
     // Load the executable into memory
     void* entry_point = load_elf(path);
     if (entry_point == 0) {
+        // Restore the old PML4
+        asm volatile("mov %0, %%cr3" : : "r"(old_pml4) : "memory");
+        change_pml4(old_pml4);
+        // Restore the parent environment
+        env = parent_env;
+        kfree(wd);
+        wd = parent_wd;
         return -3; // Failed to load executable
     }
 
