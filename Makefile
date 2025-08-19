@@ -9,7 +9,7 @@ LDFLAGS =
 override LDFLAGS += -nostdlib -ffreestanding -fno-stack-protector -fno-stack-check -fno-PIC -ffunction-sections -fdata-sections -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-sse -mno-sse2 -mno-red-zone -mcmodel=kernel -lgcc -T kernel/linker.ld
 ARFLAGS =
 
-all: build/kernel build/libc.a
+all: build/kernel build/libc.a binaries
 
 build/kernel: build/kernelobj/main.o build/kernelobj/isr_handlers.o build/kernelobj/idt.o build/kernelobj/console.o build/kernelobj/8259pic.o build/kernelobj/kbd.o build/kernelobj/ps2_keyboard.o build/kernelobj/timer.o build/kernelobj/mman.o build/kernelobj/paging.o build/kernelobj/ata.o build/kernelobj/block.o build/kernelobj/mbr.o build/kernelobj/fat32.o build/kernelobj/mount.o build/kernelobj/syscalls.o build/kernelobj/elf.o build/kernelobj/exec.o build/kernelobj/power.o build/kernelobj/fpu.o
 	$(CC) $(LDFLAGS) -o $@ $^
@@ -97,6 +97,11 @@ build/libcobj/exec.o: libc/exec.c | build/libcobj
 
 build/libcobj: | build
 	mkdir -p build/libcobj
+
+binaries: build/sh
+
+build/sh: binaries/sh.c build/libc.a
+	$(CC) $(CFLAGS) -Ilibc/ $< build/libc.a -o $@
 
 build:
 	mkdir -p build
