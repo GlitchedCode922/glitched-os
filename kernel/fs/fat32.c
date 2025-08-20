@@ -1323,6 +1323,7 @@ void fat32_register() {
     fat32_fs.get_file_size = fat32_get_file_size;
     fat32_fs.read = fat32_read;
     fat32_fs.write = fat32_write_to_file;
+    fat32_fs.list = fat32_list;
     fat32_fs.create_file = fat32_create_file;
     fat32_fs.create_directory = fat32_create_directory;
     fat32_fs.remove = fat32_delete;
