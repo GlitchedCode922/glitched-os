@@ -45,7 +45,7 @@ typedef struct __attribute__((packed)) {
 } fsinfo_t;
 
 typedef struct __attribute__((packed)) {
-    char name[11];    // File name (8.3 format)
+    unsigned char name[11];    // File name (8.3 format)
     uint8_t attributes; // File attributes (e.g., read-only, hidden, system, volume label, directory, archive)
     uint8_t reserved;  // Reserved byte
     uint8_t creation_time_tenth; // Creation time (tenth of a second)
