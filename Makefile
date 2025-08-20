@@ -98,7 +98,7 @@ build/libcobj/exec.o: libc/exec.c | build/libcobj
 build/libcobj: | build
 	mkdir -p build/libcobj
 
-binaries: build/sh build/ls build/mkdir build/touch build/rm build/pwd
+binaries: build/sh build/ls build/mkdir build/touch build/rm build/pwd build/cat
 
 build/sh: binaries/sh.c build/libc.a
 	$(CC) $(CFLAGS) -Ilibc/ $< build/libc.a -o $@
@@ -116,6 +116,9 @@ build/rm: binaries/rm.c build/libc.a
 	$(CC) $(CFLAGS) -Ilibc/ $< build/libc.a -o $@
 
 build/pwd: binaries/pwd.c build/libc.a
+	$(CC) $(CFLAGS) -Ilibc/ $< build/libc.a -o $@
+
+build/cat: binaries/cat.c build/libc.a
 	$(CC) $(CFLAGS) -Ilibc/ $< build/libc.a -o $@
 
 build:
