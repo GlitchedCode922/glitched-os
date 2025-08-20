@@ -807,7 +807,7 @@ int fat32_delete(const char* path) {
                 if (dirent->name[0] == 0x00) break; // End of entries
                 if (dirent->name[0] == 0xE5 || dirent->attributes & DIRENT_VOLUME_LABEL) continue;
 
-                if (memcmp(dirent->name, file_name, 11) == 0 && !(dirent->attributes & DIRENT_DIRECTORY)) {
+                if (memcmp(dirent->name, file_name, 11) == 0) {
                     file_cluster = ((uint32_t)dirent->first_cluster_high << 16) | dirent->first_cluster_low;
                     file_dirent = *dirent;
                     file_dirent_position[0] = get_cluster_start(cluster) + sector;
