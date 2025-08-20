@@ -28,5 +28,7 @@
 #define SYSCALL_VPRINTF 23
 #define SYSCALL_CHDIR 24
 #define SYSCALL_GETCWD 25
+#define SYSCALL_FILE_EXISTS 26
+#define SYSCALL_IS_DIRECTORY 27
 
 uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5);

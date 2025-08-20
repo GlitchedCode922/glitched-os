@@ -83,6 +83,10 @@ uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t
     case SYSCALL_GETCWD:
         getcwd((char*)arg1);
         return 0;
+    case SYSCALL_FILE_EXISTS:
+        return exists((const char*)arg1);
+    case SYSCALL_IS_DIRECTORY:
+        return is_directory((const char*)arg1);
     default:
         // Invalid syscall, return an error code
         return 0xFFFFFFFFFFFFFFFF;

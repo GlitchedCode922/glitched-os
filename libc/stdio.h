@@ -13,6 +13,9 @@ void putchar(char c);
 
 int read_file(const char* path, void* buffer, int offset, size_t size);
 int write_file(const char* path, const void* buffer, int offset, size_t size);
+int list_directory(const char *path, char *element, uint64_t element_index);
+int file_exists(const char* path);
+int is_directory(const char *path);
 uint64_t get_file_size(const char* path);
 void remove_file(const char* path);
 void create_file(const char* path);
