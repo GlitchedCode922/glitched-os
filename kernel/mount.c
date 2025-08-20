@@ -112,51 +112,63 @@ static int find_filesystem(const char *type) {
 }
 
 static void resolve_dot_or_dotdot(const char *path, char *resolved_path) {
-    char path_tree[50][256] = {0};
+    char path_tree[256][256] = {{0}};
     int path_index = 0;
     const char *p = path;
 
-    // Track absolute paths
     int is_absolute = (*p == '/');
 
+    // Split into segments
     while (*p) {
         if (*p == '/') {
             p++;
             continue;
         }
-        char *segment = path_tree[path_index++];
+        char *segment = path_tree[path_index];
         while (*p && *p != '/') {
             *segment++ = *p++;
         }
         *segment = '\0';
+        path_index++;
     }
 
-    // Resolve '.' and '..'
+    // Process segments, resolving "." and ".."
+    int resolved_count = 0;
     for (int i = 0; i < path_index; i++) {
         if (strcmp(path_tree[i], ".") == 0) {
-            path_tree[i][0] = 0xFF;
+            continue; // skip
         } else if (strcmp(path_tree[i], "..") == 0) {
-            path_tree[i][0] = 0xFF;
-            if (i > 0) path_tree[i - 1][0] = 0xFF;
+            if (resolved_count > 0) {
+                resolved_count--;  // pop last valid dir
+            } else if (!is_absolute) {
+                // relative path, keep ".."
+                strcpy(path_tree[resolved_count++], "..");
+            }
+        } else {
+            strcpy(path_tree[resolved_count++], path_tree[i]);
         }
     }
 
-    // Rebuild
+    // Rebuild resolved path
     int resolved_index = 0;
     if (is_absolute) {
         resolved_path[resolved_index++] = '/';
     }
-    for (int i = 0; i < path_index; i++) {
-        if (path_tree[i][0] != 0xFF) {
-            if (resolved_index > (is_absolute ? 1 : 0)) {
+
+    for (int i = 0; i < resolved_count; i++) {
+        if (i > 0 || is_absolute) {
+            if (resolved_index > 1 || (resolved_index == 1 && is_absolute))
                 resolved_path[resolved_index++] = '/';
-            }
-            int j = 0;
-            while (path_tree[i][j] != '\0') {
-                resolved_path[resolved_index++] = path_tree[i][j++];
-            }
         }
+        size_t len = strlen(path_tree[i]);
+        memcpy(resolved_path + resolved_index, path_tree[i], len);
+        resolved_index += len;
     }
+
+    if (resolved_index == 0) {
+        resolved_path[resolved_index++] = is_absolute ? '/' : '.';
+    }
+
     resolved_path[resolved_index] = '\0';
 }
 
