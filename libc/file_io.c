@@ -7,7 +7,7 @@ int read_file(const char* path, void* buffer, int offset, size_t size) {
 }
 
 int write_file(const char* path, const void* buffer, int offset, size_t size) {
-    return syscall(SYSCALL_READ_FILE, (uint64_t)path, (uint64_t)buffer, offset, size, 0);
+    return syscall(SYSCALL_WRITE_FILE, (uint64_t)path, (uint64_t)buffer, offset, size, 0);
 }
 
 uint64_t get_file_size(const char* path) {
