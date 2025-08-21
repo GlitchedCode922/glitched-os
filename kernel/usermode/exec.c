@@ -8,7 +8,8 @@
 char* env_arr[] = {NULL};
 char** env = env_arr;
 void* base_pml4 = NULL;
-char* wd = "/";
+char init_wd[4096] = "/";
+char* wd = init_wd;
 
 void init_exec(uintptr_t cr3) {
     // Initialize the base PML4 address for user mode execution
