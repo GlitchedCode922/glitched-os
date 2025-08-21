@@ -14,6 +14,7 @@ int main(int argc, char** argv) {
 
     if (is_directory(argv[1])) {
         printf("%s: is a directory\n", argv[1]);
+        return 1;
     }
 
     uint64_t file_size = get_file_size(argv[1]);
