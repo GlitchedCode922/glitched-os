@@ -23,6 +23,9 @@ int atapi_read_sectors(uint8_t drive, uint64_t lba, uint8_t* buffer, uint32_t co
     uint16_t bus_port = (drive / 2 == 0 ? PRIMARY_BUS : SECONDARY_BUS);
     select_drive(bus_port, drive % 2 == 0 ? 0xA0 : 0xB0);
 
+    // Wait for BSY to clear before issuing command
+    while (inb(bus_port + 0x07) & 0x80);
+
     outb(bus_port + 0x04, 2048 & 0xFF);
     outb(bus_port + 0x05, 2048 >> 8);
     outb(bus_port + 0x07, 0xA0); // Send PACKET command
@@ -66,6 +69,9 @@ int atapi_read_sectors(uint8_t drive, uint64_t lba, uint8_t* buffer, uint32_t co
 int atapi_write_sectors(uint8_t drive, uint64_t lba, uint8_t* buffer, uint32_t count) {
     uint16_t bus_port = (drive / 2 == 0 ? PRIMARY_BUS : SECONDARY_BUS);
     select_drive(bus_port, drive % 2 == 0 ? 0xA0 : 0xB0);
+
+    // Wait for BSY to clear before issuing command
+    while (inb(bus_port + 0x07) & 0x80);
 
     outb(bus_port + 0x04, 2048 & 0xFF);
     outb(bus_port + 0x05, 2048 >> 8);
@@ -117,6 +123,9 @@ void atapi_load_or_eject(uint8_t drive, uint8_t load) {
         0x02 | to_load, // LoEj = 1 (bit 1)
         0x00   // Control
     };
+
+    // Wait for BSY to clear before issuing command
+    while (inb(bus_port + 0x07) & 0x80);
 
     outb(bus_port + 0x07, 0xA0); // Send PACKET command
 
