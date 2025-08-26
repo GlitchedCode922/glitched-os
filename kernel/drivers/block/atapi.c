@@ -35,7 +35,7 @@ int atapi_read_sectors(uint8_t drive, uint64_t lba, uint8_t* buffer, uint32_t co
 	                                 (lba >> 0x00) & 0xFF,
 	                                 (count >> 0x18) & 0xFF, (count >> 0x10) & 0xFF, (count >> 0x08) & 0xFF,
 	                                 (count >> 0x00) & 0xFF,
-                                         0, 0};
+                                     0, 0};
 
     while (inb(bus_port + 0x07) & 0x80); // Wait for BSY to clear
     while (!(inb(bus_port + 0x07) & 0x09)); // Wait for DRQ or ERR to be set
@@ -82,7 +82,7 @@ int atapi_write_sectors(uint8_t drive, uint64_t lba, uint8_t* buffer, uint32_t c
                                       (lba >> 0x00) & 0xFF,
                                       (count >> 0x18) & 0xFF, (count >> 0x10) & 0xFF, (count >> 0x08) & 0xFF,
                                       (count >> 0x00) & 0xFF,
-                                          0, 0};
+                                      0, 0};
 
     while (inb(bus_port + 0x07) & 0x80); // Wait for BSY to clear
     while (!(inb(bus_port + 0x07) & 0x09)); // Wait for DRQ or ERR to be set
