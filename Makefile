@@ -79,7 +79,7 @@ build/kernelobj/fpu.o: kernel/drivers/fpu.asm | build/kernelobj
 build/kernelobj: | build
 	mkdir -p build/kernelobj
 
-build/libc.a: build/libcobj/console_io.o build/libcobj/file_io.o build/libcobj/syscall.o build/libcobj/string.o build/libcobj/exec.o
+build/libc.a: build/libcobj/console_io.o build/libcobj/file_io.o build/libcobj/syscall.o build/libcobj/string.o build/libcobj/exec.o build/libcobj/math.o
 	$(AR) $(ARFLAGS) rcs $@ $^
 
 build/libcobj/console_io.o: libc/console_io.c | build/libcobj
@@ -95,6 +95,9 @@ build/libcobj/string.o: libc/string.c | build/libcobj
 	$(CC) $(CFLAGS) $(LIBC_CFLAGS) -c $< -o $@
 
 build/libcobj/exec.o: libc/exec.c | build/libcobj
+	$(CC) $(CFLAGS) $(LIBC_CFLAGS) -c $< -o $@
+
+build/libcobj/math.o: libc/math.c | build/libcobj
 	$(CC) $(CFLAGS) $(LIBC_CFLAGS) -c $< -o $@
 
 build/libcobj: | build
