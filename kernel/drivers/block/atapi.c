@@ -115,13 +115,19 @@ void atapi_load_or_eject(uint8_t drive, uint8_t load) {
     uint16_t bus_port = (drive / 2 == 0 ? PRIMARY_BUS : SECONDARY_BUS);
     select_drive(bus_port, drive % 2 == 0 ? 0xA0 : 0xB0);
     uint8_t to_load = load ? 0x01 : 0x00;
-    uint8_t scsi_eject_cmd[6] = {
+    uint8_t scsi_eject_cmd[12] = {
         0x1B,  // Operation Code: START STOP UNIT
         0x00,  // Reserved
         0x00,  // Reserved
         0x00,  // Reserved
         0x02 | to_load, // LoEj = 1 (bit 1)
-        0x00   // Control
+        0x00,  // Control
+        0x00,  // Padding
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00
     };
 
     // Wait for BSY to clear before issuing command
