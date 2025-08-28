@@ -218,6 +218,66 @@ void* alloc_page(uintptr_t vaddr, uint64_t flags) {
     return (void*)vaddr;
 }
 
+void* alloc_mmio_page(uintptr_t vaddr, uintptr_t paddr, uint64_t flags) {
+    page_address_t idx = get_page_entry(vaddr);
+    uint64_t *pml4 = (uint64_t*)pml4_address;
+
+    // --- PML4 level ---
+    uint64_t pml4e = pml4[idx.pml4_index];
+    if (!(pml4e & FLAGS_PRESENT)) {
+        uint64_t *new_pdpt = allocate_page_table();
+        uint64_t *new_pdpt_hhdm = add_hhdm_to(new_pdpt);
+        if (!new_pdpt) panic("alloc_page: cannot allocate PDPT");
+        // clear entries
+        for (int i = 0; i < 512; i++) new_pdpt_hhdm[i] = 0;
+        // install
+        pml4[idx.pml4_index] = ((uintptr_t)new_pdpt & PAGE_MASK)
+                              | (flags & HIGHER_LEVEL_FLAGS)
+                              | FLAGS_PRESENT;
+        pml4e = pml4[idx.pml4_index];
+    }
+    uint64_t *pdpt = add_hhdm_to(page_table_to_address(pml4e));
+
+    // --- PDPT level ---
+    uint64_t pdpte = pdpt[idx.pdpt_index];
+    if (!(pdpte & FLAGS_PRESENT)) {
+        uint64_t *new_pd = allocate_page_table();
+        uint64_t *new_pd_hhdm = add_hhdm_to(new_pd);
+        if (!new_pd) panic("alloc_page: cannot allocate PD");
+        for (int i = 0; i < 512; i++) new_pd_hhdm[i] = 0;
+        pdpt[idx.pdpt_index] = ((uintptr_t)new_pd & PAGE_MASK)
+                              | (flags & HIGHER_LEVEL_FLAGS)
+                              | FLAGS_PRESENT;
+        pdpte = pdpt[idx.pdpt_index];
+    }
+    uint64_t *pd = add_hhdm_to(page_table_to_address(pdpte));
+
+    // --- PD level ---
+    uint64_t pde = pd[idx.pd_index];
+    if (!(pde & FLAGS_PRESENT)) {
+        uint64_t *new_pt = allocate_page_table();
+        uint64_t *new_pt_hhdm = add_hhdm_to(new_pt);
+        if (!new_pt) panic("alloc_page: cannot allocate PT");
+        for (int i = 0; i < 512; i++) new_pt_hhdm[i] = 0;
+        pd[idx.pd_index] = ((uintptr_t)new_pt & PAGE_MASK)
+                          | (flags & HIGHER_LEVEL_FLAGS)
+                          | FLAGS_PRESENT;
+        pde = pd[idx.pd_index];
+    }
+    uint64_t *pt = add_hhdm_to(page_table_to_address(pde));
+
+    // --- PT level ---
+    if (pt[idx.pt_index] & FLAGS_PRESENT) {
+        panic("alloc_page: virtual 0x%p already mapped", (void*)vaddr);
+    }
+
+    pt[idx.pt_index] = (paddr & PAGE_MASK)
+                      | flags
+                      | FLAGS_PRESENT;
+
+    return (void*)vaddr;
+}
+
 int free_page(void *page) {
     if (page == NULL) {
         return -1; // Nothing to free

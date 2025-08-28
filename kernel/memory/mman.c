@@ -162,6 +162,19 @@ void* alloc_region(uintptr_t vaddr, size_t size, uint64_t flags) {
     return (void*)vaddr;
 }
 
+void* alloc_mmio_region(uintptr_t vaddr, uintptr_t paddr, size_t size, uint64_t flags) {
+    uintptr_t phys = paddr;
+    for (uintptr_t i = vaddr; i < PAGE_ALIGN((vaddr + size)); i += PAGE_SIZE) {
+        // Allocate memory for the segment
+        void* addr = alloc_mmio_page(i, phys, flags | FLAGS_PRESENT);
+        if (!addr) {
+            return 0; // Memory allocation failed
+        }
+        phys += PAGE_SIZE;
+    }
+    return (void*)vaddr;
+}
+
 void free_region(uintptr_t vaddr, size_t size) {
     for (uintptr_t i = vaddr; i < PAGE_ALIGN((vaddr + size)); i += PAGE_SIZE) {
         // Free the allocated memory for the segment

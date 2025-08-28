@@ -8,6 +8,7 @@ void* kmalloc(size_t size);
 void* kcalloc(size_t num, size_t size_per_element);
 void* krealloc(void* ptr, size_t old_size, size_t new_size);
 void* alloc_region(uintptr_t vaddr, size_t size, uint64_t flags);
+void* alloc_mmio_region(uintptr_t vaddr, uintptr_t paddr, size_t size, uint64_t flags);
 void free_region(uintptr_t vaddr, size_t size);
 void kfree(void* ptr);
 
