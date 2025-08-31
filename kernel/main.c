@@ -10,6 +10,7 @@
 #include "drivers/partitions/mbr.h"
 #include "usermode/elf.h"
 #include "usermode/exec.h"
+#include "io/pci.h"
 #include <stdint.h>
 
 extern uint64_t __size;
@@ -131,6 +132,8 @@ void kernel_main() {
     ata_register();
     register_intree_filesystems();
     free_region(0x0, 0x100000000);
+    enumerate_pci();
+    print_pci_devices();
     init_fpu();
 
     parse_kernel_cmdline();
