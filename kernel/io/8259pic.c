@@ -1,5 +1,6 @@
 #include "ports.h"
 #include "8259pic.h"
+#include "pci.h"
 #include "../drivers/timer.h"
 #include "../drivers/ps2_keyboard.h"
 
@@ -119,6 +120,7 @@ void irq15_handler() {
 }
 
 void irq_handler(int irq) {
+    pci_irq_handler(irq);
     switch (irq) {
         case 0:
             irq0_handler();

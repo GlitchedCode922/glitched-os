@@ -3,9 +3,13 @@
 #include "ports.h"
 #include <stddef.h>
 #include "../console.h"
+#include "8259pic.h"
 
 pci_device_t pci_devices[MAX_PCI_DEVICES];
 size_t pci_device_count = 0;
+
+pci_driver_t pci_drivers[MAX_PCI_DRIVERS];
+size_t pci_driver_count = 0;
 
 uint32_t pci_config_read(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset) {
     uint32_t address = (1U << 31)             // enable bit
@@ -62,6 +66,20 @@ void enumerate_pci() {
             }
         }
     }
+
+    // Call driver initializers
+    for (size_t i = 0; i < pci_device_count; i++) {
+        pci_device_t dev = pci_devices[i];
+        for (size_t j = 0; j < pci_driver_count; j++) {
+            if (pci_drivers[j].vendor == dev.vendor_id && pci_drivers[j].device == dev.device_id) {
+                if (pci_drivers[j].init) {
+                    // Enable the IRQ
+                    pic_enable_irq(dev.irq);
+                    pci_drivers[j].init(dev);
+                }
+            }
+        }
+    }
 }
 
 // Debugging function to print PCI devices
@@ -77,3 +95,16 @@ void print_pci_devices() {
     }
 }
 
+void register_pci_driver(pci_driver_t driver) {
+    if (pci_driver_count < MAX_PCI_DRIVERS) {
+        pci_drivers[pci_driver_count++] = driver;
+    }
+}
+
+void pci_irq_handler(uint8_t irq) {
+    for (size_t i = 0; i < pci_driver_count; i++) {
+        if (pci_drivers[i].isr) {
+            pci_drivers[i].isr(irq);
+        }
+    }
+}
