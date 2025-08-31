@@ -213,16 +213,20 @@ void kvprintf(const char *fmt, va_list args){
 }
 
 void kprintf_hex(uint64_t value) {
-    char buffer[17];
-    for (int i = 15; i >= 0; i--) {
-        buffer[i] = "0123456789ABCDEF"[value & 0xF];
-        value >>= 4;
-    }
-    buffer[16] = '\0';
+    char buffer[17]; // 16 hex digits + null terminator
+    int i = 16;
+    buffer[i--] = '\0'; // null terminator at the end
+
     if (value == 0) {
-        buffer[15] = '0'; // Ensure at least one digit is shown
+        buffer[i--] = '0';
+    } else {
+        while (value > 0) {
+            buffer[i--] = "0123456789ABCDEF"[value & 0xF]; // get last 4 bits
+            value >>= 4;
+        }
     }
-    puts(buffer);
+
+    puts(&buffer[i + 1]);
 }
 
 void kprintf_dec(uint64_t value) {
