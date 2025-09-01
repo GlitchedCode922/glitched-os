@@ -133,7 +133,6 @@ void kernel_main() {
     register_intree_filesystems();
     free_region(0x0, 0x100000000);
     enumerate_pci();
-    print_pci_devices();
     init_fpu();
 
     parse_kernel_cmdline();
