@@ -10,9 +10,9 @@ int has_mbr(uint8_t disk) {
     if (read_sectors(disk, 0, buffer, 2) != 0) return -1;
     uint8_t mbr_signature = memcmp(&buffer[510], (char[]){0x55, 0xAA}, 2);
     uint8_t gpt_signature = memcmp(&buffer[512], "EFI PART", 8);
-    if (gpt_signature == 0) return 1;
-    if (mbr_signature == 0) return 0;
-    return 1;
+    if (gpt_signature == 0) return 0;
+    if (mbr_signature == 0) return 1;
+    return 0;
 }
 
 void get_bootloader(uint8_t *buffer, uint8_t disk) {
