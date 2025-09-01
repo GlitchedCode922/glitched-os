@@ -33,6 +33,13 @@ void fat32_set_read_only(uint8_t read_only_flag) {
     read_only = read_only_flag;
 }
 
+int is_fat32(uint8_t disk, uint8_t partition) {
+    fat32_select(disk, partition);
+    bpb_t local_bpb = get_bpb();
+    char signature[8] = "FAT32   ";
+    return memcmp(local_bpb.file_system_type, signature, 8);
+}
+
 bpb_t get_bpb() {
     bpb_t bpb;
     read_sectors_relative(active_disk, active_partition, 0, (uint8_t*)&bpb, 1);
@@ -1316,6 +1323,7 @@ void fat32_register() {
     filesystem_t fat32_fs;
     memset(&fat32_fs, 0, sizeof(filesystem_t));
     memcpy(fat32_fs.name, "FAT32", 6);
+    fat32_fs.check = is_fat32;
     fat32_fs.select = init_fat32;
     fat32_fs.set_read_only = fat32_set_read_only;
     fat32_fs.exists = fat32_file_exists;
