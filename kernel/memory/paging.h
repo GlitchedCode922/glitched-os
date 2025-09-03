@@ -34,6 +34,7 @@ typedef struct {
 void init_paging(uintptr_t cr3, struct limine_memmap_response *memmap, uintptr_t hhdm);
 void* alloc_page(uintptr_t addr, uint64_t flags);
 void* alloc_mmio_page(uintptr_t vaddr, uintptr_t paddr, uint64_t flags);
+uintptr_t get_physical_address(uintptr_t virtual_address);
 int free_page(void* page);
 int check_reserved(uintptr_t addr);
 int check_used(uintptr_t addr);

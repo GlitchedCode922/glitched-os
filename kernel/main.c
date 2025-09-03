@@ -8,6 +8,7 @@
 #include "mount.h"
 #include "idt.h"
 #include "drivers/partitions/mbr.h"
+#include "drivers/net/rtl8139.h"
 #include "usermode/elf.h"
 #include "usermode/exec.h"
 #include "io/pci.h"
@@ -132,6 +133,7 @@ void kernel_main() {
     ata_register();
     register_intree_filesystems();
     free_region(0x0, 0x100000000);
+    register_rtl8139_driver();
     enumerate_pci();
     init_fpu();
 

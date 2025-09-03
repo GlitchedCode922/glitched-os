@@ -13,7 +13,7 @@ ARFLAGS =
 
 all: build/kernel build/libc.a binaries
 
-build/kernel: build/kernelobj/main.o build/kernelobj/isr_handlers.o build/kernelobj/idt.o build/kernelobj/console.o build/kernelobj/8259pic.o build/kernelobj/kbd.o build/kernelobj/ps2_keyboard.o build/kernelobj/timer.o build/kernelobj/mman.o build/kernelobj/paging.o build/kernelobj/ata.o build/kernelobj/block.o build/kernelobj/mbr.o build/kernelobj/fat32.o build/kernelobj/mount.o build/kernelobj/syscalls.o build/kernelobj/elf.o build/kernelobj/exec.o build/kernelobj/power.o build/kernelobj/fpu.o build/kernelobj/pci.o
+build/kernel: build/kernelobj/main.o build/kernelobj/isr_handlers.o build/kernelobj/idt.o build/kernelobj/console.o build/kernelobj/8259pic.o build/kernelobj/kbd.o build/kernelobj/ps2_keyboard.o build/kernelobj/timer.o build/kernelobj/mman.o build/kernelobj/paging.o build/kernelobj/ata.o build/kernelobj/block.o build/kernelobj/mbr.o build/kernelobj/fat32.o build/kernelobj/mount.o build/kernelobj/syscalls.o build/kernelobj/elf.o build/kernelobj/exec.o build/kernelobj/power.o build/kernelobj/fpu.o build/kernelobj/pci.o build/kernelobj/rtl8139.o
 	$(CC) $(LDFLAGS) $(KERNEL_LDFLAGS) -o $@ $^
 
 build/kernelobj/main.o: kernel/main.c kernel/panic.h | build/kernelobj
@@ -77,6 +77,9 @@ build/kernelobj/fpu.o: kernel/drivers/fpu.asm | build/kernelobj
 	$(AS) $(ASFLAGS) $< -o $@
 
 build/kernelobj/pci.o: kernel/io/pci.c | build/kernelobj
+	$(CC) $(CFLAGS) $(KERNEL_CFLAGS) -c $< -o $@
+
+build/kernelobj/rtl8139.o: kernel/drivers/net/rtl8139.c | build/kernelobj
 	$(CC) $(CFLAGS) $(KERNEL_CFLAGS) -c $< -o $@
 
 build/kernelobj: | build
