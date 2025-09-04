@@ -12,6 +12,8 @@ static uint8_t irqs[4] = {0};
 static uint8_t* rx_buffers[4] = {0};
 static size_t rx_offsets[4] = {0};
 static void* received_packets[4][512] = {0};
+static void* transmitter_buffers[4][4] = {0};
+static int tx_buffer_in_use[4] = {0};
 static int received_packet_lengths[4][512] = {0};
 static int received_packet_read_head[4] = {0};
 static int received_packet_write_head[4] = {0};
@@ -29,6 +31,7 @@ void rtl8139_init(pci_device_t device) {
     pci_config_write(device.bus, device.device, device.function, 0x04, command);
     rx_buffers[cards_existing] = kmalloc(8192 + 16); // Allocate buffer for receiving packets
     for (int i = 0; i < 512; i++) received_packets[cards_existing][i] = kmalloc(2048);
+    for (int i = 0; i < 4; i++) transmitter_buffers[cards_existing][i] = kmalloc(2048);
     turn_on_rtl8139(cards_existing);
     cards_existing++;
 }
@@ -54,6 +57,12 @@ void turn_on_rtl8139(int card) {
 
     // Configure the receive mode (broadcast, multicast, physical match)
     outl(io_base + 0x44, 0x0000000E);
+
+    // Transmitter setup
+    for (int i = 0; i < 4; i++) {
+        uint32_t tx_buffer_phys = (uint32_t)get_physical_address((uint64_t)transmitter_buffers[card][i]);
+        outl(io_base + 0x20 + (i * 4), tx_buffer_phys); // Set the transmit buffer addresses
+    }
 
     // Enable the receiver and transmitter
     outb(io_base + 0x37, 0x0C); // Enable receiver and transmitter
@@ -142,6 +151,29 @@ int rtl8139_read_packet(int card, void** buffer) {
 
     received_packet_read_head[card] = (received_packet_read_head[card] + 1) % 512;
     return length;
+}
+
+void rtl8139_send_packet(int card, void* buffer, int length) {
+    if (card >= cards_existing) return; // Invalid card index
+    if (length > 1792) return; // Packet too large
+
+    uint16_t io_base = base_io_addresses[card];
+    int tx_index = tx_buffer_in_use[card];
+
+    // Copy the packet to the transmit buffer
+    uint8_t* tx_buffer = (uint8_t*)transmitter_buffers[card][tx_index];
+    for (int i = 0; i < length; i++) {
+        tx_buffer[i] = ((uint8_t*)buffer)[i];
+    }
+
+    // Start transmission
+    outl(io_base + 0x10 + (tx_index * 4), length);
+
+    // Wait for transmission to complete
+    while (!(inw(io_base + 0x10 + (tx_index * 4)) & (1 << 13)));
+
+    tx_buffer_in_use[tx_index]++;
+    if (tx_buffer_in_use[tx_index] == 4) tx_buffer_in_use[tx_index] = 0;
 }
 
 void register_rtl8139_driver() {
