@@ -51,7 +51,7 @@ void turn_on_rtl8139(int card) {
     // Receive buffer setup
     uint32_t rx_buffer_phys = (uint32_t)get_physical_address((uint64_t)rx_buffers[card]);
     outl(io_base + 0x30, rx_buffer_phys); // Set the receive buffer address
-    
+
     // Configure the receive mode (broadcast, multicast, physical match)
     outl(io_base + 0x44, 0x0000000E);
 
@@ -72,7 +72,7 @@ void rtl8139_irq_handler(uint8_t irq) {
             if (status & 0x01) {
                 uint8_t* rx_buffer = rx_buffers[i];
                 size_t offset = rx_offsets[i];
-                
+
                 uint16_t packet_status = *(uint16_t*)(rx_buffer + offset);
                 uint16_t packet_length = *(uint16_t*)(rx_buffer + offset + 2);
 
@@ -110,6 +110,22 @@ void rtl8139_irq_handler(uint8_t irq) {
             break;
         }
     }
+}
+
+uint8_t* rtl8139_get_mac_address(int card) {
+    static uint8_t mac[6] = {0};
+
+    if (card >= cards_existing) {
+        for (int i = 0; i < 6; i++) mac[i] = 0;
+        return mac; // Invalid card index
+    }
+
+    uint16_t io_base = base_io_addresses[card];
+    for (int i = 0; i < 6; i++) {
+        mac[i] = inb(io_base + i);
+    }
+
+    return mac;
 }
 
 int rtl8139_read_packet(int card, void** buffer) {
