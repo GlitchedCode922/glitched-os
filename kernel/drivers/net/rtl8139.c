@@ -4,6 +4,7 @@
 #include "../../memory/mman.h"
 #include "../../memory/paging.h"
 #include "../../console.h"
+#include "../../net/ethernet.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -108,7 +109,8 @@ void rtl8139_irq_handler(uint8_t irq) {
 
                 received_packet_write_head[i] = (received_packet_write_head[i] + 1) % 512;
 
-                // Inform network stack (not implemented here)
+                // Inform network stack
+                frame_received(i);
 
                 offset = (offset + packet_length + 4 + 3) & ~3; // Align to 4 bytes
                 rx_offsets[i] = offset % 8192; // Wrap around the buffer
