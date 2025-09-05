@@ -174,8 +174,8 @@ void rtl8139_send_packet(int card, void* buffer, int length) {
     // Wait for transmission to complete
     while (!(inw(io_base + 0x10 + (tx_index * 4)) & (1 << 13)));
 
-    tx_buffer_in_use[tx_index]++;
-    if (tx_buffer_in_use[tx_index] == 4) tx_buffer_in_use[tx_index] = 0;
+    tx_buffer_in_use[card]++;
+    if (tx_buffer_in_use[card] == 4) tx_buffer_in_use[card] = 0;
 }
 
 void register_rtl8139_driver() {
