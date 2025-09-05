@@ -1,3 +1,4 @@
+#pragma once
 #include <stdint.h>
 
 #define BROADCAST_MAC "\xff\xff\xff\xff\xff\xff"

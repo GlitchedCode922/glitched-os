@@ -1,3 +1,4 @@
+#pragma once
 #include <stdint.h>
 
 #define ARP_HTYPE_ETHERNET 1
