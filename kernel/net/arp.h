@@ -30,4 +30,4 @@ typedef struct {
 } arp_entry_t;
 
 void arp_reply(uint8_t* request_frame, int card);
-void arp_request(uint8_t* target_ip, uint8_t* target_mac_buffer, uint8_t* src_ip, uint8_t* src_mac, int card);
+void arp_request(uint8_t* target_ip, uint8_t* target_mac_buffer, int card);

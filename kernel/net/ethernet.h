@@ -1,5 +1,7 @@
 #include <stdint.h>
 
+#define BROADCAST_MAC "\xff\xff\xff\xff\xff\xff"
+
 uint16_t htons(uint16_t val);
 uint16_t ntohs(uint16_t val);
 
