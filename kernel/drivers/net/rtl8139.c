@@ -162,6 +162,8 @@ void rtl8139_send_packet(int card, void* buffer, int length) {
     uint16_t io_base = base_io_addresses[card];
     int tx_index = tx_buffer_in_use[card];
 
+    asm volatile("cli");
+
     // Copy the packet to the transmit buffer
     uint8_t* tx_buffer = (uint8_t*)transmitter_buffers[card][tx_index];
     for (int i = 0; i < length; i++) {
@@ -176,6 +178,7 @@ void rtl8139_send_packet(int card, void* buffer, int length) {
 
     tx_buffer_in_use[card]++;
     if (tx_buffer_in_use[card] == 4) tx_buffer_in_use[card] = 0;
+    asm volatile("sti");
 }
 
 void register_rtl8139_driver() {
