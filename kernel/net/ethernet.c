@@ -2,6 +2,7 @@
 #include "../memory/mman.h"
 #include "ethernet.h"
 #include "arp.h"
+#include "ip.h"
 #include <stdint.h>
 
 uint16_t htons(uint16_t val) {
@@ -21,7 +22,8 @@ void frame_received(int card) {
         uint16_t ethertype = (frame[12] << 8) | frame[13];
         // Check ethertype for IPv4 (0x0800) or ARP (0x0806)
         if (ethertype == 0x0800) {
-            // Handle IPv4 packet (not implemented)
+            // Handle IPv4 packet
+            ip_received(frame + 14, card);
         } else if (ethertype == 0x0806) {
             // Handle ARP packet
             arp_reply(frame + 14, card);
