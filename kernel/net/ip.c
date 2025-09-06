@@ -3,6 +3,7 @@
 #include "arp.h"
 #include "../memory/mman.h"
 #include "icmp.h"
+#include "udp.h"
 #include "../drivers/net/rtl8139.h"
 #include <stdint.h>
 
@@ -184,8 +185,7 @@ void ip_received(uint8_t* frame, int card) {
             send_unreachable(ip_header->src_ip, 2, payload, payload_length, card);
             break;
         case IP_PROTO_UDP:
-            // Handle UDP (not implemented here)
-            send_unreachable(ip_header->src_ip, 2, payload, payload_length, card);
+            udp_received(payload, ip_header->src_ip, ip_header->dst_ip, payload_length, card);
             break;
         default:
             // Unsupported protocol
