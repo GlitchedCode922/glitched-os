@@ -15,6 +15,8 @@ extern char ip[4];
 uint8_t fragment_storage[12][0xFFFF]; // Storage for fragment reassembly
 int ids[12]; // Identification numbers for fragments
 
+uint8_t* icmp_error_packet = NULL;
+
 uint16_t identification = 1; // Global identification counter
 
 void ip_send(uint8_t* dst_ip, uint8_t protocol, uint8_t* payload, int payload_length, int card) {
@@ -148,6 +150,9 @@ void ip_received(uint8_t* frame, int card) {
     if (received_checksum != calculated_checksum) {
         return; // Checksum mismatch
     }
+    // Restore checksum
+    ip_header->header_checksum = received_checksum;
+
 
     // Extract payload
     int header_length = (ip_header->version_ihl & 0x0F) * 4;
@@ -175,6 +180,8 @@ void ip_received(uint8_t* frame, int card) {
         }
     }
 
+    icmp_error_packet = frame; // For ICMP error messages
+
     // Handle based on protocol
     switch (ip_header->protocol) {
         case IP_PROTO_ICMP:
@@ -182,14 +189,22 @@ void ip_received(uint8_t* frame, int card) {
             break;
         case IP_PROTO_TCP:
             // Handle TCP (not implemented here)
-            send_unreachable(ip_header->src_ip, 2, payload, payload_length, card);
+            send_unreachable(ip_header->src_ip, 2, frame, ntohs(ip_header->total_length) > 20 + 64 ? 20 + 64 : ntohs(ip_header->total_length), card);
             break;
         case IP_PROTO_UDP:
             udp_received(payload, ip_header->src_ip, ip_header->dst_ip, payload_length, card);
             break;
         default:
             // Unsupported protocol
-            send_unreachable(ip_header->src_ip, 2, payload, payload_length, card);
+            send_unreachable(ip_header->src_ip, 2, frame, ntohs(ip_header->total_length) > 20 + 64 ? 20 + 64 : ntohs(ip_header->total_length), card);
             break;
+    }
+}
+
+void ip_send_dest_unreachable(uint8_t *dest_ip, uint8_t code, int card) {
+    if (icmp_error_packet) {
+        // Get packet length
+        int len = ntohs(((ipv4_header_t*)icmp_error_packet)->total_length);
+        send_unreachable(dest_ip, code, icmp_error_packet, len, card);
     }
 }

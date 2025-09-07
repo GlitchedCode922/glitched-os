@@ -44,3 +44,5 @@ typedef struct {
 
 void ip_send(uint8_t* dst_ip, uint8_t protocol, uint8_t* payload, int payload_length, int card);
 void ip_received(uint8_t* frame, int card);
+
+void ip_send_dest_unreachable(uint8_t* dest_ip, uint8_t code, int card);
