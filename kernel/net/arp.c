@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 static arp_entry_t arp_cache[ARP_CACHE_SIZE] = {0};
-char ip[4] = {10, 0, 2, 15};
+char ip[4] = {0, 0, 0, 0};
 
 static int waiting_for_reply = 0;
 
