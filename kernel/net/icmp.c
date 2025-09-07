@@ -43,7 +43,7 @@ void icmp_received(uint8_t *packet, uint8_t* sender, int len, int card) {
             icmp_hdr->type = ICMP_ECHO_REPLY;
             icmp_hdr->checksum = 0;
             icmp_hdr->checksum = icmp_checksum(packet, len);
-            // Send the reply back (send_packet is a placeholder function)
+            // Send the reply back
             ip_send(sender, IP_PROTO_ICMP, packet, len, card);
             break;
 
@@ -103,9 +103,10 @@ void icmp_send(uint8_t *dest_ip, uint8_t type, uint8_t code, uint16_t identifier
 }
 
 int ping(uint8_t *dest_ip, int card) {
-    const char ping_data[] = "PING";
+    char ping_data[56];
+    memset(ping_data, 'a', 56);
     pinging = 1;
-    icmp_send(dest_ip, ICMP_ECHO_REQUEST, ICMP_ECHO_REQUEST, 0, 1, (uint8_t*)ping_data, sizeof(ping_data), card);
+    icmp_send(dest_ip, ICMP_ECHO_REQUEST, 0, 123, 0, (uint8_t*)ping_data, sizeof(ping_data), card);
     uint64_t start = get_uptime_milliseconds();
     while (pinging == 1);
     if (pinging == 0) {
