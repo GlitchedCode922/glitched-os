@@ -5,6 +5,7 @@
 #include "../../memory/paging.h"
 #include "../../console.h"
 #include "../../net/ethernet.h"
+#include "../net.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -19,6 +20,7 @@ static int received_packet_lengths[4][512] = {0};
 static int received_packet_read_head[4] = {0};
 static int received_packet_write_head[4] = {0};
 int cards_existing = 0;
+static int driver_index;
 
 void rtl8139_init(pci_device_t device) {
     if (cards_existing == 4) return;
@@ -35,6 +37,7 @@ void rtl8139_init(pci_device_t device) {
     for (int i = 0; i < 4; i++) transmitter_buffers[cards_existing][i] = kmalloc(2048);
     turn_on_rtl8139(cards_existing);
     cards_existing++;
+    register_net_interface(driver_index, cards_existing - 1);
 }
 
 void turn_on_rtl8139(int card) {
@@ -110,7 +113,7 @@ void rtl8139_irq_handler(uint8_t irq) {
                 received_packet_write_head[i] = (received_packet_write_head[i] + 1) % 512;
 
                 // Inform network stack
-                frame_received(i);
+                frame_received(get_global_if_index(driver_index, i));
 
                 offset = (offset + packet_length + 4 + 3) & ~3; // Align to 4 bytes
                 rx_offsets[i] = offset % 8192; // Wrap around the buffer
@@ -189,4 +192,10 @@ void register_rtl8139_driver() {
         .isr = rtl8139_irq_handler,
     };
     register_pci_driver(rtl8139_driver);
+    driver_index = register_net_driver((net_driver_t){
+        .name = "rtl8139",
+        .send_packet = rtl8139_send_packet,
+        .read_packet = rtl8139_read_packet,
+        .get_mac_address = rtl8139_get_mac_address,
+    });
 }

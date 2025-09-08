@@ -1,4 +1,4 @@
-#include "../drivers/net/rtl8139.h"
+#include "../drivers/net.h"
 #include "../memory/mman.h"
 #include "ethernet.h"
 #include "arp.h"
@@ -29,7 +29,7 @@ uint32_t ntohl(uint32_t val) {
 
 void frame_received(int card) {
     uint8_t* frame;
-    int frame_length = rtl8139_read_packet(card, (void**)&frame);
+    int frame_length = receive_packet(card, (void**)&frame);
     if (frame_length > 0) {
         char* src_mac = (char*)(frame + 6);
         char* dst_mac = (char*)frame;
@@ -62,6 +62,6 @@ void send_ethernet(char* src_mac, char* dst_mac, uint16_t ethertype, uint8_t* pa
     frame[13] = ethertype & 0xFF;
     memcpy(frame + 14, payload, payload_length);
     // Send the frame using the network card
-    rtl8139_send_packet(card, frame, frame_length);
+    send_packet(card, frame, frame_length);
     kfree(frame);
 }

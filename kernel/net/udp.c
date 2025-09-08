@@ -4,8 +4,7 @@
 #include <stdint.h>
 #include "../memory/mman.h"
 #include "icmp.h"
-
-extern char ip[4];
+#include "../drivers/net.h"
 
 void (*port_listeners[65536])(uint8_t*, uint16_t, uint8_t*, int) = {0};
 
@@ -50,6 +49,9 @@ uint16_t udp_checksum(uint8_t* src_ip, uint8_t* dest_ip, uint8_t* udp_packet, in
 }
 
 void udp_send(uint8_t *dest_ip, uint16_t src_port, uint16_t dest_port, uint8_t *data, int data_len, int card) {
+    uint8_t ip[4];
+    get_ip(card, (uint32_t*)ip);
+
     if (data_len > UDP_MAX_DATA_SIZE) {
         // Data too large for a single UDP packet
         return;

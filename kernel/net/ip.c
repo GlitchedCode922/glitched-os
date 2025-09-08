@@ -4,13 +4,8 @@
 #include "../memory/mman.h"
 #include "icmp.h"
 #include "udp.h"
-#include "../drivers/net/rtl8139.h"
+#include "../drivers/net.h"
 #include <stdint.h>
-
-uint8_t router_ip[4] = {10, 0, 2, 2};
-uint8_t subnet_mask[4] = {255, 255, 255, 0};
-
-extern char ip[4];
 
 uint8_t fragment_storage[12][0xFFFF]; // Storage for fragment reassembly
 int ids[12]; // Identification numbers for fragments
@@ -25,6 +20,13 @@ void ip_send(uint8_t* dst_ip, uint8_t protocol, uint8_t* payload, int payload_le
     uint16_t total_length;
     uint8_t dst_mac[6] = BROADCAST_MAC; // Default to broadcast
     
+    uint8_t ip[4];
+    uint8_t subnet_mask[4];
+    uint8_t router_ip[4];
+    get_ip(card, (uint32_t*)ip);
+    get_subnet(card, (uint32_t*)subnet_mask);
+    get_router(card, (uint32_t*)router_ip);
+
     // Determine if the destination IP is in the same subnet
     int same_subnet = 1;
     for (int i = 0; i < 4; i++) {
@@ -97,8 +99,9 @@ void ip_send(uint8_t* dst_ip, uint8_t protocol, uint8_t* payload, int payload_le
             memcpy(fragment_packet, &ip_header, IPV4_HEADER_LEN);
             memcpy(fragment_packet + IPV4_HEADER_LEN, payload + i, fragment_size);
             // Send the fragment
-            uint8_t* our_mac = rtl8139_get_mac_address(card);
-            send_ethernet(our_mac, dst_mac, 0x0800, fragment_packet, fragment_total_length, card);
+            uint8_t our_mac[6];
+            get_mac(card, our_mac);
+            send_ethernet((char*)our_mac, (char*)dst_mac, 0x0800, fragment_packet, fragment_total_length, card);
         }
         return;
     }
@@ -115,7 +118,8 @@ void ip_send(uint8_t* dst_ip, uint8_t protocol, uint8_t* payload, int payload_le
     memcpy(packet + IPV4_HEADER_LEN, payload, payload_length);
 
     // Send the packet via Ethernet
-    uint8_t* our_mac = rtl8139_get_mac_address(card);
+    uint8_t our_mac[6];
+    get_mac(card, our_mac);
     send_ethernet((char*)our_mac, (char*)dst_mac, 0x0800, packet, total_length, card);
 
     // Free allocated memory
@@ -124,6 +128,8 @@ void ip_send(uint8_t* dst_ip, uint8_t protocol, uint8_t* payload, int payload_le
 
 void ip_received(uint8_t* frame, int card) {
     ipv4_header_t* ip_header = (ipv4_header_t*)frame;
+    uint8_t ip[4];
+    get_ip(card, (uint32_t*)ip);
 
     // Verify IP version and header length
     if ((ip_header->version_ihl >> 4) != 4 || (ip_header->version_ihl & 0x0F) < 5) {

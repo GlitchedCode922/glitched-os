@@ -1,13 +1,10 @@
 #include "dhcp.h"
 #include "udp.h"
 #include "ethernet.h"
-#include "../drivers/net/rtl8139.h"
+#include "../drivers/net.h"
 #include "../memory/mman.h"
 #include <stdint.h>
 
-extern char ip[4];
-extern char subnet_mask[4];
-extern char router_ip[4];
 
 int waiting_for_dhcp = 0;
 dhcp_packet_t dhcp_offer_packet;
@@ -19,7 +16,8 @@ void dhcp_run(int card) {
     static uint8_t dhcp_server_ip[4];
 
     // Get MAC address of the network card
-    uint8_t* mac = rtl8139_get_mac_address(card);
+    uint8_t mac[6]; 
+    get_mac(card, mac);
     memcpy(client_mac, mac, 6);
 
     // Construct DHCP DISCOVER packet
@@ -97,6 +95,9 @@ void dhcp_run(int card) {
     // Wait for DHCP ACK
     while (waiting_for_dhcp);
 
+    uint8_t ip[4];
+    uint8_t subnet_mask[4];
+    uint8_t router_ip[4];
     // Parse DHCP ACK packet
     memcpy(ip, dhcp_offer_packet.yiaddr, 4);
     // Extract subnet mask and router from options
@@ -109,6 +110,10 @@ void dhcp_run(int card) {
         }
         opt_ptr += 2 + *(opt_ptr + 1);
     }
+
+    // Configure network interface with obtained IP, subnet mask, and router
+    configure_network_interface_static(card, *(uint32_t*)ip, *(uint32_t*)subnet_mask, *(uint32_t*)router_ip);
+
     unregister_udp_listener(DHCP_CLIENT_PORT);
     return;
 }

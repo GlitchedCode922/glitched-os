@@ -1,11 +1,10 @@
 #include "arp.h"
-#include "../drivers/net/rtl8139.h"
+#include "../drivers/net.h"
 #include "ethernet.h"
 #include "../memory/mman.h"
 #include <stdint.h>
 
 static arp_entry_t arp_cache[ARP_CACHE_SIZE] = {0};
-char ip[4] = {0, 0, 0, 0};
 
 static int waiting_for_reply = 0;
 
@@ -13,7 +12,11 @@ void arp_reply(uint8_t *request_frame, int card) {
     arp_packet_t* request = (arp_packet_t*)(request_frame); // Skip Ethernet header
     arp_packet_t reply;
 
-    uint8_t* our_mac = rtl8139_get_mac_address(card);
+    uint8_t ip[4];
+    get_ip(card, (uint32_t*)ip);
+
+    uint8_t our_mac[6]; 
+    get_mac(card, our_mac);
     if (waiting_for_reply && ntohs(request->opcode) == ARP_OPCODE_REPLY) {
         // Update ARP cache
         for (int i = 0; i < ARP_CACHE_SIZE; i++) {
@@ -62,7 +65,11 @@ void arp_request(uint8_t* target_ip, uint8_t* target_mac_buffer, int card) {
     }
 
     arp_packet_t request;
-    uint8_t* our_mac = rtl8139_get_mac_address(card);
+    uint8_t our_mac[6];
+    get_mac(card, our_mac);
+
+    uint8_t ip[4];
+    get_ip(card, (uint32_t*)ip);
     // Fill ARP request fields
     request.htype = htons(ARP_HTYPE_ETHERNET);
     request.ptype = htons(ARP_PTYPE_IPV4);
