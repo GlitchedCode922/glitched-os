@@ -23,7 +23,7 @@ uint16_t icmp_checksum(uint8_t* data, int len) {
     return htons(~sum);
 }
 
-void icmp_received(uint8_t *packet, uint8_t* sender, int len, int card) {
+void icmp_received(uint8_t *packet, uint8_t* sender, int len) {
     icmp_header_t *icmp_hdr = (icmp_header_t *)packet;
 
     // Verify checksum
@@ -44,7 +44,7 @@ void icmp_received(uint8_t *packet, uint8_t* sender, int len, int card) {
             icmp_hdr->checksum = 0;
             icmp_hdr->checksum = icmp_checksum(packet, len);
             // Send the reply back
-            ip_send(sender, IP_PROTO_ICMP, packet, len, card);
+            ip_send(sender, IP_PROTO_ICMP, packet, len);
             break;
 
         case ICMP_ECHO_REPLY:
@@ -80,7 +80,7 @@ void icmp_received(uint8_t *packet, uint8_t* sender, int len, int card) {
     }
 }
 
-void icmp_send(uint8_t *dest_ip, uint8_t type, uint8_t code, uint16_t identifier, uint16_t sequence_number, uint8_t *data, int data_len, int card) {
+void icmp_send(uint8_t *dest_ip, uint8_t type, uint8_t code, uint16_t identifier, uint16_t sequence_number, uint8_t *data, int data_len) {
     int packet_len = sizeof(icmp_header_t) + data_len;
     uint8_t *packet = (uint8_t *)kmalloc(packet_len);
     if (!packet) {
@@ -97,16 +97,16 @@ void icmp_send(uint8_t *dest_ip, uint8_t type, uint8_t code, uint16_t identifier
     icmp_hdr->checksum = 0;
     icmp_hdr->checksum = icmp_checksum(packet, packet_len);
 
-    ip_send(dest_ip, IP_PROTO_ICMP, packet, packet_len, card);
+    ip_send(dest_ip, IP_PROTO_ICMP, packet, packet_len);
 
     kfree(packet);
 }
 
-int ping(uint8_t *dest_ip, int card) {
+int ping(uint8_t *dest_ip) {
     char ping_data[56];
     memset(ping_data, 'a', 56);
     pinging = 1;
-    icmp_send(dest_ip, ICMP_ECHO_REQUEST, 0, 123, 0, (uint8_t*)ping_data, sizeof(ping_data), card);
+    icmp_send(dest_ip, ICMP_ECHO_REQUEST, 0, 123, 0, (uint8_t*)ping_data, sizeof(ping_data));
     uint64_t start = get_uptime_milliseconds();
     while (pinging == 1);
     if (pinging == 0) {
@@ -117,9 +117,9 @@ int ping(uint8_t *dest_ip, int card) {
     }
 }
 
-void send_unreachable(uint8_t *dest_ip, uint8_t code, uint8_t *original_packet, int original_len, int card) {
+void send_unreachable(uint8_t *dest_ip, uint8_t code, uint8_t *original_packet, int original_len) {
     // Send Destination Unreachable message
-    icmp_send(dest_ip, ICMP_DEST_UNREACHABLE, code, 0, 0, original_packet, original_len, card);
+    icmp_send(dest_ip, ICMP_DEST_UNREACHABLE, code, 0, 0, original_packet, original_len);
 }
 
 

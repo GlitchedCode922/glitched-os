@@ -48,9 +48,9 @@ uint16_t udp_checksum(uint8_t* src_ip, uint8_t* dest_ip, uint8_t* udp_packet, in
     return htons(~sum);
 }
 
-void udp_send(uint8_t *dest_ip, uint16_t src_port, uint16_t dest_port, uint8_t *data, int data_len, int card) {
+void udp_send(uint8_t *dest_ip, uint16_t src_port, uint16_t dest_port, uint8_t *data, int data_len) {
     uint8_t ip[4];
-    get_ip(card, (uint32_t*)ip);
+    *(uint32_t*)ip = get_source_ip_for(dest_ip);
 
     if (data_len > UDP_MAX_DATA_SIZE) {
         // Data too large for a single UDP packet
@@ -78,13 +78,13 @@ void udp_send(uint8_t *dest_ip, uint16_t src_port, uint16_t dest_port, uint8_t *
     udp_header->checksum = udp_checksum((uint8_t*)ip, dest_ip, udp_packet, udp_packet_size);
 
     // Send the UDP packet using IP layer
-    ip_send(dest_ip, 17, udp_packet, udp_packet_size, card); // 17 is the protocol number for UDP
+    ip_send(dest_ip, 17, udp_packet, udp_packet_size); // 17 is the protocol number for UDP
 
     // Free allocated memory
     kfree(udp_packet);
 }
 
-void udp_received(uint8_t *packet, uint8_t *sender, uint8_t *dest, int len, int card) {
+void udp_received(uint8_t *packet, uint8_t *sender, uint8_t *dest, int len) {
     if (len < UDP_HEADER_SIZE) {
         return; // Packet too short to be valid UDP
     }
@@ -115,7 +115,7 @@ void udp_received(uint8_t *packet, uint8_t *sender, uint8_t *dest, int len, int 
     if (port_listeners[dest_port]) {
         port_listeners[dest_port](sender, src_port, payload, payload_length);
     } else {
-        ip_send_dest_unreachable(sender, 3, card);
+        ip_send_dest_unreachable(sender, 3);
     }
 }
 

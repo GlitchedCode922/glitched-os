@@ -1,5 +1,6 @@
 #include "dhcp.h"
 #include "udp.h"
+#include "ip.h"
 #include "ethernet.h"
 #include "../drivers/net.h"
 #include "../memory/mman.h"
@@ -9,11 +10,16 @@
 int waiting_for_dhcp = 0;
 dhcp_packet_t dhcp_offer_packet;
 
+extern int broadcast_card;
+
 void dhcp_run(int card) {
     static uint32_t transaction_id = 0x12345678; // Example transaction ID
     static uint8_t client_mac[6];
     static uint8_t offered_ip[4];
     static uint8_t dhcp_server_ip[4];
+
+    int broadcast_card_old = broadcast_card;
+    broadcast_card = card; // Set the broadcast card to the current card
 
     // Get MAC address of the network card
     uint8_t mac[6]; 
@@ -47,7 +53,7 @@ void dhcp_run(int card) {
 
     // Send DHCP DISCOVER
     waiting_for_dhcp = 1;
-    udp_send((uint8_t[]){255,255,255,255}, DHCP_CLIENT_PORT, DHCP_SERVER_PORT, (uint8_t*)&dhcp_discover, sizeof(dhcp_packet_t), card);
+    udp_send(IP_BROADCAST_ADDR, DHCP_CLIENT_PORT, DHCP_SERVER_PORT, (uint8_t*)&dhcp_discover, sizeof(dhcp_packet_t));
     // Wait for DHCP OFFER
     while (waiting_for_dhcp);
 
@@ -91,7 +97,7 @@ void dhcp_run(int card) {
     options[20] = DHCP_OPTION_END;
     // Send DHCP REQUEST
     waiting_for_dhcp = 1;
-    udp_send((uint8_t[]){255,255,255,255}, DHCP_CLIENT_PORT, DHCP_SERVER_PORT, (uint8_t*)&dhcp_request, sizeof(dhcp_packet_t), card);
+    udp_send(IP_BROADCAST_ADDR, DHCP_CLIENT_PORT, DHCP_SERVER_PORT, (uint8_t*)&dhcp_request, sizeof(dhcp_packet_t));
     // Wait for DHCP ACK
     while (waiting_for_dhcp);
 
@@ -115,6 +121,7 @@ void dhcp_run(int card) {
     configure_network_interface_static(card, *(uint32_t*)ip, *(uint32_t*)subnet_mask, *(uint32_t*)router_ip);
 
     unregister_udp_listener(DHCP_CLIENT_PORT);
+    broadcast_card = broadcast_card_old; // Restore the original broadcast card
     return;
 }
 

@@ -42,7 +42,18 @@ typedef struct {
     uint32_t last_update; // Timestamp of the last fragment received
 } __attribute__((packed)) ip_reassembly_buffer_t;
 
-void ip_send(uint8_t* dst_ip, uint8_t protocol, uint8_t* payload, int payload_length, int card);
+typedef struct {
+    uint8_t dest_ips[4];
+    uint8_t gateway[4];
+    uint8_t netmask[4];
+    int card;
+} route_t;
+
+void ip_send(uint8_t* dst_ip, uint8_t protocol, uint8_t* payload, int payload_length);
 void ip_received(uint8_t* frame, int card);
 
-void ip_send_dest_unreachable(uint8_t* dest_ip, uint8_t code, int card);
+void ip_send_dest_unreachable(uint8_t* dest_ip, uint8_t code);
+uint32_t get_source_ip_for(uint8_t* dest_ip);
+void add_route(uint8_t* dest_ip, uint8_t* gateway, uint8_t* netmask, int card);
+void remove_route(uint8_t* dest_ip, uint8_t* netmask);
+void setup_automatic_routing();

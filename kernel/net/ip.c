@@ -14,26 +14,67 @@ uint8_t* icmp_error_packet = NULL;
 
 uint16_t identification = 1; // Global identification counter
 
-void ip_send(uint8_t* dst_ip, uint8_t protocol, uint8_t* payload, int payload_length, int card) {
+route_t routes[16];
+int routes_existing = 0;
+
+int broadcast_card = 0;
+
+static inline int popcount(uint64_t x) {
+    int count = 0;
+    while (x) {
+        x &= x - 1;
+        count++;
+    }
+    return count;
+}
+
+void ip_send(uint8_t* dst_ip, uint8_t protocol, uint8_t* payload, int payload_length) {
     ipv4_header_t ip_header;
     uint8_t* packet;
     uint16_t total_length;
     uint8_t dst_mac[6] = BROADCAST_MAC; // Default to broadcast
-    
+
+    int best_route = -1;
+    int best_prefix = -1;
+
+    for (int i = 0; i < routes_existing; i++) {
+        int match = 1;
+        for (int j = 0; j < 4; j++) {
+            if ((dst_ip[j] & routes[i].netmask[j]) != (routes[i].dest_ips[j] & routes[i].netmask[j])) {
+                match = 0;
+                break;
+            }
+        }
+        if (match) {
+            // Count prefix length
+            int prefix = 0;
+            for (int j = 0; j < 4; j++)
+                prefix += popcount(routes[i].netmask[j]);
+
+            if (prefix > best_prefix) {
+                best_prefix = prefix;
+                best_route = i;
+            }
+        }
+    }
+
     uint8_t ip[4];
-    uint8_t subnet_mask[4];
-    uint8_t router_ip[4];
+    int card = (best_route != -1) ? routes[best_route].card : 0; // Default to card 0 if no route found
+
+    // If IP is broadcast, change the destination interface to specified
+    if (memcmp(dst_ip, IP_BROADCAST_ADDR, 4) == 0) {
+        card = broadcast_card;
+    } else if (best_route == -1) return; // No route found for non-broadcast address
+
     get_ip(card, (uint32_t*)ip);
-    get_subnet(card, (uint32_t*)subnet_mask);
-    get_router(card, (uint32_t*)router_ip);
+    uint8_t* subnet = (best_route != -1) ? routes[best_route].netmask : NULL;
+    uint8_t* router_ip = (best_route != -1) ? routes[best_route].gateway : NULL;
 
     // Determine if the destination IP is in the same subnet
     int same_subnet = 1;
-    for (int i = 0; i < 4; i++) {
-        if ((ip[i] & subnet_mask[i]) != (dst_ip[i] & subnet_mask[i])) {
-            same_subnet = 0;
-            break;
-        }
+    // If there is a gateway, we are not in the same subnet
+    if (memcmp(dst_ip, IP_BROADCAST_ADDR, 4) != 0 && memcmp(router_ip, (uint8_t[]){0,0,0,0}, 4) != 0) {
+        same_subnet = 0;
     }
 
     if (memcmp(dst_ip, IP_BROADCAST_ADDR, 4) == 0) {
@@ -191,26 +232,107 @@ void ip_received(uint8_t* frame, int card) {
     // Handle based on protocol
     switch (ip_header->protocol) {
         case IP_PROTO_ICMP:
-            icmp_received(payload, ip_header->src_ip, payload_length, card);
+            icmp_received(payload, ip_header->src_ip, payload_length);
             break;
         case IP_PROTO_TCP:
             // Handle TCP (not implemented here)
-            send_unreachable(ip_header->src_ip, 2, frame, ntohs(ip_header->total_length) > 20 + 64 ? 20 + 64 : ntohs(ip_header->total_length), card);
+            send_unreachable(ip_header->src_ip, 2, frame, ntohs(ip_header->total_length) > 20 + 64 ? 20 + 64 : ntohs(ip_header->total_length));
             break;
         case IP_PROTO_UDP:
-            udp_received(payload, ip_header->src_ip, ip_header->dst_ip, payload_length, card);
+            udp_received(payload, ip_header->src_ip, ip_header->dst_ip, payload_length);
             break;
         default:
             // Unsupported protocol
-            send_unreachable(ip_header->src_ip, 2, frame, ntohs(ip_header->total_length) > 20 + 64 ? 20 + 64 : ntohs(ip_header->total_length), card);
+            send_unreachable(ip_header->src_ip, 2, frame, ntohs(ip_header->total_length) > 20 + 64 ? 20 + 64 : ntohs(ip_header->total_length));
             break;
     }
 }
 
-void ip_send_dest_unreachable(uint8_t *dest_ip, uint8_t code, int card) {
+void ip_send_dest_unreachable(uint8_t *dest_ip, uint8_t code) {
     if (icmp_error_packet) {
         // Get packet length
         int len = ntohs(((ipv4_header_t*)icmp_error_packet)->total_length);
-        send_unreachable(dest_ip, code, icmp_error_packet, len, card);
+        send_unreachable(dest_ip, code, icmp_error_packet, len);
+    }
+}
+
+uint32_t get_source_ip_for(uint8_t* dest_ip) {
+    // Search in routing table for the best route
+    int best_route = -1;
+    int best_prefix = -1;
+
+    for (int i = 0; i < routes_existing; i++) {
+        int match = 1;
+        for (int j = 0; j < 4; j++) {
+            if ((dest_ip[j] & routes[i].netmask[j]) != (routes[i].dest_ips[j] & routes[i].netmask[j])) {
+                match = 0;
+                break;
+            }
+        }
+        if (match) {
+            // Count prefix length
+            int prefix = 0;
+            for (int j = 0; j < 4; j++)
+                prefix += popcount(routes[i].netmask[j]);
+
+            if (prefix > best_prefix) {
+                best_prefix = prefix;
+                best_route = i;
+            }
+        }
+    }
+
+    uint8_t ip[4];
+    int card = (best_route != -1) ? routes[best_route].card : 0; // Default to card 0 if no route found
+    if (best_route == -1) return 0;
+    get_ip(card, (uint32_t*)ip);
+    return *(uint32_t*)ip;
+}
+
+void setup_automatic_routing() {
+    int if_index = 0;
+    routes_existing = 0;
+    while (does_exist(if_index)) {
+        uint8_t ip[4];
+        uint8_t netmask[4];
+        uint8_t gateway[4];
+        get_ip(if_index, (uint32_t*)ip);
+        get_subnet(if_index, (uint32_t*)netmask);
+        get_router(if_index, (uint32_t*)gateway);
+        // Add route to routing table
+        memcpy(routes[routes_existing].dest_ips, ip, 4);
+        memset(routes[routes_existing].gateway, 0, 4);
+        memcpy(routes[routes_existing].netmask, netmask, 4);
+        routes[routes_existing].card = if_index;
+        routes_existing++;
+        // Add global route
+        memcpy(routes[routes_existing].dest_ips, IP_ADDR_ANY, 4);
+        memcpy(routes[routes_existing].gateway, gateway, 4);
+        memcpy(routes[routes_existing].netmask, IP_ADDR_ANY, 4);
+        routes[routes_existing].card = if_index;
+        routes_existing++;
+        if_index++;
+    }
+}
+
+void add_route(uint8_t *dest_ip, uint8_t *gateway, uint8_t *netmask, int card) {
+    if (routes_existing >= 16) return; // Routing table full
+    memcpy(routes[routes_existing].dest_ips, dest_ip, 4);
+    memcpy(routes[routes_existing].gateway, gateway, 4);
+    memcpy(routes[routes_existing].netmask, netmask, 4);
+    routes[routes_existing].card = card;
+    routes_existing++;
+}
+
+void remove_route(uint8_t *dest_ip, uint8_t *netmask) {
+    for (int i = 0; i < routes_existing; i++) {
+        if (memcmp(routes[i].dest_ips, dest_ip, 4) == 0 && memcmp(routes[i].netmask, netmask, 4) == 0) {
+            // Shift remaining routes down
+            for (int j = i; j < routes_existing - 1; j++) {
+                routes[j] = routes[j + 1];
+            }
+            routes_existing--;
+            return;
+        }
     }
 }

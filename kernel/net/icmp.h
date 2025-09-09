@@ -19,7 +19,7 @@ typedef struct {
 #define ICMP_REDIRECT 5
 
 uint16_t icmp_checksum(uint8_t* data, int len);
-void icmp_received(uint8_t* packet, uint8_t* sender, int len, int card);
-void icmp_send(uint8_t* dest_ip, uint8_t type, uint8_t code, uint16_t identifier, uint16_t sequence_number, uint8_t *data, int data_len, int card);
-int ping(uint8_t* dest_ip, int card);
-void send_unreachable(uint8_t* dest_ip, uint8_t code, uint8_t* original_ip_packet, int original_len, int card);
+void icmp_received(uint8_t* packet, uint8_t* sender, int len);
+void icmp_send(uint8_t* dest_ip, uint8_t type, uint8_t code, uint16_t identifier, uint16_t sequence_number, uint8_t *data, int data_len);
+int ping(uint8_t* dest_ip);
+void send_unreachable(uint8_t* dest_ip, uint8_t code, uint8_t* original_ip_packet, int original_len);
