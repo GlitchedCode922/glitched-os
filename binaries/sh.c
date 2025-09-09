@@ -16,6 +16,19 @@ int main() {
             }
             if (*command) *command++ = '\0';
         }
+
+        // Search for empty args and remove them shifting the rest
+        for (int i = 0; i < arg_idx; i++) {
+            if (args[i][0] == 0) {
+                for (int j = i; j < arg_idx - 1; j++) {
+                    args[j] = args[j + 1];
+                }
+                args[arg_idx - 1] = NULL;
+                arg_idx--;
+                i--;
+            }
+        }
+
         if (strcmp(args[0], "cd") == 0) {
             if (args[1] == NULL) {
                 printf("Missing argument for cd\n");
