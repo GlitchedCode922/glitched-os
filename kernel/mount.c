@@ -263,7 +263,7 @@ int unmount_filesystem(const char *path) {
 }
 
 int unmount_all_filesystems() {
-    for (int i = 0; i < 48; i++) {
+    for (int i = 1; i < 48; i++) { // 1 is set here to not unmount root
         mountpoints[i].mount_point[0] = '\0'; // Clear all mount points
     }
     return 0; // Success
