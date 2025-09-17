@@ -36,7 +36,7 @@ int main() {
             }
             int ret = chdir(args[1]);
             if (ret != 0) {
-                printf("Error: %d\n", ret);
+                printf("Error: %d\n", (int64_t)ret);
             }
             continue;
         }
@@ -49,14 +49,14 @@ int main() {
 
             int ret = exec(program_in_bin, (const char**)args, (const char*[]){NULL});
             if (ret != 0) {
-                printf("Error: %d\n", ret);
+                printf("Error: %d\n", (int64_t)ret);
             }
             continue;
         }
         
         int ret = exec(args[0], (const char**)args, (const char*[]){NULL});
         if (ret != 0) {
-            printf("Error: %d\n", ret);
+            printf("Error: %d\n", (int64_t)ret);
         }
     }
 }

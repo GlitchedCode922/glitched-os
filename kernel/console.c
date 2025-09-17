@@ -164,7 +164,10 @@ void kprintf(const char *fmt, ...) {
                 char c = (char)va_arg(args, int);
                 putchar(c);
             } else if (*fmt == 'd') {
-                int i = va_arg(args, int);
+                int64_t i = va_arg(args, int64_t);
+                kprintf_dec_signed(i);
+            } else if (*fmt == 'u') {
+                uint64_t i = va_arg(args, uint64_t);
                 kprintf_dec(i);
             } else if (*fmt == 'x') {
                 uint64_t x = va_arg(args, uint64_t);
@@ -193,9 +196,12 @@ void kvprintf(const char *fmt, va_list args){
             } else if (*fmt == 'c') {
                 char c = (char)va_arg(args, int);
                 putchar(c);
-            } else if (*fmt == 'd') {
-                int i = va_arg(args, int);
+            } else if (*fmt == 'u') {
+                uint64_t i = va_arg(args, uint64_t);
                 kprintf_dec(i);
+            } else if (*fmt == 'd') {
+                int64_t i = va_arg(args, int64_t);
+                kprintf_dec_signed(i);
             } else if (*fmt == 'x') {
                 uint64_t x = va_arg(args, uint64_t);
                 kprintf_hex(x);
@@ -242,6 +248,15 @@ void kprintf_dec(uint64_t value) {
         }
     }
     puts(&buffer[i + 1]);
+}
+
+void kprintf_dec_signed(int64_t value) {
+    if (value < 0) {
+        putchar('-');
+        kprintf_dec(-value);
+    } else {
+        kprintf_dec(value);
+    }
 }
 
 void setbg_color(uint8_t color[3]) {
