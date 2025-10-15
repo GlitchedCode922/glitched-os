@@ -41,5 +41,8 @@
 #define SYSCALL_CONFIG_DHCP 36
 #define SYSCALL_CONFIG_STATIC 37
 #define SYSCALL_STOP_UDP_LISTEN 38
+#define SYSCALL_MOUNT 39
+#define SYSCALL_UNMOUNT 40
+#define SYSCALL_UNMOUNT_ALL 41
 
 uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5);

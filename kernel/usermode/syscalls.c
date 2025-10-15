@@ -120,6 +120,13 @@ uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t
         return configure_network_interface_dhcp(arg1);
     case SYSCALL_CONFIG_STATIC:
         return configure_network_interface_static(arg1, arg2, arg3, arg4);
+    case SYSCALL_MOUNT:
+        return mount_filesystem((const char*)arg1, (const char*)arg2, arg3, arg4, arg5);
+    case SYSCALL_UNMOUNT:
+        return unmount_filesystem((const char*)arg1);
+    case SYSCALL_UNMOUNT_ALL:
+        unmount_all_filesystems();
+        return 0;
     default:
         // Invalid syscall, return an error code
         return 0xFFFFFFFFFFFFFFFF;
