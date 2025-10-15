@@ -130,7 +130,7 @@ build/libcobj/math.o: libc/math.c | build/libcobj
 build/libcobj: | build
 	mkdir -p build/libcobj
 
-binaries: build/sh build/ls build/mkdir build/touch build/rm build/pwd build/cat build/echo build/reboot build/cp build/mv build/fwrite
+binaries: build/sh build/ls build/mkdir build/touch build/rm build/pwd build/cat build/echo build/reboot build/cp build/mv build/fwrite build/mount build/umount
 
 build/sh: binaries/sh.c build/libc.a
 	$(CC) $(CFLAGS) $(BIN_CFLAGS) -Ilibc/ $< build/libc.a -o $@
@@ -168,6 +168,11 @@ build/mv: binaries/mv.c build/libc.a
 build/fwrite: binaries/fwrite.c build/libc.a
 	$(CC) $(CFLAGS) $(BIN_CFLAGS) -Ilibc/ $< build/libc.a -o $@
 
+build/mount: binaries/mount.c build/libc.a
+	$(CC) $(CFLAGS) $(BIN_CFLAGS) -Ilibc/ $< build/libc.a -o $@
+
+build/umount: binaries/umount.c build/libc.a
+	$(CC) $(CFLAGS) $(BIN_CFLAGS) -Ilibc/ $< build/libc.a -o $@ 
 build:
 	mkdir -p build
 
