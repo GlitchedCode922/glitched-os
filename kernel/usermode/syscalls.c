@@ -6,6 +6,10 @@
 #include "../drivers/kbd.h"
 #include "../console.h"
 #include "../power.h"
+#include "../net/udp.h"
+#include "../net/icmp.h"
+#include "../net/ip.h"
+#include "../drivers/net.h"
 #include "exec.h"
 #include <stdarg.h>
 #include <stdint.h>
@@ -87,6 +91,35 @@ uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t
         return exists((const char*)arg1);
     case SYSCALL_IS_DIRECTORY:
         return is_directory((const char*)arg1);
+    case SYSCALL_SEND_UDP:
+        udp_send((uint8_t*)arg1, arg2, arg3, (uint8_t*)arg4, arg5);
+        return 0;
+    case SYSCALL_LISTEN_UDP:
+        register_udp_listener(arg1, (void (*)(uint8_t*, uint16_t, uint8_t*, int))arg2);
+        return 0;
+    case SYSCALL_STOP_UDP_LISTEN:
+        unregister_udp_listener(arg1);
+        return 0;
+    case SYSCALL_PING:
+        ping((uint8_t*)arg1);
+        return 0;
+    case SYSCALL_GET_MAC:
+        return get_mac(arg1, (uint8_t*)arg2);
+    case SYSCALL_GET_IP:
+        return get_ip(arg1, (uint32_t*)arg2);
+    case SYSCALL_ADD_ROUTE:
+        add_route((uint8_t*)arg1, (uint8_t*)arg2, (uint8_t*)arg3, arg4);
+        return 0;
+    case SYSCALL_REMOVE_ROUTE:
+        remove_route((uint8_t*)arg1, (uint8_t*)arg2);
+        return 0;
+    case SYSCALL_SETUP_AUTOMATIC_ROUTING:
+        setup_automatic_routing();
+        return 0;
+    case SYSCALL_CONFIG_DHCP:
+        return configure_network_interface_dhcp(arg1);
+    case SYSCALL_CONFIG_STATIC:
+        return configure_network_interface_static(arg1, arg2, arg3, arg4);
     default:
         // Invalid syscall, return an error code
         return 0xFFFFFFFFFFFFFFFF;
