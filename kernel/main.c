@@ -75,23 +75,40 @@ void parse_kernel_cmdline() {
                 continue;
             }
 
+            if (cmdline[0] == 'r' && cmdline[1] == 'w' && cmdline[2] == ' ') {
+                root_readonly = 0;
+                cmdline += 2;
+                continue;
+            }
+
             if (cmdline[0] == 'r' && cmdline[1] == 'o' && cmdline[2] == 'o' && cmdline[3] == 't' && cmdline[4] == '=') {
                 cmdline += 5;
-                // Parse root=disk,partition
-                while ((*cmdline) != ' ' && *cmdline != ',') {
-                    if (*cmdline >= '0' && *cmdline <= '9') {
-                        root_disk = root_disk * 10 + (*cmdline - '0');
-                        cmdline++;
-                    }
+
+                while (*cmdline == ' ') cmdline++;
+
+                if (*cmdline != '(') {
+                    panic("Invalid root= parameter format, expected root=(disk,partition)");
                 }
 
-                // Read the second number
-                while ((*cmdline) != ' ' && *cmdline != ',') {
-                    if (*cmdline >= '0' && *cmdline <= '9') {
-                        root_partition = root_partition * 10 + (*cmdline - '0');
-                        cmdline++;
-                    }
+                cmdline++;
+
+                // Parse root=(disk,partition)
+                while ((*cmdline) >= '0' && *cmdline <= '9') {
+                    root_disk = root_disk * 10 + (*cmdline - '0');
+                    cmdline++;
                 }
+
+                while (*cmdline == ',' || *cmdline == ' ') cmdline++;
+
+                // Read the second number
+                while (*cmdline >= '0' && *cmdline <= '9') {
+                    root_partition = root_partition * 10 + (*cmdline - '0');
+                    cmdline++;
+                }
+
+                while (*cmdline == ' ') cmdline++;
+                cmdline++; // Skip the closing ')'
+
                 continue;
             }
 
