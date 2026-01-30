@@ -1,5 +1,5 @@
 #include "fat32.h"
-#include "../drivers/partitions/mbr.h"
+#include "../drivers/partitions.h"
 #include "../memory/mman.h"
 #include "../mount.h"
 #include <stddef.h>

@@ -15,7 +15,7 @@ int has_mbr(uint8_t disk) {
     return 0;
 }
 
-void get_bootloader(uint8_t *buffer, uint8_t disk) {
+void mbr_get_bootloader(uint8_t *buffer, uint8_t disk) {
     if (buffer == NULL) {
         return; // Handle null pointer
     }
@@ -27,7 +27,7 @@ void get_bootloader(uint8_t *buffer, uint8_t disk) {
     memcpy(buffer, mbr, 446);
 }
 
-void get_partition_table(uint8_t *buffer, uint8_t disk) {
+void mbr_get_partition_table(uint8_t *buffer, uint8_t disk) {
     if (buffer == NULL) {
         return; // Handle null pointer
     }
@@ -39,7 +39,7 @@ void get_partition_table(uint8_t *buffer, uint8_t disk) {
     memcpy(buffer, mbr + 446, 64);
 }
 
-int is_bootable_disk(uint8_t disk) {
+int mbr_is_bootable_disk(uint8_t disk) {
     uint8_t mbr[512] = {0};
     if (read_sectors(disk, 0, mbr, 1) != 0) {
         return -1; // Handle read error
@@ -54,7 +54,7 @@ int chs_to_lba(uint8_t head, uint8_t sector, uint16_t cylinder) {
     return lba;
 }
 
-uint64_t get_partition_start(uint8_t disk, uint8_t partition) {
+uint64_t mbr_get_partition_start(uint8_t disk, uint8_t partition) {
     if (partition > 4) {
         return 0; // Invalid partition number
     }
@@ -68,7 +68,7 @@ uint64_t get_partition_start(uint8_t disk, uint8_t partition) {
     return entry->start_lba; // Return the starting LBA of the partition
 }
 
-uint64_t get_partition_size(uint8_t disk, uint8_t partition) {
+uint64_t mbr_get_partition_size(uint8_t disk, uint8_t partition) {
     if (partition > 4) {
         return 0; // Invalid partition number
     }
@@ -82,56 +82,36 @@ uint64_t get_partition_size(uint8_t disk, uint8_t partition) {
     return entry->size_in_sectors; // Return the size of the partition in sectors
 }
 
-int read_sectors_relative(uint8_t disk, uint8_t partition, uint64_t lba, uint8_t *buffer, uint16_t count) {
+int mbr_read_sectors_relative(uint8_t disk, uint8_t partition, uint64_t lba, uint8_t *buffer, uint16_t count) {
     if (partition > 4) {
         return -1; // Invalid partition number
     }
-    uint64_t partition_start = get_partition_start(disk, partition);
+    uint64_t partition_start = mbr_get_partition_start(disk, partition);
     if (partition_start == 0) {
         return -2; // Partition not found or read error
     }
     // Adjust LBA to be relative to the partition start
     uint64_t adjusted_lba = partition_start + lba;
-    if (adjusted_lba < partition_start || 
-        adjusted_lba + count > partition_start + get_partition_size(disk, partition)) {
+    if (adjusted_lba < partition_start ||
+        adjusted_lba + count > partition_start + mbr_get_partition_size(disk, partition)) {
         return -3; // Out of bounds
     }
     return read_sectors(disk, adjusted_lba, buffer, count);
 }
 
-int write_sectors_relative(uint8_t disk, uint8_t partition, uint64_t lba, uint8_t *buffer, uint16_t count) {
+int mbr_write_sectors_relative(uint8_t disk, uint8_t partition, uint64_t lba, uint8_t *buffer, uint16_t count) {
     if (partition > 4) {
         return -1; // Invalid partition number
     }
-    uint64_t partition_start = get_partition_start(disk, partition);
+    uint64_t partition_start = mbr_get_partition_start(disk, partition);
     if (partition_start == 0) {
         return -2; // Partition not found or read error
     }
     // Adjust LBA to be relative to the partition start
     uint64_t adjusted_lba = partition_start + lba;
-    if (adjusted_lba < partition_start || 
-        adjusted_lba + count > partition_start + get_partition_size(disk, partition)) {
+    if (adjusted_lba < partition_start ||
+        adjusted_lba + count > partition_start + mbr_get_partition_size(disk, partition)) {
         return -3; // Out of bounds
     }
     return write_sectors(disk, adjusted_lba, buffer, count);
-}
-
-void print_partition_table(uint8_t disk) {
-    uint8_t mbr[512] = {0};
-    if (read_sectors(disk, 0, mbr, 1) != 0) {
-        kprintf("Failed to read MBR from disk %d\n", disk);
-        return; // Handle read error
-    }
-
-    kprintf("Partition Table for Disk %d:\n", disk);
-    for (int i = 0; i < 4; i++) {
-        int offset = 446 + i * 16; // Each partition entry is 16 bytes
-        mbr_partition_entry_t *entry = (mbr_partition_entry_t *)(mbr + offset);
-
-        kprintf("Partition %d:\n", i + 1);
-        kprintf("  Boot Indicator: %d\n", entry->boot_indicator);
-        kprintf("  Partition Type: 0x%x\n", entry->partition_type);
-        kprintf("  Start LBA: %d\n", entry->start_lba);
-        kprintf("  Size in Sectors: %d\n", entry->size_in_sectors);
-    }
 }

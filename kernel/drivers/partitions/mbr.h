@@ -30,13 +30,11 @@ typedef struct {
 } __attribute__((packed)) mbr_t;
 
 int has_mbr(uint8_t disk);
-void get_bootloader(uint8_t *buffer, uint8_t disk);
-void get_partition_table(uint8_t *buffer, uint8_t disk);
-int is_bootable_disk(uint8_t disk);
+void mbr_get_bootloader(uint8_t *buffer, uint8_t disk);
+void mbr_get_partition_table(uint8_t *buffer, uint8_t disk);
+int mbr_is_bootable_disk(uint8_t disk);
 int chs_to_lba(uint8_t head, uint8_t sector, uint16_t cylinder);
-uint64_t get_partition_start(uint8_t disk, uint8_t partition);
-uint64_t get_partition_size(uint8_t disk, uint8_t partition);
-int read_sectors_relative(uint8_t disk, uint8_t partition, uint64_t lba, uint8_t *buffer, uint16_t count);
-int write_sectors_relative(uint8_t disk, uint8_t partition, uint64_t lba, uint8_t *buffer, uint16_t count);
-void print_partition_table(uint8_t disk);
-
+uint64_t mbr_get_partition_start(uint8_t disk, uint8_t partition);
+uint64_t mbr_get_partition_size(uint8_t disk, uint8_t partition);
+int mbr_read_sectors_relative(uint8_t disk, uint8_t partition, uint64_t lba, uint8_t *buffer, uint16_t count);
+int mbr_write_sectors_relative(uint8_t disk, uint8_t partition, uint64_t lba, uint8_t *buffer, uint16_t count);
