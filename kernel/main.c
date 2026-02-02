@@ -127,7 +127,7 @@ void parse_kernel_cmdline() {
             panic("Unknown kernel command line argument here: %s", cmdline);
         }
     }
-    mount_filesystem("/", "FAT32", root_disk, root_partition, root_readonly);
+    mount_filesystem("/", "FAT", root_disk, root_partition, root_readonly);
     void* addr = load_elf(init_binary_path);
     if (!addr) {
         panic("Failed to load init binary: %s", init_binary_path);

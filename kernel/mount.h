@@ -17,8 +17,8 @@ typedef struct {
     int (*read)(const char *path, uint8_t *buffer, size_t offset, size_t size); // Read from a file
     int (*write)(const char *path, const uint8_t *buffer, size_t offset, size_t size); // Write to a file
     int (*remove)(const char *path); // Delete a file or directory
-    void (*create_file)(const char *path); // Create a new file
-    void (*create_directory)(const char *path); // Create a new directory
+    int (*create_file)(const char *path); // Create a new file
+    int (*create_directory)(const char *path); // Create a new directory
     int (*get_creation_time)(const char *path, uint64_t *timestamp); // Get file creation time
     int (*get_last_modification_time)(const char *path, uint64_t *timestamp); // Get last modification time
 } filesystem_t;

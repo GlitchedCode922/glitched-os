@@ -59,6 +59,13 @@ typedef struct __attribute__((packed)) {
     uint32_t file_size; // File size in bytes
 } dirent_t;
 
+typedef struct __attribute__((packed)) {
+    int found;
+    dirent_t dirent;
+    uint32_t cluster;
+    uint32_t position[2];
+} dirent_ref_t;
+
 #define DIRENT_READ_ONLY 0x01
 #define DIRENT_HIDDEN 0x02
 #define DIRENT_SYSTEM 0x04
@@ -67,30 +74,32 @@ typedef struct __attribute__((packed)) {
 #define DIRENT_ARCHIVE 0x20
 #define DIRENT_LONG_NAME 0x0F // Long file name entry
 
-#define CLUSTER_CHAIN_END 0x0FFFFFFF
-#define CLUSTER_FREE 0x00000000
+#define DIRENT_END 0x00
+#define DIRENT_DELETED 0xE5
 
-void fat32_check_partition(uint8_t disk, uint8_t partition);
-void fat32_select(uint8_t disk, uint8_t partition);
-void init_fat32(uint8_t disk, uint8_t partition);
-int is_fat32(uint8_t disk, uint8_t partition);
-void fat32_set_read_only(uint8_t read_only_flag);
-bpb_t get_bpb();
-fsinfo_t get_fsinfo(uint32_t fsinfo_sector);
-uint32_t get_next_cluster(uint32_t cluster);
-uint32_t get_cluster_size();
-int fat32_list(const char* path, char* element, uint64_t element_index);
-int fat32_file_exists(const char* path);
-int fat32_is_directory(const char* path);
-uint64_t fat32_get_file_size(const char* path);
-int fat32_read(const char* path, uint8_t* buffer, size_t offset, size_t size);
-int fat32_delete(const char* path);
-int add_dirent(const char* path, dirent_t dirent);
-uint32_t get_free_cluster();
-uint32_t update_free_cluster();
-void fat32_create_file(const char* path);
-void fat32_create_directory(const char* path);
-int fat32_write_to_file(const char* path, const uint8_t* buffer, size_t offset, size_t size);
-void wall_clock_to_fat32_timestamp(int year, int month, int day, int hour, int min, int sec, uint16_t *fat_date, uint16_t *fat_time);
-void fat32_timestamp_to_wall_clock(uint16_t fat_date, uint16_t fat_time, int *year, int *month, int *day, int *hour, int *min, int *sec);
-void fat32_register();
+#define CLUSTER_CHAIN_END 0x0FFFFFF8
+#define CLUSTER_FREE 0x00000000
+#define CLUSTER_BAD 0x0FFFFFF7
+
+void fat_init(uint8_t disk, uint8_t partition);
+int is_fat_partition(uint8_t disk, uint8_t partition);
+void fat_select_partition(uint8_t disk, uint8_t partition);
+void fat_set_read_only(uint8_t read_only_flag);
+uint32_t fat_compute_free_cluster();
+bpb_t fat_get_bpb();
+fsinfo_t fat_get_fsinfo();
+void normalize_fat_path(const char* input_path, char* output_path);
+dirent_ref_t fat_get_dirent_ref(const char* path);
+int fat_list(const char* path, char element[13], uint64_t element_index);
+int fat_exists(const char* path);
+int fat_is_directory(const char* path);
+uint64_t fat_get_file_size(const char* path);
+int fat_read(const char* path, uint8_t* buffer, size_t offset, size_t size);
+int fat_delete(const char* path);
+int fat_add_dirent(const char* path, dirent_t dirent);
+int fat_create_file(const char* path);
+int fat_create_directory(const char* path);
+int fat_write_to_file(const char *path, const uint8_t *buffer, size_t offset, size_t size);
+int fat_get_creation_time(const char* path, uint64_t* timestamp);
+int fat_get_modification_time(const char* path, uint64_t* timestamp);
+void fat_register();

@@ -1,7 +1,7 @@
 #include "mount.h"
 #include "memory/mman.h"
 #include "usermode/exec.h"
-#include "fs/fat32.h"
+#include "fs/fat.h"
 #include <stdint.h>
 
 filesystem_t filesystems[24] = {0};
@@ -470,8 +470,7 @@ int create_file(const char *path) {
             fs->set_read_only(mountpoints[i].flags & FLAG_READ_ONLY); // Set read-only mode if applicable
             fs->select(mountpoints[i].drive, mountpoints[i].partition); // Select the filesystem
             if (fs && fs->create_file) {
-                fs->create_file(relative_path);
-                return 0; // Success
+                return fs->create_file(relative_path);
             }
             return -2; // Filesystem does not support file creation
         }
@@ -499,8 +498,7 @@ int create_directory(const char *path) {
             fs->set_read_only(mountpoints[i].flags & FLAG_READ_ONLY); // Set read-only mode if applicable
             fs->select(mountpoints[i].drive, mountpoints[i].partition); // Select the filesystem
             if (fs && fs->create_directory) {
-                fs->create_directory(relative_path);
-                return 0; // Success
+                return fs->create_directory(relative_path);
             }
             return -2; // Filesystem does not support directory creation
         }
@@ -559,7 +557,7 @@ int get_last_modification_time(const char *path, uint64_t *timestamp) {
 }
 
 void register_intree_filesystems() {
-    fat32_register();
+    fat_register();
 }
 
 void getcwd(char *buffer) {
