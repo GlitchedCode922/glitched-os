@@ -6,7 +6,7 @@
 
 char ascii[128][12] = ascii_set;
 
-volatile struct limine_framebuffer *framebuffer = NULL;
+extern volatile struct limine_framebuffer* framebuffer;
 volatile char *fb_address = NULL;
 
 uint32_t width = 0;
@@ -79,8 +79,7 @@ void clear_screen() {
     asm volatile("sti");
 }
 
-void initialize_console(volatile struct limine_framebuffer *fb) {
-    framebuffer = fb;
+void initialize_console() {
     fb_address = (volatile char *)framebuffer->address;
     width = framebuffer->width / 8;
     height = framebuffer->height / 12;

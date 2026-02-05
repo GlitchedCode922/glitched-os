@@ -6,7 +6,7 @@
 
 #define COLOR(r, g, b) ((uint8_t[]){(r), (g), (b)})
 
-void initialize_console(volatile struct limine_framebuffer *fb);
+void initialize_console();
 void putchar(char c);
 void puts(const char *str);
 void clear_screen();

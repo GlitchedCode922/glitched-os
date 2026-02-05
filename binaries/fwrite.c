@@ -35,10 +35,12 @@ int main(int argc, char** argv) {
     }
 
     while (1) {
-        char* console_line = read_console();
+        char console_line[256];
+        read(STDIN_FILENO, console_line, sizeof(console_line));
         if (strcmp(console_line, "\\exit\n") == 0) return 0;
-        write_file(argv[1], console_line, offset, strlen(console_line));
-        offset += strlen(console_line);
+        int file_fd = open_file(argv[1], FILE_CREATE);
+        write(file_fd, console_line, strlen(console_line));
+        close(file_fd);
     }
 }
 

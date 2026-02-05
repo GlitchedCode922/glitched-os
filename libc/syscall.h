@@ -3,8 +3,6 @@
 #include <stdint.h>
 
 #define SYSCALL_EXIT 0
-#define SYSCALL_READ_FILE 1
-#define SYSCALL_WRITE_FILE 2
 #define SYSCALL_CREATE_FILE 3
 #define SYSCALL_DELETE_FILE 4
 #define SYSCALL_CREATE_DIR 5
@@ -19,13 +17,10 @@
 #define SYSCALL_GET_PID 14
 #define SYSCALL_GET_UPTIME 15
 #define SYSCALL_DELAY 16
-#define SYSCALL_READ_CONSOLE 17
-#define SYSCALL_WRITE_CONSOLE 18
 #define SYSCALL_ALLOC_PAGE 19
 #define SYSCALL_FREE_PAGE 20
 #define SYSCALL_GETENV 21
 #define SYSCALL_REBOOT 22
-#define SYSCALL_VPRINTF 23
 #define SYSCALL_CHDIR 24
 #define SYSCALL_GETCWD 25
 #define SYSCALL_FILE_EXISTS 26
@@ -44,5 +39,14 @@
 #define SYSCALL_MOUNT 39
 #define SYSCALL_UNMOUNT 40
 #define SYSCALL_UNMOUNT_ALL 41
+#define SYSCALL_OPEN_FILE 42
+#define SYSCALL_OPEN_CONSOLE 43
+#define SYSCALL_OPEN_FRAMEBUFFER 44
+#define SYSCALL_CLOSE 45
+#define SYSCALL_READ 46
+#define SYSCALL_WRITE 47
+#define SYSCALL_SEEK 48
+#define SYSCALL_DUP 49
+#define SYSCALL_DUP2 50
 
 uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5);

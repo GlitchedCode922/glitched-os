@@ -24,13 +24,16 @@ int main(int argc, char** argv) {
 
     size_t file_size = get_file_size(argv[1]);
     unsigned char buffer[file_size];
-    int ret = read_file(argv[1], buffer, 0, file_size);
+    int file_fd = open_file(argv[1], 0);
+    int ret = read(file_fd, buffer, file_size);
     if (ret < 0) {
         printf("Read error: %d\n", ret);
         return 1;
     }
-
-    ret = write_file(argv[2], buffer, 0, file_size);
+    close(file_fd);
+    file_fd = open_file(argv[2], FILE_CREATE);
+    ret = write(file_fd, buffer, file_size);
+    close(file_fd);
     if (ret < 0) {
         printf("Write error: %d\n", ret);
         return 1;

@@ -3,7 +3,12 @@
 #include <stdint.h>
 #include <stdarg.h>
 
-char* read_console();
+#define STDIN_FILENO 0
+#define STDOUT_FILENO 1
+#define STDERR_FILENO 2
+
+#define FILE_CREATE 0x01
+
 void scanf(const char* format, ...);
 void sscanf(const char* str, const char* format, ...);
 void printf(const char* format, ...);
@@ -11,8 +16,16 @@ void vprintf(const char* format, va_list args);
 void puts(const char* str);
 void putchar(char c);
 
-int read_file(const char* path, void* buffer, int offset, size_t size);
-int write_file(const char* path, const void* buffer, int offset, size_t size);
+int read(int fd, void* buffer, size_t size);
+int write(int fd, const void* buffer, size_t size);
+int open_file(const char* path, uint16_t flags);
+int open_console();
+int open_framebuffer();
+int close(int fd);
+int seek(int fd, int64_t offset, int type);
+int dup(int fd);
+int dup2(int fd, int new_fd);
+
 int list_directory(const char *path, char *element, uint64_t element_index);
 int file_exists(const char* path);
 int is_directory(const char *path);

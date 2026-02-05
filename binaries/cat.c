@@ -18,10 +18,11 @@ int main(int argc, char** argv) {
     }
 
     uint64_t file_size = get_file_size(argv[1]);
-    uint8_t buffer[file_size + 1];
-    read_file(argv[1], buffer, 0, file_size);
-    buffer[file_size] = '\0';
-    printf("%s", buffer);
+    uint8_t buffer[file_size];
+    int file_fd = open_file(argv[1], 0);
+    read(file_fd, buffer, file_size);
+    write(STDOUT_FILENO, buffer, file_size);
+    close(file_fd);
     return 0;
 }
 

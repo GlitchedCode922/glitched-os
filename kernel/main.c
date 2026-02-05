@@ -57,6 +57,9 @@ static volatile struct limine_executable_cmdline_request cmdline_request = {
 __attribute__((used, section(".limine_requests_end")))
 static volatile LIMINE_REQUESTS_END_MARKER;
 
+extern volatile struct limine_framebuffer* framebuffer;
+volatile struct limine_framebuffer* framebuffer;
+
 void parse_kernel_cmdline() {
     uint8_t root_disk = 0;
     uint8_t root_partition = 0;
@@ -146,7 +149,8 @@ void kernel_main() {
     init_exec(cr3);
     init_mman((size_t)&__size);
     idt_init();
-    initialize_console(framebuffer_request.response->framebuffers[0]);
+    framebuffer = framebuffer_request.response->framebuffers[0];
+    initialize_console();
     ata_register();
     register_intree_filesystems();
     free_region(0x0, 0x100000000);

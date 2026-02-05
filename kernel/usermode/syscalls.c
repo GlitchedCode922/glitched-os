@@ -1,4 +1,5 @@
 #include "syscalls.h"
+#include "fd.h"
 #include "../drivers/block.h"
 #include "../mount.h"
 #include "../drivers/timer.h"
@@ -20,10 +21,6 @@ uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t
     case SYSCALL_EXIT:
         // Not implemented, will come with process management
         return 0;
-    case SYSCALL_READ_FILE:
-        return read_file((const char*)arg1, (uint8_t*)arg2, arg3, arg4);
-    case SYSCALL_WRITE_FILE:
-        return write_file((const char*)arg1, (const uint8_t*)arg2, arg3, arg4);
     case SYSCALL_CREATE_FILE:
         return create_file((const char*)arg1);
     case SYSCALL_DELETE_FILE:
@@ -33,10 +30,6 @@ uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t
     case SYSCALL_GET_PPID:
         // Not implemented, will come with process management
         return 0;
-    case SYSCALL_READ_SECTORS:
-        return read_sectors(arg1, arg2, (uint8_t*)arg3, arg4);
-    case SYSCALL_WRITE_SECTORS:
-        return write_sectors(arg1, arg2, (uint8_t*)arg3, arg4);
     case SYSCALL_LIST_DIR:
         return list_directory((const char*)arg1, (char*)arg2, arg3);
     case SYSCALL_GET_FILE_SIZE:
@@ -62,11 +55,6 @@ uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t
         }
         return 0;
     }
-    case SYSCALL_READ_CONSOLE:
-        return (uintptr_t)kbdinput();
-    case SYSCALL_WRITE_CONSOLE:
-        kprintf((const char*)arg1, arg2, arg3, arg4, arg5);
-        return 0;
     case SYSCALL_ALLOC_PAGE:
         return (uintptr_t)alloc_page(arg1, arg2);
     case SYSCALL_FREE_PAGE:
@@ -79,9 +67,6 @@ uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t
         asm volatile("cli"); // Disable interrupts
         reboot();
         return 0; // This line will not be reached
-    case SYSCALL_VPRINTF:
-        kvprintf((const char*)arg1, *(va_list*)arg2);
-        return 0;
     case SYSCALL_CHDIR:
         return chdir((char*)arg1);
     case SYSCALL_GETCWD:
@@ -127,6 +112,24 @@ uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t
     case SYSCALL_UNMOUNT_ALL:
         unmount_all_filesystems();
         return 0;
+    case SYSCALL_OPEN_FILE:
+        return open_file((const char*)arg1, (uint16_t)arg2);
+    case SYSCALL_OPEN_CONSOLE:
+        return open_console();
+    case SYSCALL_OPEN_FRAMEBUFFER:
+        return open_framebuffer();
+    case SYSCALL_CLOSE:
+        return close((int)arg1);
+    case SYSCALL_READ:
+        return read((int)arg1, (void*)arg2, (size_t)arg3);
+    case SYSCALL_WRITE:
+        return write((int)arg1, (const void*)arg2, (size_t)arg3);
+    case SYSCALL_SEEK:
+        return seek((int)arg1, (size_t)arg2, (int)arg3);
+    case SYSCALL_DUP:
+        return dup((int)arg1);
+    case SYSCALL_DUP2:
+        return dup2((int)arg1, (int)arg2);
     default:
         // Invalid syscall, return an error code
         return 0xFFFFFFFFFFFFFFFF;

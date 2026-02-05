@@ -3,6 +3,7 @@
 #include "../memory/paging.h"
 #include "../memory/mman.h"
 #include "../mount.h"
+#include "fd.h"
 #include <stdint.h>
 
 char* env_arr[] = {NULL};
@@ -90,6 +91,12 @@ int execve(const char *path, const char **argv, const char **envp) {
     argv = (const char**)new_argv;
     envp = (const char**)new_envp;
 
+    // Save current file descriptors
+    fd_entry_t parent_fds[MAX_FDS];
+    for (int i = 0; i < MAX_FDS; i++) {
+        parent_fds[i] = fd_table[i];
+    }
+
     // Replace PML4
     void* old_pml4;
     asm volatile("mov %%cr3, %0" : "=r"(old_pml4) : : "memory");
@@ -148,10 +155,16 @@ int execve(const char *path, const char **argv, const char **envp) {
     // Restore the old PML4
     asm volatile("mov %0, %%cr3" : : "r"(old_pml4) : "memory");
     change_pml4(old_pml4);
+
     // Restore the parent environment
     env = parent_env;
     kfree(wd);
     wd = parent_wd;
+
+    // Restore file descriptors
+    for (int i = 0; i < MAX_FDS; i++) {
+        fd_table[i] = parent_fds[i];
+    }
 
     return result; // Success
 }
