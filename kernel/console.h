@@ -6,6 +6,9 @@
 
 #define COLOR(r, g, b) ((uint8_t[]){(r), (g), (b)})
 
+extern uint32_t width;
+extern uint32_t height;
+
 void initialize_console();
 void putchar(char c);
 void puts(const char *str);
