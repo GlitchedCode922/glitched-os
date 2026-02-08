@@ -79,7 +79,11 @@ void fat_init(uint8_t disk, uint8_t partition) {
     bpb = fat_get_bpb();
     fsinfo = fat_get_fsinfo();
     fat_size = (bpb.fat_size_16 != 0) ? bpb.fat_size_16 : bpb.fat_size_32;
-    fat_compute_free_cluster();
+    uint32_t total_sectors = (bpb.total_sectors_16 != 0) ? bpb.total_sectors_16 : bpb.total_sectors_32;
+    uint32_t fat_sectors  = (bpb.fat_size_16 != 0) ? bpb.fat_size_16 : bpb.fat_size_32;
+    uint32_t data_sectors = total_sectors - (bpb.reserved_sectors + bpb.num_fats * fat_sectors);
+    uint32_t max_clusters = data_sectors / bpb.sectors_per_cluster;
+    last_free = fsinfo.next_free_cluster >= 2 && fsinfo.next_free_cluster < max_clusters ? fsinfo.next_free_cluster : 2;
     initialized = 1;
 }
 
@@ -145,6 +149,30 @@ uint64_t get_first_cluster_sector(uint32_t cluster) {
     uint32_t first_data_sector = bpb.reserved_sectors + (bpb.num_fats * fat_size);
     uint32_t first_sector_of_cluster = ((cluster - 2) * bpb.sectors_per_cluster) + first_data_sector;
     return first_sector_of_cluster;
+}
+
+uint32_t fat_compute_free_cluster() {
+    uint32_t total_clusters = (((bpb.total_sectors_16 != 0) ? bpb.total_sectors_16 : bpb.total_sectors_32) - (bpb.reserved_sectors + (bpb.num_fats * fat_size))) / bpb.sectors_per_cluster;
+    uint32_t fat_offset = last_free * 4;
+    uint32_t fat_sector = bpb.reserved_sectors + (fat_offset / bpb.bytes_per_sector);
+    uint32_t ent_offset = fat_offset % bpb.bytes_per_sector;
+
+    // Separate search into sectors to optimize for large FATs
+    for (uint32_t s = fat_sector; s < fat_size; s++) {
+        uint8_t sector_buffer[512];
+        read_sectors_relative(active_disk, active_partition, bpb.reserved_sectors + s, sector_buffer, 1);
+        for (uint32_t i = 0; i < bpb.bytes_per_sector / 4; i++) {
+            uint32_t entry = ((uint32_t*)sector_buffer)[i];
+            if ((entry & 0x0FFFFFFF) == CLUSTER_FREE) {
+                uint32_t free_cluster = (s * (bpb.bytes_per_sector / 4)) + i;
+                if (free_cluster >= 2 && free_cluster < total_clusters + 2) {
+                    last_free = free_cluster;
+                    return free_cluster;
+                }
+            }
+        }
+    }
+    return 0; // No free cluster found
 }
 
 void normalize_fat_path(const char *input_path, char *output_path) {
@@ -464,17 +492,6 @@ int fat_delete(const char* path) {
         cluster = next;
     }
     return 0;
-}
-
-uint32_t fat_compute_free_cluster() {
-    uint32_t total_clusters = (((bpb.total_sectors_16 != 0) ? bpb.total_sectors_16 : bpb.total_sectors_32) - (bpb.reserved_sectors + (bpb.num_fats * fat_size))) / bpb.sectors_per_cluster;
-    for (uint32_t cluster = last_free; cluster < total_clusters + 2; cluster++) {
-        if ((read_fat(cluster) & 0x0FFFFFFF) == CLUSTER_FREE) {
-            last_free = cluster;
-            return cluster;
-        }
-    }
-    return 0; // No free cluster found
 }
 
 int fat_add_dirent(const char *path, dirent_t dirent) {
