@@ -17,6 +17,7 @@ typedef struct {
 } __attribute__((packed)) idt_ptr_t;
 
 #define IDT_ENTRY_COUNT 256
+#define CODE_SEGMENT_SELECTOR 0x8
 
 void idt_set_entry(int vec, void (*isr)(), uint16_t selector, uint8_t type_attr);
 void interrupt_handler(uint64_t* stack);

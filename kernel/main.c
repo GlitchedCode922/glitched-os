@@ -6,6 +6,7 @@
 #include "memory/paging.h"
 #include "drivers/block/ata.h"
 #include "mount.h"
+#include "gdt.h"
 #include "idt.h"
 #include "drivers/partitions/mbr.h"
 #include "drivers/net/rtl8139.h"
@@ -148,6 +149,7 @@ void kernel_main() {
     init_paging(cr3, memmap_request.response, hhdm_request.response->offset);
     init_exec(cr3);
     init_mman((size_t)&__size);
+    gdt_init();
     idt_init();
     framebuffer = framebuffer_request.response->framebuffers[0];
     initialize_console();
