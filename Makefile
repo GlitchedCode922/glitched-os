@@ -27,7 +27,11 @@ BINARIES_OBJECTS = $(patsubst binaries/%, build/obj/binaries/%,$(BINARIES:.c=.o)
 BINARIES = $(basename $(notdir $(BINARIES_SOURCE)))
 BINARY_TARGETS = $(patsubst %, build/binaries/%,$(BINARIES))
 
-all: build/kernel build/libc.a binaries build/disk.img
+.PHONY: all clean kernel libc binaries disk-image
+
+all: kernel libc binaries disk-image
+
+kernel: build/kernel
 
 build/kernel: $(KERNEL_OBJECTS)
 	$(CC) $(LDFLAGS) $(KERNEL_LDFLAGS) -o $@ $^
@@ -39,6 +43,8 @@ build/obj/kernel/%.o: kernel/%.c
 build/obj/kernel/%.o: kernel/%.asm
 	@mkdir -p $(dir $@)
 	$(AS) $(ASFLAGS) $< -o $@
+
+libc: build/libc.a build/crt0.o
 
 build/libc.a: $(LIBC_OBJECTS)
 	$(AR) $(ARFLAGS) rcs $@ $^
@@ -61,7 +67,9 @@ build/binaries/%: binaries/%.c build/crt0.o build/libc.a | build/binaries
 build/binaries:
 	mkdir -p build/binaries
 
-build/disk.img: build/kernel binaries limine.conf
+disk-image: build/disk.img
+
+build/disk.img: build/kernel $(BINARY_TARGETS) limine.conf
 	$(MAKE) -C thirdparty/limine CC=$(HOSTCC)
 	dd if=/dev/zero of=build/disk.img.incomplete bs=1M count=128
 
@@ -92,6 +100,5 @@ build/disk.img: build/kernel binaries limine.conf
 
 	mv build/disk.img.incomplete build/disk.img
 
-.PHONY: clean
 clean:
 	rm -rf build
