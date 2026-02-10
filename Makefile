@@ -1,4 +1,5 @@
-CC = gcc
+CC = x86_64-elf-gcc
+HOSTCC = gcc
 AS = nasm
 AR = ar
 ASFLAGS =
@@ -61,7 +62,7 @@ build/binaries:
 	mkdir -p build/binaries
 
 build/disk.img: build/kernel binaries limine.conf
-	make -C thirdparty/limine
+	$(MAKE) -C thirdparty/limine CC=$(HOSTCC)
 	dd if=/dev/zero of=build/disk.img.incomplete bs=1M count=128
 
 	parted build/disk.img.incomplete --script \
