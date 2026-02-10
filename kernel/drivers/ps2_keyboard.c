@@ -132,6 +132,7 @@ void ps2_interrupt_handler(uint8_t scancode) {
         backspace_char();
     }
     else if (key == '\n') {
+        input_buffer[line_index][input_length++] = '\n';
         input_buffer[line_index][input_length] = '\0';
         putchar('\n');
 
