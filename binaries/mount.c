@@ -28,7 +28,7 @@ int main(int argc, char *argv[]) {
         printf("Usage: %s <disk> <partition> <mountpoint> <filesystem_type> [flags]\n", argv[0]);
         return 1;
     }
-    
+
     int disk = atoi(argv[1]);
     int partition = atoi(argv[2]);
     const char *mountpoint = argv[3];
@@ -38,6 +38,6 @@ int main(int argc, char *argv[]) {
         flags = atoi(argv[5]);
     }
 
-    int result = syscall(SYSCALL_MOUNT, disk, partition, (uint64_t)mountpoint, (uint64_t)filesystem_type, flags);
+    int result = syscall(SYSCALL_MOUNT, (uint64_t)mountpoint, (uint64_t)filesystem_type, disk, partition, flags);
     return result;
 }
