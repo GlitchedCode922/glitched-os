@@ -26,7 +26,7 @@ BINARIES_OBJECTS = $(patsubst binaries/%, build/obj/binaries/%,$(BINARIES:.c=.o)
 BINARIES = $(basename $(notdir $(BINARIES_SOURCE)))
 BINARY_TARGETS = $(patsubst %, build/binaries/%,$(BINARIES))
 
-all: build/kernel build/libc.a binaries
+all: build/kernel build/libc.a binaries build/disk.img
 
 build/kernel: $(KERNEL_OBJECTS)
 	$(CC) $(LDFLAGS) $(KERNEL_LDFLAGS) -o $@ $^
@@ -59,6 +59,37 @@ build/binaries/%: binaries/%.c build/crt0.o build/libc.a | build/binaries
 
 build/binaries:
 	mkdir -p build/binaries
+
+build/disk.img: build/kernel binaries limine.conf
+	make -C thirdparty/limine
+	dd if=/dev/zero of=build/disk.img.incomplete bs=1M count=128
+
+	parted build/disk.img.incomplete --script \
+	mklabel gpt \
+	mkpart primary 1MiB 4MiB \
+	mkpart ESP fat32 4MiB 8MiB \
+	mkpart primary 8MiB 100% \
+	set 1 bios_grub on \
+	set 2 esp on
+
+	mformat -i build/disk.img.incomplete@@4194304 -F ::
+	mformat -i build/disk.img.incomplete@@8388608 -F ::
+
+	mmd -i build/disk.img.incomplete@@4194304 ::/EFI ::/EFI/BOOT
+	mmd -i build/disk.img.incomplete@@8388608 ::/boot ::/boot/limine ::/bin
+
+	mcopy -i build/disk.img.incomplete@@4194304 thirdparty/limine/BOOTX64.EFI ::/EFI/BOOT/BOOTX64.EFI
+
+	mcopy -i build/disk.img.incomplete@@8388608 thirdparty/limine/limine-bios.sys ::/boot/limine/
+	mcopy -i build/disk.img.incomplete@@8388608 limine.conf ::/boot/limine
+
+	mcopy -i build/disk.img.incomplete@@8388608 build/kernel ::/boot/kernel
+	mcopy -i build/disk.img.incomplete@@8388608 thirdparty/limine/LICENSE ::/boot/limine
+	mcopy -i build/disk.img.incomplete@@8388608 build/binaries/* ::/bin/
+
+	thirdparty/limine/limine bios-install build/disk.img.incomplete 1
+
+	mv build/disk.img.incomplete build/disk.img
 
 .PHONY: clean
 clean:
