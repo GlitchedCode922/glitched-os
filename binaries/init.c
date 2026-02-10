@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <exec.h>
 
-void main() {
+int main() {
     int console_fd = open_console();
     dup2(console_fd, STDIN_FILENO);
     dup2(console_fd, STDOUT_FILENO);
@@ -10,8 +10,4 @@ void main() {
         close(console_fd);
     }
     exec("/bin/sh", (const char*[]){"/bin/sh", NULL}, (const char*[]){NULL});
-}
-
-void _start() {
-    main();
 }

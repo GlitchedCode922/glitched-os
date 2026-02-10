@@ -41,7 +41,3 @@ int main(int argc, char *argv[]) {
     int result = syscall(SYSCALL_MOUNT, disk, partition, (uint64_t)mountpoint, (uint64_t)filesystem_type, flags);
     return result;
 }
-
-int _start(int argc, char *argv[]) {
-    return main(argc, argv);
-}

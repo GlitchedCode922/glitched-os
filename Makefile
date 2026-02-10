@@ -51,8 +51,11 @@ build/obj/libc:
 
 binaries: $(BINARY_TARGETS)
 
-build/binaries/%: binaries/%.c build/libc.a | build/binaries
-	$(CC) $(CFLAGS) $(BIN_CFLAGS) -Ilibc/ $< build/libc.a -o $@
+build/crt0.o: libc/crt0.asm
+	$(AS) $(ASFLAGS) $< -o $@
+
+build/binaries/%: binaries/%.c build/crt0.o build/libc.a | build/binaries
+	$(CC) $(CFLAGS) $(BIN_CFLAGS) -Ilibc/ $< build/crt0.o build/libc.a -o $@
 
 build/binaries:
 	mkdir -p build/binaries

@@ -6,7 +6,3 @@ int main() {
     printf("%s\n", cwd);
     return 0;
 }
-
-int _start() {
-    return main();
-}

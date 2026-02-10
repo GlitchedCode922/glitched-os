@@ -1,6 +1,5 @@
 #include "../libc/syscall.h"
 
-int _start() {
+int main() {
     syscall(SYSCALL_REBOOT, 0, 0, 0, 0, 0);
-    return 0;
 }

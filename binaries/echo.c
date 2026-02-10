@@ -16,7 +16,3 @@ int main(int argc, char** argv) {
     printf("\n");
     return 0;
 }
-
-int _start(int argc, char** argv) {
-    return main(argc, argv);
-}

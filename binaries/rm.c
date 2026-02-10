@@ -14,7 +14,3 @@ int main(int argc, char** argv) {
     remove_file(argv[1]);
     return 0;
 }
-
-int _start(int argc, char** argv) {
-    return main(argc, argv);
-}

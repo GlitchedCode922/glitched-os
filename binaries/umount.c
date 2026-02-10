@@ -19,7 +19,3 @@ int main(int argc, char *argv[]) {
     int result = syscall(SYSCALL_UNMOUNT, (uint64_t)mountpoint, 0, 0, 0, 0);
     return result;
 }
-
-int _start(int argc, char *argv[]) {
-    return main(argc, argv);
-}

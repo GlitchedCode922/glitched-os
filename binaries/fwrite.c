@@ -43,8 +43,3 @@ int main(int argc, char** argv) {
         close(file_fd);
     }
 }
-
-int _start(int argc, char** argv) {
-    return main(argc, argv);
-}
-
