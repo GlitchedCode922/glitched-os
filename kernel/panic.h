@@ -16,7 +16,21 @@ static inline __attribute__((noreturn)) void panic(const char *fmt, ...) {
     // Print the panic message
     kprintf(":( Kernel panic: ");
     kvprintf(fmt, args);
-    kprintf("\n\nPress Enter to reboot...");
+    kprintf("\n\n");
+
+    // Stack trace
+    uint64_t rbp;
+    asm volatile("mov %%rbp, %0" : "=r"(rbp));
+    kprintf("Stack trace:\n");
+    for (int i = 0; ; i++) {
+        uint64_t return_address = *((uint64_t*)(rbp + 8));
+        if (return_address == 0) break;
+        kprintf("  #%d: 0x%x\n", i, return_address);
+        rbp = *((uint64_t*)rbp);
+        if (rbp == 0) break;
+    }
+
+    kprintf("\nPress Enter to reboot...");
 
     get_input_line();
     reboot();

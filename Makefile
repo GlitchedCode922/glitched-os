@@ -5,9 +5,9 @@ AR = ar
 ASFLAGS =
 override ASFLAGS += -f elf64
 CFLAGS =
-KERNEL_CFLAGS = -nostdlib -ffreestanding -fno-stack-protector -fno-stack-check -fno-PIC -ffunction-sections -fdata-sections -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-sse -mno-sse2 -mno-red-zone -mcmodel=kernel
-LIBC_CFLAGS = -nostdlib -ffreestanding -fno-stack-protector -fno-stack-check -fno-PIC -ffunction-sections -fdata-sections -m64 -march=x86-64 -mno-red-zone
-BIN_CFLAGS = -nostdlib -ffreestanding -fno-stack-protector -fno-stack-check -fno-PIC -ffunction-sections -fdata-sections -m64 -march=x86-64 -mno-red-zone
+KERNEL_CFLAGS = -nostdlib -ffreestanding -fno-stack-protector -fno-stack-check -fno-PIC -fno-omit-frame-pointer -ffunction-sections -fdata-sections -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-sse -mno-sse2 -mno-red-zone -mcmodel=kernel
+LIBC_CFLAGS = -nostdlib -ffreestanding -fno-stack-protector -fno-stack-check -fno-PIC -fno-omit-frame-pointer -ffunction-sections -fdata-sections -m64 -march=x86-64 -mno-red-zone
+BIN_CFLAGS = -nostdlib -ffreestanding -fno-stack-protector -fno-stack-check -fno-PIC -fno-omit-frame-pointer -ffunction-sections -fdata-sections -m64 -march=x86-64 -mno-red-zone
 LDFLAGS =
 KERNEL_LDFLAGS = -nostdlib -lgcc -T kernel/linker.ld
 ARFLAGS =
