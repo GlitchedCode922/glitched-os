@@ -32,6 +32,8 @@ int main() {
             }
         }
 
+        if (args[0] == NULL) continue; // Empty command
+
         if (strcmp(args[0], "cd") == 0) {
             if (args[1] == NULL) {
                 printf("Missing argument for cd\n");
@@ -56,7 +58,7 @@ int main() {
             }
             continue;
         }
-        
+
         int ret = exec(args[0], (const char**)args, (const char*[]){NULL});
         if (ret != 0) {
             printf("Error: %d\n", (int64_t)ret);
