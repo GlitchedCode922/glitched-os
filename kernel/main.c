@@ -13,6 +13,7 @@
 #include "usermode/elf.h"
 #include "usermode/exec.h"
 #include "io/pci.h"
+#include "drivers/serial.h"
 #include <stdint.h>
 
 extern uint64_t __size;
@@ -153,6 +154,7 @@ void kernel_main() {
     idt_init();
     framebuffer = framebuffer_request.response->framebuffers[0];
     initialize_console();
+    serial_init();
     ata_register();
     register_intree_filesystems();
     free_region(0x0, 0x100000000);

@@ -3,6 +3,7 @@
 #include "pci.h"
 #include "../drivers/timer.h"
 #include "../drivers/ps2_keyboard.h"
+#include "../drivers/serial.h"
 
 int spurious_interrupts = 0;
 
@@ -101,6 +102,16 @@ void irq1_handler() {
     pic_send_eoi(1); // Send EOI to PIC for IRQ1
 }
 
+void irq3_handler() {
+    serial_interrupt_handler(3);
+    pic_send_eoi(3); // Send EOI to PIC for IRQ3
+}
+
+void irq4_handler() {
+    serial_interrupt_handler(4);
+    pic_send_eoi(4); // Send EOI to PIC for IRQ4
+}
+
 void irq7_handler() {
     // Check for spurious interrupts
     outb(PIC1_CMD, 0x0b); // Read ISR register
@@ -127,6 +138,12 @@ void irq_handler(int irq) {
             break;
         case 1:
             irq1_handler();
+            break;
+        case 3:
+            irq3_handler();
+            break;
+        case 4:
+            irq4_handler();
             break;
         case 7:
             irq7_handler();

@@ -23,6 +23,10 @@ int open_framebuffer() {
     return syscall(SYSCALL_OPEN_FRAMEBUFFER, 0, 0, 0, 0, 0);
 }
 
+int open_serial(int port, uint16_t flags) {
+    return syscall(SYSCALL_OPEN_SERIAL, port, (uint64_t)flags, 0, 0, 0);
+}
+
 int close(int fd) {
     return syscall(SYSCALL_CLOSE, (uint64_t)fd, 0, 0, 0, 0);
 }

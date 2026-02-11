@@ -48,5 +48,6 @@
 #define SYSCALL_SEEK 48
 #define SYSCALL_DUP 49
 #define SYSCALL_DUP2 50
+#define SYSCALL_OPEN_SERIAL 51
 
 uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5);

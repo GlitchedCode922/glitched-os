@@ -11,6 +11,7 @@
 #include "../net/icmp.h"
 #include "../net/ip.h"
 #include "../drivers/net.h"
+#include "../drivers/serial.h"
 #include "exec.h"
 #include <stdarg.h>
 #include <stdint.h>
@@ -130,6 +131,8 @@ uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t
         return dup((int)arg1);
     case SYSCALL_DUP2:
         return dup2((int)arg1, (int)arg2);
+    case SYSCALL_OPEN_SERIAL:
+        return open_serial(arg1, arg2);
     default:
         // Invalid syscall, return an error code
         return 0xFFFFFFFFFFFFFFFF;
