@@ -38,7 +38,7 @@ int main(int argc, char** argv) {
         char console_line[256];
         read(STDIN_FILENO, console_line, sizeof(console_line));
         if (strcmp(console_line, "\\exit\n") == 0) return 0;
-        int file_fd = open_file(argv[1], FILE_CREATE);
+        int file_fd = open_file(argv[1], FLAG_CREATE);
         write(file_fd, console_line, strlen(console_line));
         close(file_fd);
     }

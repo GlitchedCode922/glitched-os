@@ -1,7 +1,6 @@
 #include "limine.h"
 #include "console.h"
 #include "panic.h"
-#include "drivers/kbd.h"
 #include "memory/mman.h"
 #include "memory/paging.h"
 #include "drivers/block/ata.h"

@@ -15,12 +15,12 @@ int open_file(const char* path, uint16_t flags) {
     return syscall(SYSCALL_OPEN_FILE, (uint64_t)path, (uint64_t)flags, 0, 0, 0);
 }
 
-int open_console() {
-    return syscall(SYSCALL_OPEN_CONSOLE, 0, 0, 0, 0, 0);
+int open_console(uint16_t flags) {
+    return syscall(SYSCALL_OPEN_CONSOLE, (uint64_t)flags, 0, 0, 0, 0);
 }
 
-int open_framebuffer() {
-    return syscall(SYSCALL_OPEN_FRAMEBUFFER, 0, 0, 0, 0, 0);
+int open_framebuffer(uint16_t flags) {
+    return syscall(SYSCALL_OPEN_FRAMEBUFFER, (uint64_t)flags, 0, 0, 0, 0);
 }
 
 int open_serial(int port, uint16_t flags) {

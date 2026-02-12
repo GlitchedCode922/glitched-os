@@ -32,7 +32,7 @@ int main(int argc, char** argv) {
     }
 
     close(file_fd);
-    file_fd = open_file(argv[2], FILE_CREATE);
+    file_fd = open_file(argv[2], FLAG_CREATE);
     ret = write(file_fd, buffer, file_size);
     if (ret < 0) {
         printf("Write error: %d\n", ret);

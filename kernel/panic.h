@@ -32,7 +32,8 @@ static inline __attribute__((noreturn)) void panic(const char *fmt, ...) {
 
     kprintf("\nPress Enter to reboot...");
 
-    get_input_line();
+    char buffer[5];
+    get_input(buffer, 5, 1);
     reboot();
 
     va_end(args);

@@ -145,27 +145,65 @@ void ps2_interrupt_handler(uint8_t scancode) {
     }
 }
 
-char* get_input_line() {
-    while (line_index == 0);
+uint64_t get_input(char* buf, uint64_t max_size, uint8_t blocking) {
+    if (!buf || max_size == 0) return 0;
 
-    static char out[INPUT_LINE_LENGTH];
+    // wait if blocking
+    if (blocking) {
+        while (line_index == 0);
+    }
 
     asm volatile("cli");
 
-    for (uint64_t i = 0; i < INPUT_LINE_LENGTH - 1; i++) {
-        out[i] = input_buffer[0][i];
+    // nothing available
+    if (line_index == 0 && input_length == 0) {
+        asm volatile("sti");
+        return 0;
     }
-    out[INPUT_LINE_LENGTH - 1] = '\0';
 
-    for (uint64_t i = 0; i < line_index - 1; i++) {
-        for (uint64_t j = 0; j < INPUT_LINE_LENGTH; j++) {
-            input_buffer[i][j] = input_buffer[i + 1][j];
+    uint64_t copied = 0;
+
+    // read from first queued line
+    while (copied < max_size && line_index > 0) {
+        char *line = input_buffer[0];
+
+        // determine length of first line
+        uint64_t len = 0;
+        while (len < INPUT_LINE_LENGTH && line[len] != '\0')
+            len++;
+
+        if (len == 0) break;
+
+        uint64_t to_copy = len;
+        if (to_copy > (max_size - copied))
+            to_copy = max_size - copied;
+
+        // copy bytes
+        for (uint64_t i = 0; i < to_copy; i++) {
+            buf[copied + i] = line[i];
         }
-    }
+        copied += to_copy;
 
-    line_index--;
+        // shift remaining chars in this line
+        for (uint64_t i = 0; i < len - to_copy; i++) {
+            line[i] = line[i + to_copy];
+        }
+        line[len - to_copy] = '\0';
+
+        // if line emptied, pop it
+        if (line[0] == '\0') {
+            for (uint64_t i = 0; i < line_index - 1; i++) {
+                for (uint64_t j = 0; j < INPUT_LINE_LENGTH; j++) {
+                    input_buffer[i][j] = input_buffer[i + 1][j];
+                }
+            }
+            line_index--;
+        }
+
+        // partial read stop
+        if (copied >= max_size) break;
+    }
 
     asm volatile("sti");
-
-    return out;
+    return copied;
 }

@@ -22,7 +22,7 @@ static int strlen(const char* str) {
 }
 
 int open_file(const char *path, uint16_t flags) {
-    if (flags & FILE_CREATE) {
+    if (flags & FLAG_CREATE) {
         create_file(path);
     }
     int fd_index = -1;
@@ -52,7 +52,7 @@ int open_file(const char *path, uint16_t flags) {
     return -1;
 }
 
-int open_console() {
+int open_console(uint16_t flags) {
     int fd_index = -1;
     for (int i = 0; i < MAX_FDS; i++) {
         if (fd_table[i].type == 0) {
@@ -60,7 +60,7 @@ int open_console() {
             fd_table[i].path = NULL;
             fd_table[i].offset = 0;
             fd_table[i].serial_port = 0;
-            fd_table[i].flags = 0;
+            fd_table[i].flags = flags;
             fd_table[i].refcount = 1;
             fd_index = i;
             break;
@@ -78,7 +78,7 @@ int open_console() {
     return -1;
 }
 
-int open_framebuffer() {
+int open_framebuffer(uint16_t flags) {
     int fd_index = -1;
     for (int i = 0; i < MAX_FDS; i++) {
         if (fd_table[i].type == 0) {
@@ -86,7 +86,7 @@ int open_framebuffer() {
             fd_table[i].path = NULL;
             fd_table[i].offset = 0;
             fd_table[i].serial_port = 0;
-            fd_table[i].flags = 0;
+            fd_table[i].flags = flags;
             fd_table[i].refcount = 1;
             fd_index = i;
             break;
@@ -184,10 +184,7 @@ int read(int fd, void *buffer, size_t size) {
         fd_entry->offset += bytes_read;
         return bytes_read;
     } else if (fd_entry->type == FD_TYPE_CONSOLE) {
-        char* input = get_input_line();
-        size_t to_copy = size < strlen(input) ? size : strlen(input);
-        memcpy(buffer, input, to_copy);
-        return to_copy;
+        return get_input(buffer, size, !(fd_entry->flags & FLAG_NONBLOCKING));
     } else if (fd_entry->type == FD_TYPE_FRAMEBUFFER) {
         uint8_t* read_ptr = framebuffer->address + fd_entry->offset;
         size_t to_copy = size < (framebuffer->pitch * framebuffer->height - fd_entry->offset) ? size : (framebuffer->pitch * framebuffer->height - fd_entry->offset);
@@ -195,7 +192,7 @@ int read(int fd, void *buffer, size_t size) {
         fd_entry->offset += to_copy;
         return to_copy;
     } else if (fd_entry->type == FD_TYPE_SERIAL) {
-        return serial_read(fd_entry->serial_port, (char*)buffer, size, !(fd_entry->flags & SERIAL_NONBLOCKING));
+        return serial_read(fd_entry->serial_port, (char*)buffer, size, !(fd_entry->flags & FLAG_NONBLOCKING));
     }
     return -1;
 }

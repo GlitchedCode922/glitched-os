@@ -4,7 +4,6 @@
 #include "../mount.h"
 #include "../drivers/timer.h"
 #include "../memory/paging.h"
-#include "../drivers/kbd.h"
 #include "../console.h"
 #include "../power.h"
 #include "../net/udp.h"
@@ -116,9 +115,9 @@ uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t
     case SYSCALL_OPEN_FILE:
         return open_file((const char*)arg1, (uint16_t)arg2);
     case SYSCALL_OPEN_CONSOLE:
-        return open_console();
+        return open_console((uint16_t)arg1);
     case SYSCALL_OPEN_FRAMEBUFFER:
-        return open_framebuffer();
+        return open_framebuffer((uint16_t)arg1);
     case SYSCALL_CLOSE:
         return close((int)arg1);
     case SYSCALL_READ:

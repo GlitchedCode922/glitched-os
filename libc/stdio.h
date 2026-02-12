@@ -7,7 +7,8 @@
 #define STDOUT_FILENO 1
 #define STDERR_FILENO 2
 
-#define FILE_CREATE 0x01
+#define FLAG_CREATE 0x01
+#define FLAG_NONBLOCKING 0x02
 
 void scanf(const char* format, ...);
 void sscanf(const char* str, const char* format, ...);
@@ -19,8 +20,8 @@ void putchar(char c);
 int read(int fd, void* buffer, size_t size);
 int write(int fd, const void* buffer, size_t size);
 int open_file(const char* path, uint16_t flags);
-int open_console();
-int open_framebuffer();
+int open_console(uint16_t flags);
+int open_framebuffer(uint16_t flags);
 int open_serial(int port, uint16_t flags);
 int close(int fd);
 int seek(int fd, int64_t offset, int type);
