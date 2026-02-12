@@ -1,8 +1,6 @@
 #include <stdio.h>
 #include <string.h>
 
-int offset = 0;
-
 int main(int argc, char** argv) {
     if (argc != 2) {
         printf("Invalid argument count: %d\n", argc - 1);
@@ -33,13 +31,12 @@ int main(int argc, char** argv) {
         printf("%s: Is a directory\n", argv[1]);
         return 1;
     }
-
+    int file_fd = open_file(argv[1], FLAG_CREATE);
+    char console_line[256];
     while (1) {
-        char console_line[256];
         read(STDIN_FILENO, console_line, sizeof(console_line));
         if (strcmp(console_line, "\\exit\n") == 0) return 0;
-        int file_fd = open_file(argv[1], FLAG_CREATE);
         write(file_fd, console_line, strlen(console_line));
-        close(file_fd);
     }
+    close(file_fd);
 }
