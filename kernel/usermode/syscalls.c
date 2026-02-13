@@ -1,5 +1,6 @@
 #include "syscalls.h"
 #include "fd.h"
+#include "break.h"
 #include "../drivers/block.h"
 #include "../mount.h"
 #include "../drivers/timer.h"
@@ -55,11 +56,10 @@ uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t
         }
         return 0;
     }
-    case SYSCALL_ALLOC_PAGE:
-        return (uintptr_t)alloc_page(arg1, arg2);
-    case SYSCALL_FREE_PAGE:
-        free_page((void*)arg1);
-        return 0;
+    case SYSCALL_BRK:
+        return (uintptr_t)set_brk((void*)arg1);
+    case SYSCALL_SBRK:
+        return (uintptr_t)sbrk((intptr_t)arg1);
     case SYSCALL_GETENV:
         return (uintptr_t)getenv((const char *)arg1);
     case SYSCALL_REBOOT:

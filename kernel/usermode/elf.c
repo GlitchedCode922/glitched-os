@@ -56,7 +56,7 @@ int is_compatible_binary(const char* path) {
     return 1; // Compatible binary
 }
 
-void* load_elf(const char* path) {
+void* load_elf(const char* path, void** brk) {
     if (!is_compatible_binary(path)) {
         return 0; // Not a compatible ELF binary
     }
@@ -71,6 +71,7 @@ void* load_elf(const char* path) {
     // Read program headers
     read_file(path, (uint8_t*)&phdrs, ehdr.e_phoff, ehdr.e_phnum * sizeof(Elf64_Phdr));
 
+    void* break_addr = NULL;
     // Load segments into memory
     for (int i = 0; i < ehdr.e_phnum; i++) {
         if (phdrs[i].p_type == PT_LOAD) {
@@ -87,8 +88,15 @@ void* load_elf(const char* path) {
 
             // Read the segment data from the file
             read_file(path, (uint8_t*)segment_start, phdrs[i].p_offset, phdrs[i].p_filesz);
+
+            // Update break address
+            uint64_t segment_end = phdrs[i].p_vaddr + phdrs[i].p_memsz;
+            if (!break_addr || segment_end > (uint64_t)break_addr) {
+                break_addr = (void*)segment_end;
+            }
         }
     }
 
+    if (brk) *brk = (void*)(((uintptr_t)break_addr / PAGE_SIZE + 1) * PAGE_SIZE); // Update the break address
     return (void*)ehdr.e_entry; // Successfully loaded ELF binary
 }

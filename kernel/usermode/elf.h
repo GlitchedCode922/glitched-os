@@ -89,4 +89,4 @@ typedef struct {
 
 int is_elf(const char *path);
 int is_compatible_binary(const char *path);
-void* load_elf(const char *path);
+void* load_elf(const char *path, void **brk);

@@ -3,6 +3,7 @@
 #include "../memory/paging.h"
 #include "../memory/mman.h"
 #include "../mount.h"
+#include "break.h"
 #include "fd.h"
 #include <stdint.h>
 
@@ -91,6 +92,9 @@ int execve(const char *path, const char **argv, const char **envp) {
     argv = (const char**)new_argv;
     envp = (const char**)new_envp;
 
+    void* initial_brk_ptr = initial_brk;
+    void* break_ptr = brk;
+
     // Save current file descriptors
     fd_entry_t parent_fds[MAX_FDS];
     for (int i = 0; i < MAX_FDS; i++) {
@@ -136,7 +140,10 @@ int execve(const char *path, const char **argv, const char **envp) {
     strcpy(wd, parent_wd);
 
     // Load the executable into memory
-    void* entry_point = load_elf(path);
+    void* entry_point = load_elf(path, &initial_brk);
+    brk = initial_brk;
+
+    alloc_page((uintptr_t)initial_brk, FLAGS_USER | FLAGS_RW);
     if (entry_point == 0) {
         // Restore the old PML4
         asm volatile("mov %0, %%cr3" : : "r"(old_pml4) : "memory");
@@ -165,6 +172,9 @@ int execve(const char *path, const char **argv, const char **envp) {
     for (int i = 0; i < MAX_FDS; i++) {
         fd_table[i] = parent_fds[i];
     }
+
+    initial_brk = initial_brk_ptr;
+    brk = break_ptr;
 
     return result; // Success
 }
