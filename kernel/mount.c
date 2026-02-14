@@ -156,9 +156,8 @@ static void resolve_dot_or_dotdot(const char *path, char *resolved_path) {
     }
 
     for (int i = 0; i < resolved_count; i++) {
-        if (i > 0 || is_absolute) {
-            if (resolved_index > 1 || (resolved_index == 1 && is_absolute))
-                resolved_path[resolved_index++] = '/';
+        if (i > 0) {
+            resolved_path[resolved_index++] = '/';
         }
         size_t len = strlen(path_tree[i]);
         memcpy(resolved_path + resolved_index, path_tree[i], len);
