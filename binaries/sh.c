@@ -8,7 +8,7 @@ int main() {
     while (1) {
         printf("$ ");
         char command_buffer[1024] = {0};
-        read(STDIN_FILENO, command_buffer, sizeof(command_buffer));
+        readline(command_buffer, sizeof(command_buffer));
         char *command = command_buffer;
         char *args[512] = {0};
         int arg_idx = 0;

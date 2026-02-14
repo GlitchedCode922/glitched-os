@@ -43,6 +43,24 @@ int dup2(int fd, int new_fd) {
     return syscall(SYSCALL_DUP2, (uint64_t)fd, (uint64_t)new_fd, 0, 0, 0);
 }
 
+char* readline(char* buffer, size_t size) {
+    char* buf_start = buffer;
+    if (size == 0) return NULL;
+    for (size_t i = 0; i < size - 1; i++) {
+        char c;
+        if (read(STDIN_FILENO, &c, 1) <= 0) {
+            if (i == 0) return NULL;
+            break;
+        }
+        *buffer++ = c;
+        if (c == '\n') {
+            break; // End of line
+        }
+    }
+    *buffer = '\0'; // Null-terminate the string
+    return buf_start;
+}
+
 void vararg_sscanf(const char* str, const char *format, va_list args) {
     while (*format) {
         if (*format == '%') {
