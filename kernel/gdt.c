@@ -26,10 +26,10 @@ void gdt_init() {
     gdt[2] = kernel_data << 32;
 
     uint64_t user_code = kernel_code | (3 << 13);
-    gdt[3] = user_code;
+    gdt[3] = user_code << 32;
 
     uint64_t user_data = kernel_data | (3 << 13);
-    gdt[4] = user_data;
+    gdt[4] = user_data << 32;
 
     gdt_flush();
 }
