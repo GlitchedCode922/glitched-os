@@ -25,6 +25,8 @@ uint8_t shifted = 0;
 uint8_t ctrl_pressed = 0;
 uint8_t alt_pressed = 0;
 
+uint8_t input_disabled = 0;
+
 char input_buffer[INPUT_BUFFER_LINES][INPUT_LINE_LENGTH];
 uint64_t line_index = 0;
 uint64_t input_index = 0;
@@ -92,8 +94,7 @@ void backspace_char() {
     redraw_tail();
 }
 
-void ps2_interrupt_handler(uint8_t scancode) {
-
+void ps2_interrupt_handler_internal(uint8_t scancode) {
     if (scancode == EXTENDED_KEY) return;
 
     if (scancode & KEY_RELEASE) {
@@ -145,6 +146,13 @@ void ps2_interrupt_handler(uint8_t scancode) {
     }
 }
 
+void ps2_interrupt_handler(uint8_t scancode) {
+    if (input_disabled) return;
+    input_disabled++;
+    ps2_interrupt_handler_internal(scancode);
+    input_disabled--;
+}
+
 uint64_t get_input(char* buf, uint64_t max_size, uint8_t blocking) {
     if (!buf || max_size == 0) return 0;
 
@@ -153,11 +161,11 @@ uint64_t get_input(char* buf, uint64_t max_size, uint8_t blocking) {
         while (line_index == 0);
     }
 
-    asm volatile("cli");
+    input_disabled++;
 
     // nothing available
     if (line_index == 0 && input_length == 0) {
-        asm volatile("sti");
+        input_disabled--;
         return 0;
     }
 
@@ -204,6 +212,6 @@ uint64_t get_input(char* buf, uint64_t max_size, uint8_t blocking) {
         if (copied >= max_size) break;
     }
 
-    asm volatile("sti");
+    input_disabled--;
     return copied;
 }

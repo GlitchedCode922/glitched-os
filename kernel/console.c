@@ -1,4 +1,5 @@
 #include "console.h"
+#include "drivers/ps2_keyboard.h"
 #include "memory/mman.h"
 #include "bitmap.h"
 #include <stdint.h>
@@ -31,6 +32,7 @@ uint16_t cursor_y = 0;
 
 void scroll() {
     if (!framebuffer) return;
+    input_disabled++;
 
     for (uint32_t y = padding_lines; y < framebuffer->height - 12 - padding_lines; y++) {
         char *scanline;
@@ -51,24 +53,30 @@ void scroll() {
             fb_address[pixel_index + framebuffer->blue_mask_shift/8] = bg_color[2];
         }
     }
+    for (uint32_t y = 0; y < height - 1; y++) {
+        for (uint32_t x = 0; x < width; x++) console_buffer[y * width + x] = console_buffer[(y + 1) * width + x];
+    }
+    for (uint32_t x = 0; x < width; x++) console_buffer[(height - 1) * width + x] = ' ';
+    input_disabled--;
 }
 
 void clear_screen() {
     if (!framebuffer) return;
-    asm volatile("cli");
+    input_disabled++;
     for (uint32_t y = 0; y < framebuffer->height; y++) {
         for (uint32_t x = 0; x < framebuffer->width; x++) {
             uint32_t pixel_index = (y * framebuffer->width + x) * framebuffer->bpp / 8;
             fb_address[pixel_index + framebuffer->red_mask_shift/8] = bg_color[0];
             fb_address[pixel_index + framebuffer->green_mask_shift/8] = bg_color[1];
             fb_address[pixel_index + framebuffer->blue_mask_shift/8] = bg_color[2];
-            console_buffer[y * width + x] = ' ';
         }
     }
 
+    for (uint32_t i = 0; i < width * height; i++) console_buffer[i] = ' ';
+
     cursor_x = 0;
     cursor_y = 0;
-    asm volatile("sti");
+    input_disabled--;
 }
 
 void initialize_console() {
@@ -78,7 +86,7 @@ void initialize_console() {
     padding_lines = (framebuffer->height % 12) / 2;
     padding_pixels = (framebuffer->width % 8) / 2;
 
-    console_buffer = (volatile char*)kmalloc(framebuffer->width * framebuffer->height * framebuffer->bpp / 8);
+    console_buffer = (volatile char*)kmalloc(width * height);
 
     clear_screen();
 }
@@ -146,17 +154,16 @@ void update_cursor(int old_x, int old_y) {
 }
 
 void newline() {
-    asm volatile("cli");
     int old_x = cursor_x;
     int old_y = cursor_y;
     cursor_x = 0;
     cursor_y++;
     if (cursor_y >= height) {
         scroll();
+        old_y = height - 2;
         cursor_y = height - 1;
     }
     update_cursor(old_x, old_y);
-    asm volatile("sti");
 }
 
 void putchar(const char c) {
