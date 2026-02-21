@@ -25,12 +25,6 @@ typedef struct {
     uint16_t pt_index;
 } page_address_t;
 
-typedef struct {
-    uint64_t min_addr;
-    uint64_t max_addr;
-    uint64_t type;
-} used_region_t;
-
 void init_paging(uintptr_t cr3, struct limine_memmap_response *memmap, uintptr_t hhdm);
 void* alloc_page(uintptr_t addr, uint64_t flags);
 void* alloc_mmio_page(uintptr_t vaddr, uintptr_t paddr, uint64_t flags);

@@ -7,37 +7,22 @@
 void* pml4_address = NULL;
 void* hhdm_base = 0;
 struct limine_memmap_response *memory_map = NULL;
-
-used_region_t used_regions[1024] = {
-    {0, 0, 0} // Initialize with 0s
-};
-
-int used_region_count = 0;
+char* memory_bitmap = NULL;
+uint64_t page_count = 0;
 
 #define HIGHER_LEVEL_FLAGS (FLAGS_PRESENT | FLAGS_RW | FLAGS_USER)
 
-void merge_used_regions() {
-    // Merge adjacent used regions to avoid fragmentation
-    for (int i = 0; i < used_region_count - 1; i++) {
-        if (used_regions[i].max_addr == used_regions[i + 1].min_addr) {
-            used_regions[i].max_addr = used_regions[i + 1].max_addr;
-            for (int j = i + 1; j < used_region_count - 1; j++) {
-                used_regions[j] = used_regions[j + 1];
-            }
-            used_region_count--;
-            i--; // Check the current index again
-        }
-    }
-}
-
 int check_used(uintptr_t addr) {
-    // Check if the address is already used in the used regions
-    for (int i = 0; i < used_region_count; i++) {
-        if (addr >= used_regions[i].min_addr && addr < used_regions[i].max_addr) {
-            return 1; // Address is used
-        }
-    }
-    return 0; // Address is not used
+    if (!memory_bitmap) return 1;
+    size_t page = addr / PAGE_SIZE;
+
+    if (page >= page_count)
+        return 0; // invalid address
+
+    size_t byte_index = page / 8;
+    size_t bit_index  = page % 8;
+
+    return (memory_bitmap[byte_index] & (1 << bit_index)) != 0;
 }
 
 int check_reserved(uintptr_t addr) {
@@ -84,14 +69,46 @@ uintptr_t get_physical_address(uintptr_t virtual_address) {
 }
 
 void init_paging(uintptr_t cr3, struct limine_memmap_response *memmap, uintptr_t hhdm) {
-    // Initialize the paging system with the provided CR3 and memory map
-    if (cr3 == 0 || memmap == NULL) {
-        panic("init_paging failed: Invalid parameters: cr3 or memmap is NULL");
-    }
-    
+    if (cr3 == 0 || memmap == NULL) panic("init_paging failed");
+
     pml4_address = (void*)hhdm + cr3;
     hhdm_base = (void*)hhdm;
     memory_map = memmap;
+
+    // --- Find highest physical address ---
+    uintptr_t highest = 0;
+
+    for (size_t i = 0; i < memmap->entry_count; i++) {
+        struct limine_memmap_entry *e = memmap->entries[i];
+        uintptr_t end = e->base + e->length;
+        if (end > highest) highest = end;
+    }
+
+    page_count = highest / PAGE_SIZE;
+    size_t bitmap_size = (page_count + 7) / 8;
+    uintptr_t bitmap_phys = 0;
+
+    for (size_t i = 0; i < memmap->entry_count; i++) {
+        struct limine_memmap_entry *e = memmap->entries[i];
+
+        if (e->type != LIMINE_MEMMAP_USABLE)
+            continue;
+
+        if (e->length >= bitmap_size) {
+            bitmap_phys = e->base;
+            break;
+        }
+    }
+
+    if (!bitmap_phys) panic("Cannot allocate paging bitmap");
+    memory_bitmap = (char*)add_hhdm_to((uint64_t*)bitmap_phys);
+
+    // Clear the bitmap and mark its pages as used
+    for (size_t i = 0; i < bitmap_size; i++) memory_bitmap[i] = 0;
+    for (uintptr_t addr = bitmap_phys; addr < bitmap_phys + bitmap_size; addr += PAGE_SIZE) {
+        size_t page = addr / PAGE_SIZE;
+        memory_bitmap[page / 8] |= (1 << (page % 8));
+    }
 }
 
 page_address_t get_page_entry(uintptr_t addr) {
@@ -127,19 +144,8 @@ uintptr_t get_available_address() {
 
 void* allocate_page_table() {
     uintptr_t addr = get_available_address();
-    
-    used_regions[used_region_count].min_addr = addr;
-    used_regions[used_region_count].max_addr = addr + sizeof(uint64_t) * 512;
-    used_regions[used_region_count].type = 1;
-    used_region_count++;
-
-    if (used_region_count >= 1024) {
-        merge_used_regions();
-    }
-
-    if (used_region_count >= 1024) {
-        panic("The buffer of used memory regions for paging has overflowed");
-    }
+    size_t page = addr / PAGE_SIZE;
+    memory_bitmap[page / 8] |= (1 << (page % 8));
 
     return (void*)addr;
 }
@@ -202,18 +208,8 @@ void* alloc_page(uintptr_t vaddr, uint64_t flags) {
     pt[idx.pt_index] = (phys & PAGE_MASK)
                       | flags
                       | FLAGS_PRESENT;
-
-    // record usage
-    if (used_region_count >= 1024) {
-        merge_used_regions();
-        if (used_region_count >= 1024)
-            panic("alloc_page: used_regions overflow");
-    }
-    used_regions[used_region_count++] = (used_region_t){
-        .min_addr = phys,
-        .max_addr = phys + PAGE_SIZE,
-        .type     = 0
-    };
+    size_t page = phys / PAGE_SIZE;
+    memory_bitmap[page / 8] |= (1 << (page % 8));
 
     return (void*)vaddr;
 }
@@ -313,16 +309,9 @@ int free_page(void *page) {
     // Invalidate the TLB for the virtual address
     asm volatile("invlpg (%0)" ::"r"(page) : "memory");
 
-    // Remove the used region
-    for (int i = 0; i < used_region_count; i++) {
-        if (used_regions[i].min_addr == phys && used_regions[i].max_addr == phys + PAGE_SIZE) {
-            for (int j = i; j < used_region_count - 1; j++) {
-                used_regions[j] = used_regions[j + 1];
-            }
-            used_region_count--;
-            break;
-        }
-    }
+    // Remove allocation from bitmap
+    size_t page_index = phys / PAGE_SIZE;
+    memory_bitmap[page_index / 8] &= ~(1 << (page_index % 8));
 
     // Check if the PT, PD, or PDPT can be freed
     int empty = 1;
@@ -403,17 +392,9 @@ void* clone_page_tables(void* pml4_address) {
                                     void* dst = add_hhdm_to((uint64_t*)new_phys);
                                     memcpy(dst, src, PAGE_SIZE);
 
-                                    // Add the used region for the new page
-                                    used_regions[used_region_count].min_addr = new_phys;
-                                    used_regions[used_region_count].max_addr = new_phys + PAGE_SIZE;
-                                    used_regions[used_region_count].type = 0;
-                                    used_region_count++;
-                                    if (used_region_count >= 1024) {
-                                        merge_used_regions();
-                                        if (used_region_count >= 1024) {
-                                            panic("clone_page_tables: Used regions overflow");
-                                        }
-                                    }
+                                    // Mark the new page as allocated
+                                    size_t page_index = new_phys / PAGE_SIZE;
+                                    memory_bitmap[page_index / 8] |= (1 << (page_index % 8));
 
                                     // Point to new frame
                                     new_pt[l] = (new_phys & PAGE_MASK) | (uint64_t)page_table_to_address(pt[l]);
