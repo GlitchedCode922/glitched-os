@@ -208,8 +208,8 @@ void create_directory(const char* path) {
     syscall(SYSCALL_CREATE_DIR, (uint64_t)path, 0, 0, 0, 0);
 }
 
-void getcwd(char *buffer) {
-    syscall(SYSCALL_GETCWD, (uint64_t)buffer, 0, 0, 0, 0);
+void getcwd(char *buffer, size_t size) {
+    syscall(SYSCALL_GETCWD, (uint64_t)buffer, size, 0, 0, 0);
 }
 
 int chdir(char *path) {

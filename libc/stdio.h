@@ -26,4 +26,4 @@ void remove_file(const char* path);
 void create_file(const char* path);
 void create_directory(const char* path);
 int chdir(char* path);
-void getcwd(char* buffer);
+void getcwd(char* buffer, size_t size);
