@@ -3,6 +3,7 @@
 #include <stddef.h>
 
 #define PAGE_SIZE 4096
+#define ALLOC_MAP_SIZE 1024
 
 void* kmalloc(size_t size);
 void* kcalloc(size_t num, size_t size_per_element);

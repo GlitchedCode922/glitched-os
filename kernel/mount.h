@@ -50,5 +50,5 @@ int create_directory(const char *path);
 int get_creation_time(const char *path, uint64_t *timestamp);
 int get_last_modification_time(const char *path, uint64_t *timestamp);
 void register_intree_filesystems();
-void getcwd(char* buffer);
+void getcwd(char* buffer, size_t len);
 int chdir(char* path);

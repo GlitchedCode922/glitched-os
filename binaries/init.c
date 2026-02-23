@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include <exec.h>
+#include <unistd.h>
 
 int main() {
     int console_fd = open_console(0);
@@ -9,5 +9,8 @@ int main() {
     if (console_fd > STDERR_FILENO) {
         close(console_fd);
     }
-    exec("/bin/sh", (const char*[]){"/bin/sh", NULL}, (const char*[]){NULL});
+    while (1) {
+        pid_t sh = spawn("/bin/sh", (const char*[]){"/bin/sh", NULL});
+        waitpid(sh, NULL, 0);
+    }
 }

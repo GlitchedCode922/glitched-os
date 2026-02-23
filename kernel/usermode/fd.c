@@ -1,4 +1,5 @@
 #include "fd.h"
+#include "scheduler.h"
 #include "../mount.h"
 #include "../console.h"
 #include "../limine.h"
@@ -7,9 +8,6 @@
 #include "../net/udp.h"
 #include "../drivers/serial.h"
 #include <stdint.h>
-
-fd_entry_t fd_table[MAX_FDS] = {0};
-fd_entry_t* fd_ptr_table[MAX_FDS] = {0};
 
 extern volatile struct limine_framebuffer* framebuffer;
 
@@ -27,15 +25,15 @@ int open_file(const char *path, uint16_t flags) {
     }
     int fd_index = -1;
     for (int i = 0; i < MAX_FDS; i++) {
-        if (fd_table[i].type == 0) {
-            fd_table[i].type = FD_TYPE_FILE;
+        if (current_task->fd_table[i].type == 0) {
+            current_task->fd_table[i].type = FD_TYPE_FILE;
             void* p = kmalloc(strlen(path) + 1);
             memcpy(p, path, strlen(path) + 1);
-            fd_table[i].path = p;
-            fd_table[i].offset = 0;
-            fd_table[i].serial_port = 0;
-            fd_table[i].flags = flags;
-            fd_table[i].refcount = 1;
+            current_task->fd_table[i].path = p;
+            current_task->fd_table[i].offset = 0;
+            current_task->fd_table[i].serial_port = 0;
+            current_task->fd_table[i].flags = flags;
+            current_task->fd_table[i].refcount = 1;
             fd_index = i;
             break;
         }
@@ -44,8 +42,8 @@ int open_file(const char *path, uint16_t flags) {
         return -1;
     }
     for (int i = 0; i < MAX_FDS; i++) {
-        if (fd_ptr_table[i] == NULL) {
-            fd_ptr_table[i] = fd_table + fd_index;
+        if (current_task->fd_ptr_table[i] == NULL) {
+            current_task->fd_ptr_table[i] = current_task->fd_table + fd_index;
             return i;
         }
     }
@@ -55,13 +53,13 @@ int open_file(const char *path, uint16_t flags) {
 int open_console(uint16_t flags) {
     int fd_index = -1;
     for (int i = 0; i < MAX_FDS; i++) {
-        if (fd_table[i].type == 0) {
-            fd_table[i].type = FD_TYPE_CONSOLE;
-            fd_table[i].path = NULL;
-            fd_table[i].offset = 0;
-            fd_table[i].serial_port = 0;
-            fd_table[i].flags = flags;
-            fd_table[i].refcount = 1;
+        if (current_task->fd_table[i].type == 0) {
+            current_task->fd_table[i].type = FD_TYPE_CONSOLE;
+            current_task->fd_table[i].path = NULL;
+            current_task->fd_table[i].offset = 0;
+            current_task->fd_table[i].serial_port = 0;
+            current_task->fd_table[i].flags = flags;
+            current_task->fd_table[i].refcount = 1;
             fd_index = i;
             break;
         }
@@ -70,8 +68,8 @@ int open_console(uint16_t flags) {
         return -1;
     }
     for (int i = 0; i < MAX_FDS; i++) {
-        if (fd_ptr_table[i] == NULL) {
-            fd_ptr_table[i] = fd_table + fd_index;
+        if (current_task->fd_ptr_table[i] == NULL) {
+            current_task->fd_ptr_table[i] = current_task->fd_table + fd_index;
             return i;
         }
     }
@@ -81,13 +79,13 @@ int open_console(uint16_t flags) {
 int open_framebuffer(uint16_t flags) {
     int fd_index = -1;
     for (int i = 0; i < MAX_FDS; i++) {
-        if (fd_table[i].type == 0) {
-            fd_table[i].type = FD_TYPE_FRAMEBUFFER;
-            fd_table[i].path = NULL;
-            fd_table[i].offset = 0;
-            fd_table[i].serial_port = 0;
-            fd_table[i].flags = flags;
-            fd_table[i].refcount = 1;
+        if (current_task->fd_table[i].type == 0) {
+            current_task->fd_table[i].type = FD_TYPE_FRAMEBUFFER;
+            current_task->fd_table[i].path = NULL;
+            current_task->fd_table[i].offset = 0;
+            current_task->fd_table[i].serial_port = 0;
+            current_task->fd_table[i].flags = flags;
+            current_task->fd_table[i].refcount = 1;
             fd_index = i;
             break;
         }
@@ -96,8 +94,8 @@ int open_framebuffer(uint16_t flags) {
         return -1;
     }
     for (int i = 0; i < MAX_FDS; i++) {
-        if (fd_ptr_table[i] == NULL) {
-            fd_ptr_table[i] = fd_table + fd_index;
+        if (current_task->fd_ptr_table[i] == NULL) {
+            current_task->fd_ptr_table[i] = current_task->fd_table + fd_index;
             return i;
         }
     }
@@ -110,13 +108,13 @@ int open_serial(int port, uint16_t flags) {
     }
     int fd_index = -1;
     for (int i = 0; i < MAX_FDS; i++) {
-        if (fd_table[i].type == 0) {
-            fd_table[i].type = FD_TYPE_SERIAL;
-            fd_table[i].path = NULL;
-            fd_table[i].offset = 0;
-            fd_table[i].serial_port = port;
-            fd_table[i].flags = flags;
-            fd_table[i].refcount = 1;
+        if (current_task->fd_table[i].type == 0) {
+            current_task->fd_table[i].type = FD_TYPE_SERIAL;
+            current_task->fd_table[i].path = NULL;
+            current_task->fd_table[i].offset = 0;
+            current_task->fd_table[i].serial_port = port;
+            current_task->fd_table[i].flags = flags;
+            current_task->fd_table[i].refcount = 1;
             fd_index = i;
             break;
         }
@@ -125,8 +123,8 @@ int open_serial(int port, uint16_t flags) {
         return -1;
     }
     for (int i = 0; i < MAX_FDS; i++) {
-        if (fd_ptr_table[i] == NULL) {
-            fd_ptr_table[i] = fd_table + fd_index;
+        if (current_task->fd_ptr_table[i] == NULL) {
+            current_task->fd_ptr_table[i] = current_task->fd_table + fd_index;
             return i;
         }
     }
@@ -134,25 +132,25 @@ int open_serial(int port, uint16_t flags) {
 }
 
 int close(int fd) {
-    if (fd < 0 || fd >= MAX_FDS || fd_ptr_table[fd] == NULL) {
+    if (fd < 0 || fd >= MAX_FDS || current_task->fd_ptr_table[fd] == NULL) {
         return -1;
     }
-    fd_entry_t* fd_entry = fd_ptr_table[fd];
+    fd_entry_t* fd_entry = current_task->fd_ptr_table[fd];
     if (--fd_entry->refcount == 0) {
         fd_entry->type = 0;
         kfree(fd_entry->path);
         fd_entry->path = NULL;
         fd_entry->offset = 0;
     }
-    fd_ptr_table[fd] = NULL;
+    current_task->fd_ptr_table[fd] = NULL;
     return 0;
 }
 
 int seek(int fd, int64_t offset, int type) {
-    if (fd < 0 || fd >= MAX_FDS || fd_ptr_table[fd] == NULL) {
+    if (fd < 0 || fd >= MAX_FDS || current_task->fd_ptr_table[fd] == NULL) {
         return -1;
     }
-    fd_entry_t* fd_entry = fd_ptr_table[fd];
+    fd_entry_t* fd_entry = current_task->fd_ptr_table[fd];
     if (type == SEEK_START) {
         fd_entry->offset = offset;
     } else if (type == SEEK_CURRENT) {
@@ -175,10 +173,10 @@ int seek(int fd, int64_t offset, int type) {
 }
 
 int read(int fd, void *buffer, size_t size) {
-    if (fd < 0 || fd >= MAX_FDS || fd_ptr_table[fd] == NULL) {
+    if (fd < 0 || fd >= MAX_FDS || current_task->fd_ptr_table[fd] == NULL) {
         return -1;
     }
-    fd_entry_t* fd_entry = fd_ptr_table[fd];
+    fd_entry_t* fd_entry = current_task->fd_ptr_table[fd];
     if (fd_entry->type == FD_TYPE_FILE) {
         int bytes_read = read_file(fd_entry->path, buffer, fd_entry->offset, size);
         fd_entry->offset += bytes_read;
@@ -198,10 +196,10 @@ int read(int fd, void *buffer, size_t size) {
 }
 
 int write(int fd, const void *buffer, size_t size) {
-    if (fd < 0 || fd >= MAX_FDS || fd_ptr_table[fd] == NULL) {
+    if (fd < 0 || fd >= MAX_FDS || current_task->fd_ptr_table[fd] == NULL) {
         return -1;
     }
-    fd_entry_t* fd_entry = fd_ptr_table[fd];
+    fd_entry_t* fd_entry = current_task->fd_ptr_table[fd];
     if (fd_entry->type == FD_TYPE_FILE) {
         int bytes_written = write_file(fd_entry->path, buffer, fd_entry->offset, size);
         fd_entry->offset += bytes_written;
@@ -225,13 +223,13 @@ int write(int fd, const void *buffer, size_t size) {
 }
 
 int dup(int fd) {
-    if (fd < 0 || fd >= MAX_FDS || fd_ptr_table[fd] == NULL) {
+    if (fd < 0 || fd >= MAX_FDS || current_task->fd_ptr_table[fd] == NULL) {
         return -1;
     }
     for (int i = 0; i < MAX_FDS; i++) {
-        if (fd_ptr_table[i] == NULL) {
-            fd_ptr_table[i] = fd_ptr_table[fd];
-            fd_ptr_table[fd]->refcount++;
+        if (current_task->fd_ptr_table[i] == NULL) {
+            current_task->fd_ptr_table[i] = current_task->fd_ptr_table[fd];
+            current_task->fd_ptr_table[fd]->refcount++;
             return i;
         }
     }
@@ -239,7 +237,7 @@ int dup(int fd) {
 }
 
 int dup2(int fd, int new_fd) {
-    if (fd < 0 || fd >= MAX_FDS || fd_ptr_table[fd] == NULL) {
+    if (fd < 0 || fd >= MAX_FDS || current_task->fd_ptr_table[fd] == NULL) {
         return -1;
     }
     if (new_fd < 0 || new_fd >= MAX_FDS) {
@@ -249,7 +247,7 @@ int dup2(int fd, int new_fd) {
         return new_fd;
     }
     close(new_fd);
-    fd_ptr_table[new_fd] = fd_ptr_table[fd];
-    fd_ptr_table[fd]->refcount++;
+    current_task->fd_ptr_table[new_fd] = current_task->fd_ptr_table[fd];
+    current_task->fd_ptr_table[fd]->refcount++;
     return new_fd;
 }

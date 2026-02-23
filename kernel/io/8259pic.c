@@ -1,9 +1,11 @@
 #include "ports.h"
 #include "8259pic.h"
 #include "pci.h"
+#include "../usermode/scheduler.h"
 #include "../drivers/timer.h"
 #include "../drivers/ps2_keyboard.h"
 #include "../drivers/serial.h"
+#include <stdint.h>
 
 int spurious_interrupts = 0;
 
@@ -83,18 +85,24 @@ void pic_init() {
     outb(PIC2_DATA, 0x00); // Slave PIC
 }
 
-void irq0_handler() {
+void irq0_handler(iframe_t* iframe) {
     // Handle IRQ0 (timer interrupt)
-    
+
     pit_tick();
 
     // Acknowledge the interrupt
     pic_send_eoi(0); // Send EOI to PIC for IRQ0
+
+    check_blocked_tasks(1);
+    ticks_remaining--;
+    if (ticks_remaining <= 0 && iframe->cs == 0x1B) {
+        run_next(iframe); // Next task
+    }
 }
 
 void irq1_handler() {
     // Handle IRQ1 (keyboard interrupt)
-    
+
     uint8_t scancode = inb(0x60); // Read scancode from keyboard data port
 
     ps2_interrupt_handler(scancode);
@@ -130,11 +138,11 @@ void irq15_handler() {
     }
 }
 
-void irq_handler(int irq) {
+void irq_handler(int irq, iframe_t* iframe) {
     pci_irq_handler(irq);
     switch (irq) {
         case 0:
-            irq0_handler();
+            irq0_handler(iframe);
             break;
         case 1:
             irq1_handler();

@@ -3,6 +3,7 @@
 #include "drivers/timer.h"
 #include "panic.h"
 #include "console.h"
+#include "usermode/scheduler.h"
 #include "usermode/syscalls.h"
 #include <stdint.h>
 
@@ -64,31 +65,23 @@ idt_ptr_t idt_ptr = {
     .base = (uint64_t)&idt
 };
 
-void interrupt_handler(uint64_t* stack) {
-    uint64_t vector = stack[15];
-    uint64_t error_code = stack[14];
+void interrupt_handler(iframe_t* iframe) {
+    uint64_t vector = iframe->vector;
+    uint64_t error_code = iframe->error_code;
     if (vector == 14) {
         // Page fault
         uint64_t cr2;
         asm volatile("mov %%cr2, %0" : "=r"(cr2));
-        panic("Page fault at address: 0x%x, error code: 0x%x\n", cr2, error_code);
+        panic_int(iframe->rbp, "Page fault at address: 0x%x, error code: 0x%x\n", cr2, error_code);
     } else if (vector < 32) {
-        panic("Unhandled exception: vector %d, error code: 0x%x\n", vector, error_code);
+        panic_int(iframe->rbp, "Unhandled exception: vector %d, error code: 0x%x\n", vector, error_code);
     } else if (vector == 128) {
-        uint64_t syscall_number, arg1, arg2, arg3, arg4, arg5;
-        asm volatile(
-            "mov %%rax, %0\n"
-            "mov %%r12, %1\n"
-            "mov %%rsi, %2\n"
-            "mov %%rdx, %3\n"
-            "mov %%r10, %4\n"
-            "mov %%r8, %5\n"
-            : "=r"(syscall_number), "=r"(arg1), "=r"(arg2), "=r"(arg3), "=r"(arg4), "=r"(arg5)
-        );
-        uint64_t result = syscall(syscall_number, arg1, arg2, arg3, arg4, arg5);
-        asm volatile("mov %0, %%rax" : : "r"(result));
+        syscall(iframe->rax, iframe->r12, iframe->rsi, iframe->rdx, iframe->r10, iframe->r8, iframe);
+        if (ticks_remaining <= 0 && iframe->cs == 0x1B) {
+            run_next(iframe); // Next task
+        }
     } else {
-        irq_handler(vector - 32);
+        irq_handler(vector - 32, iframe);
     }
 }
 
@@ -159,7 +152,7 @@ void idt_init() {
     idt_set_entry(45, isr45, CODE_SEGMENT_SELECTOR, 0x8E);
     idt_set_entry(46, isr46, CODE_SEGMENT_SELECTOR, 0x8E);
     idt_set_entry(47, isr47, CODE_SEGMENT_SELECTOR, 0x8E);
-    idt_set_entry(128, isr128, CODE_SEGMENT_SELECTOR, 0x8E);
+    idt_set_entry(128, isr128, CODE_SEGMENT_SELECTOR, 0xEE);
     // Load the IDT
     idt_load(&idt_ptr);
     // Enable interrupts

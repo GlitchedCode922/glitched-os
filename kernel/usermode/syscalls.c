@@ -12,128 +12,179 @@
 #include "../net/ip.h"
 #include "../drivers/net.h"
 #include "../drivers/serial.h"
-#include "exec.h"
+#include "scheduler.h"
 #include <stdarg.h>
 #include <stdint.h>
 
-uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5) {
+uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, iframe_t* iframe) {
     asm volatile("sti");
+    uint64_t ret = 0;
     switch (syscall_number) {
     case SYSCALL_EXIT:
-        // Not implemented, will come with process management
-        return 0;
+        exit((int)arg1);
+        break;
     case SYSCALL_CREATE_FILE:
-        return create_file((const char*)arg1);
+        ret = create_file((const char*)arg1);
+        break;
     case SYSCALL_DELETE_FILE:
-        return remove_file((const char*)arg1);
+        ret = remove_file((const char*)arg1);
+        break;
     case SYSCALL_CREATE_DIR:
-        return create_directory((const char*)arg1);
+        ret = create_directory((const char*)arg1);
+        break;
     case SYSCALL_GET_PPID:
         // Not implemented, will come with process management
-        return 0;
+        ret = 0;
+        break;
     case SYSCALL_LIST_DIR:
-        return list_directory((const char*)arg1, (char*)arg2, arg3);
+        ret = list_directory((const char*)arg1, (char*)arg2, arg3);
+        break;
     case SYSCALL_GET_FILE_SIZE:
-        return get_file_size((const char*)arg1);
+        ret = get_file_size((const char*)arg1);
+        break;
     case SYSCALL_FORK:
-        // Not implemented, will come with process management
-        return 0;
-    case SYSCALL_EXECUTE:
-        return execve((const char*)arg1, (const char**)arg2, (const char**)arg3);
+        ret = fork(iframe);
+        break;
+    case SYSCALL_EXECV:
+        ret = 0;
+        execv((char*)arg1, (char**)arg2, iframe);
+        break;
     case SYSCALL_GET_TIME:
         // Not implemented, will come with RTC
-        return 0;
-    case SYSCALL_GET_PID:
-        // Not implemented, will come with process management
-        return 0;
+        ret = 0;
+        break;
+    case SYSCALL_GETPID:
+        ret = getpid();
+        break;
     case SYSCALL_GET_UPTIME:
-        return get_uptime_milliseconds();
-    case SYSCALL_DELAY: {
-        // When process management is implemented, this will yield the process
-        uint64_t start_time = get_uptime_milliseconds();
-        while (get_uptime_milliseconds() - start_time < arg1) {
-            // Busy wait
-        }
-        return 0;
-    }
+        ret = get_uptime_milliseconds();
+        break;
+    case SYSCALL_SLEEP:
+        sleep(arg1, iframe);
+        ret = 0;
+        break;
     case SYSCALL_BRK:
-        return (uintptr_t)set_brk((void*)arg1);
+        ret = (uintptr_t)set_brk((void*)arg1);
+        break;
     case SYSCALL_SBRK:
-        return (uintptr_t)sbrk((intptr_t)arg1);
-    case SYSCALL_GETENV:
-        return (uintptr_t)getenv((const char *)arg1);
+        ret = (uintptr_t)sbrk((intptr_t)arg1);
+        break;
     case SYSCALL_REBOOT:
         // Reboot the system
         asm volatile("cli"); // Disable interrupts
         reboot();
-        return 0; // This line will not be reached
+        ret = 0; // This line will not be reached
+        break;
     case SYSCALL_CHDIR:
-        return chdir((char*)arg1);
+        ret = chdir((char*)arg1);
+        break;
     case SYSCALL_GETCWD:
-        getcwd((char*)arg1);
-        return 0;
+        getcwd((char*)arg1, arg2);
+        ret = 0;
+        break;
     case SYSCALL_FILE_EXISTS:
-        return exists((const char*)arg1);
+        ret = exists((const char*)arg1);
+        break;
     case SYSCALL_IS_DIRECTORY:
-        return is_directory((const char*)arg1);
+        ret = is_directory((const char*)arg1);
+        break;
     case SYSCALL_SEND_UDP:
         udp_send((uint8_t*)arg1, arg2, arg3, (uint8_t*)arg4, arg5);
-        return 0;
+        ret = 0;
+        break;
     case SYSCALL_LISTEN_UDP:
-        register_udp_listener(arg1, (void (*)(uint8_t*, uint16_t, uint8_t*, int))arg2);
-        return 0;
+        // Temporarily disabled
+        //register_udp_listener(arg1, (void (*)(uint8_t*, uint16_t, uint8_t*, int))arg2);
+        ret = 0;
+        break;
     case SYSCALL_STOP_UDP_LISTEN:
-        unregister_udp_listener(arg1);
-        return 0;
+        //unregister_udp_listener(arg1);
+        ret = 0;
+        break;
     case SYSCALL_PING:
         ping((uint8_t*)arg1);
-        return 0;
+        ret = 0;
+        break;
     case SYSCALL_GET_MAC:
-        return get_mac(arg1, (uint8_t*)arg2);
+        ret = get_mac(arg1, (uint8_t*)arg2);
+        break;
     case SYSCALL_GET_IP:
-        return get_ip(arg1, (uint32_t*)arg2);
+        ret = get_ip(arg1, (uint32_t*)arg2);
+        break;
     case SYSCALL_ADD_ROUTE:
         add_route((uint8_t*)arg1, (uint8_t*)arg2, (uint8_t*)arg3, arg4);
-        return 0;
+        ret = 0;
+        break;
     case SYSCALL_REMOVE_ROUTE:
         remove_route((uint8_t*)arg1, (uint8_t*)arg2);
-        return 0;
+        ret = 0;
+        break;
     case SYSCALL_SETUP_AUTOMATIC_ROUTING:
         setup_automatic_routing();
-        return 0;
+        ret = 0;
+        break;
     case SYSCALL_CONFIG_DHCP:
-        return configure_network_interface_dhcp(arg1);
+        ret = configure_network_interface_dhcp(arg1);
+        break;
     case SYSCALL_CONFIG_STATIC:
-        return configure_network_interface_static(arg1, arg2, arg3, arg4);
+        ret = configure_network_interface_static(arg1, arg2, arg3, arg4);
+        break;
     case SYSCALL_MOUNT:
-        return mount_filesystem((const char*)arg1, (const char*)arg2, arg3, arg4, arg5);
+        ret = mount_filesystem((const char*)arg1, (const char*)arg2, arg3, arg4, arg5);
+        break;
     case SYSCALL_UNMOUNT:
-        return unmount_filesystem((const char*)arg1);
+        ret = unmount_filesystem((const char*)arg1);
+        break;
     case SYSCALL_UNMOUNT_ALL:
         unmount_all_filesystems();
-        return 0;
+        ret = 0;
+        break;
     case SYSCALL_OPEN_FILE:
-        return open_file((const char*)arg1, (uint16_t)arg2);
+        ret = open_file((const char*)arg1, (uint16_t)arg2);
+        break;
     case SYSCALL_OPEN_CONSOLE:
-        return open_console((uint16_t)arg1);
+        ret = open_console((uint16_t)arg1);
+        break;
     case SYSCALL_OPEN_FRAMEBUFFER:
-        return open_framebuffer((uint16_t)arg1);
+        ret = open_framebuffer((uint16_t)arg1);
+        break;
     case SYSCALL_CLOSE:
-        return close((int)arg1);
+        ret = close((int)arg1);
+        break;
     case SYSCALL_READ:
-        return read((int)arg1, (void*)arg2, (size_t)arg3);
+        ret = read((int)arg1, (void*)arg2, (size_t)arg3);
+        break;
     case SYSCALL_WRITE:
-        return write((int)arg1, (const void*)arg2, (size_t)arg3);
+        ret = write((int)arg1, (const void*)arg2, (size_t)arg3);
+        break;
     case SYSCALL_SEEK:
-        return seek((int)arg1, (size_t)arg2, (int)arg3);
+        ret = seek((int)arg1, (size_t)arg2, (int)arg3);
+        break;
     case SYSCALL_DUP:
-        return dup((int)arg1);
+        ret = dup((int)arg1);
+        break;
     case SYSCALL_DUP2:
-        return dup2((int)arg1, (int)arg2);
+        ret = dup2((int)arg1, (int)arg2);
+        break;
     case SYSCALL_OPEN_SERIAL:
-        return open_serial(arg1, arg2);
+        ret = open_serial(arg1, arg2);
+        break;
+    case SYSCALL_YIELD:
+        run_next(iframe);
+        break;
+    case SYSCALL_WAITPID:
+        ret = waitpid(arg1, (int*)arg2, arg3, iframe);
+        break;
+    case SYSCALL_SPAWN:
+        ret = spawn((char*)arg1, (char**)arg2, iframe);
+        break;
+    case SYSCALL_GETPPID:
+        ret = getppid();
+        break;
     default:
         // Invalid syscall, return an error code
-        return 0xFFFFFFFFFFFFFFFF;
+        ret = 0xFFFFFFFFFFFFFFFF;
     }
+    iframe->rax = ret;
+    return ret;
 }

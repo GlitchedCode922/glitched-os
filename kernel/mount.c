@@ -1,7 +1,8 @@
 #include "mount.h"
 #include "memory/mman.h"
-#include "usermode/exec.h"
+#include "usermode/scheduler.h"
 #include "fs/fat.h"
+#include <stddef.h>
 #include <stdint.h>
 
 filesystem_t filesystems[24] = {0};
@@ -39,6 +40,13 @@ static char *strcpy(char *dest, const char *src) {
     return ret;
 }
 
+static char *strncpy(char *dest, const char *src, size_t len) {
+    char *ret = dest;
+    int i = 0;
+    while ((i++ < len) && (*dest++ = *src++)); // copy until '\0'
+    return ret;
+}
+
 static void strcat(char *dest, const char *src) {
     while (*dest) dest++;
     while (*src) *dest++ = *src++;
@@ -47,7 +55,7 @@ static void strcat(char *dest, const char *src) {
 
 // Resolve relative path to absolute
 char* resolve_path(char *rel_path) {
-    static char temp[MAX_PATH];
+    static char temp[MAX_PATH + 1];
     char *stack[MAX_PATH];
     int top = 0;
 
@@ -55,7 +63,8 @@ char* resolve_path(char *rel_path) {
     if (rel_path[0] == '/') {
         return rel_path;
     } else {
-        strcpy(temp, wd);
+        strncpy(temp, current_task->wd, MAX_PATH);
+        temp[MAX_PATH] = '\0';
         size_t len = strlen(temp);
         if (len > 0 && temp[len - 1] != '/') temp[len++] = '/';
         size_t i = 0;
@@ -559,16 +568,17 @@ void register_intree_filesystems() {
     fat_register();
 }
 
-void getcwd(char *buffer) {
-    strcpy(buffer, wd);
+void getcwd(char *buffer, size_t len) {
+    strncpy(buffer, current_task->wd, len);
 }
 
 int chdir(char *path) {
+    if (strlen(path) >= MAX_PATH) return -2;
     path = resolve_path(path);
     char resolved_path[1024];
     resolve_dot_or_dotdot(path, resolved_path);
     path = resolved_path;
     if (!exists(path)) return -1;
-    strcpy(wd, path);
+    strcpy(current_task->wd, path);
     return 0;
 }

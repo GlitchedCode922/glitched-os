@@ -25,9 +25,6 @@ typedef struct {
     int refcount;
 } fd_entry_t;
 
-extern fd_entry_t fd_table[MAX_FDS];
-extern fd_entry_t* fd_ptr_table[MAX_FDS];
-
 int read(int fd, void* buffer, size_t size);
 int write(int fd, const void* buffer, size_t size);
 int seek(int fd, int64_t offset, int type);

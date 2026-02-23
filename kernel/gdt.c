@@ -1,8 +1,10 @@
 #include "gdt.h"
+#include "memory/mman.h"
 #include <stdint.h>
 
-#define GDT_ENTRY_COUNT 5
+#define GDT_ENTRY_COUNT 7
 uint64_t gdt[GDT_ENTRY_COUNT];
+tss_t tss = {0};
 
 void gdt_init() {
     gdt[0] = 0;
@@ -31,6 +33,20 @@ void gdt_init() {
     uint64_t user_data = kernel_data | (3 << 13);
     gdt[4] = user_data << 32;
 
+    uint64_t tss_low = 0;
+    tss_low |= (sizeof(tss) - 1) & 0xFFFF; // limit
+    tss_low |= ((uint64_t)&tss & 0xFFFFFF) << 16; // base 0-23
+    tss_low |= (uint64_t)0x9 << 40; // type = TSS, DPL = 0
+    tss_low |= 1ULL << 47; // present
+    tss_low |= ((sizeof(tss) - 1) & 0xF0000) << 32; // limit high
+    tss_low |= (((uint64_t)&tss >> 24) & 0xFF) << 56; // base 24-31
+    uint64_t tss_high = ((uint64_t)&tss >> 32) & 0xFFFFFFFF; // base 32-63
+
+    gdt[5] = tss_low;
+    gdt[6] = tss_high;
+
+    tss.rsp0 = 0;
+
     gdt_flush();
 }
 
@@ -48,6 +64,8 @@ void gdt_flush() {
         mov %%ax, %%fs \n\
         mov %%ax, %%gs \n\
         mov %%ax, %%ss \n\
+        mov $0x28, %%ax \n\
+        ltr %%ax \n\
         \n\
         pushq $0x8\n\
         lea 1f(%%rip), %%rax\n\
@@ -55,4 +73,8 @@ void gdt_flush() {
         lretq\n\
         1:"
         : : "m"(gdt_ptr) : "rax", "memory" );
+}
+
+void set_rsp0(uint64_t rsp) {
+    tss.rsp0 = rsp;
 }

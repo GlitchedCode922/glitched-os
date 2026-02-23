@@ -5,6 +5,7 @@
 #define PAGE_SIZE 4096
 #define PAGE_MASK (~(PAGE_SIZE - 1))
 #define PAGE_ALIGN(addr) (((addr) + PAGE_SIZE - 1) & PAGE_MASK)
+#define FLAGS_MASK 0xFFF0000000000FFFULL
 
 #define FLAGS_PRESENT  0x1
 #define FLAGS_RW       0x2

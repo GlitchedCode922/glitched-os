@@ -1,7 +1,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
-#include <exec.h>
+#include <unistd.h>
 #include <stdint.h>
 
 int main() {
@@ -52,14 +52,26 @@ int main() {
             strcpy(program_in_bin, "/bin/");
             strcat(program_in_bin, args[0]);
 
-            int ret = exec(program_in_bin, (const char**)args, (const char*[]){NULL});
+            int ret; 
+            pid_t p = spawn(program_in_bin, (const char**)args);
+            if (p > 0) {
+                waitpid(p, &ret, 0);
+            } else {
+                ret = p;
+            }
             if (ret != 0) {
                 printf("Error: %d\n", (int64_t)ret);
             }
             continue;
         }
 
-        int ret = exec(args[0], (const char**)args, (const char*[]){NULL});
+        int ret;
+        pid_t p = spawn(args[0], (const char**)args);
+        if (p > 0) {
+            waitpid(p, &ret, 0);
+        } else {
+            ret = p;
+        }
         if (ret != 0) {
             printf("Error: %d\n", (int64_t)ret);
         }

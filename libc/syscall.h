@@ -12,14 +12,13 @@
 #define SYSCALL_LIST_DIR 9
 #define SYSCALL_GET_FILE_SIZE 10
 #define SYSCALL_FORK 11
-#define SYSCALL_EXECUTE 12
+#define SYSCALL_EXECV 12
 #define SYSCALL_GET_TIME 13
-#define SYSCALL_GET_PID 14
+#define SYSCALL_GETPID 14
 #define SYSCALL_GET_UPTIME 15
-#define SYSCALL_DELAY 16
+#define SYSCALL_SLEEP 16
 #define SYSCALL_BRK 19
 #define SYSCALL_SBRK 20
-#define SYSCALL_GETENV 21
 #define SYSCALL_REBOOT 22
 #define SYSCALL_CHDIR 24
 #define SYSCALL_GETCWD 25
@@ -49,5 +48,9 @@
 #define SYSCALL_DUP 49
 #define SYSCALL_DUP2 50
 #define SYSCALL_OPEN_SERIAL 51
+#define SYSCALL_YIELD 52
+#define SYSCALL_WAITPID 53
+#define SYSCALL_SPAWN 54
+#define SYSCALL_GETPPID 55
 
 uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5);

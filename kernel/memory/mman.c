@@ -12,7 +12,7 @@ typedef struct {
     uint8_t free;
 } mapped_region;
 
-mapped_region map[1024] = {0};
+mapped_region map[ALLOC_MAP_SIZE] = {0};
 uint64_t map_index = 0;
 
 void init_mman(size_t executable_size) {
@@ -98,13 +98,16 @@ void kfree(void *ptr) {
 void* find_available_va(size_t size) {
     for (int i = 0; i <= map_index; i++) {
         if (map[i].free && map[i].pages >= size) {
-            map[map_index].free = 1;
-            map[map_index].start = map[i].start + size * PAGE_SIZE;
-            map[map_index].pages = map[i].pages - size;
+            if (map[i].pages > size) {
+                map[map_index].free = 1;
+                map[map_index].start = map[i].start + size * PAGE_SIZE;
+                map[map_index].pages = map[i].pages - size;
+
+                map_index++;
+                if (map_index >= ALLOC_MAP_SIZE) panic("Too many kernel allocations");
+            }
             map[i].pages = size;
             map[i].free = 0;
-
-            map_index++;
 
             return (void*)(map[i].start);
         }
@@ -137,17 +140,16 @@ void* krealloc(void* ptr, size_t old_size, size_t new_size) {
     }
 
     uint8_t* size_count_ptr = ptr;
-    
-    
+
     void* new_ptr = kmalloc(new_size);
-    
+
     if (new_ptr == NULL) {
         return NULL; // Allocation failed
     }
 
     memcpy(new_ptr, ptr, old_size < new_size ? old_size : new_size);
     kfree(ptr);
-    
+
     return new_ptr;
 }
 

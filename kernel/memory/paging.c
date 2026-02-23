@@ -147,6 +147,7 @@ void* allocate_page_table() {
     size_t page = addr / PAGE_SIZE;
     memory_bitmap[page / 8] |= (1 << (page % 8));
 
+    memset(add_hhdm_to((uint64_t*)addr), 0, PAGE_SIZE);
     return (void*)addr;
 }
 
@@ -397,13 +398,13 @@ void* clone_page_tables(void* pml4_address) {
                                     memory_bitmap[page_index / 8] |= (1 << (page_index % 8));
 
                                     // Point to new frame
-                                    new_pt[l] = (new_phys & PAGE_MASK) | (uint64_t)page_table_to_address(pt[l]);
+                                    add_hhdm_to(new_pt)[l] = (new_phys & PAGE_MASK) | (pt[l] & FLAGS_MASK);
                                 }
                             }
-                            new_pd[k] = ((uintptr_t)new_pt & PAGE_MASK) | (pde & HIGHER_LEVEL_FLAGS);
+                            add_hhdm_to(new_pd)[k] = ((uintptr_t)new_pt & PAGE_MASK) | (pde & HIGHER_LEVEL_FLAGS);
                         }
                     }
-                    new_pdpt[j] = ((uintptr_t)new_pd & PAGE_MASK) | (pdpte & HIGHER_LEVEL_FLAGS);
+                    add_hhdm_to(new_pdpt)[j] = ((uintptr_t)new_pd & PAGE_MASK) | (pdpte & HIGHER_LEVEL_FLAGS);
                 }
             }
             add_hhdm_to(new_pml4)[i] = ((uintptr_t)new_pdpt & PAGE_MASK) | (pml4e & HIGHER_LEVEL_FLAGS);

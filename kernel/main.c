@@ -10,9 +10,10 @@
 #include "drivers/partitions/mbr.h"
 #include "drivers/net/rtl8139.h"
 #include "usermode/elf.h"
-#include "usermode/exec.h"
 #include "io/pci.h"
 #include "drivers/serial.h"
+#include "usermode/scheduler.h"
+#include "user_jump.h"
 #include <stdint.h>
 
 extern uint64_t __size;
@@ -132,12 +133,7 @@ void parse_kernel_cmdline() {
         }
     }
     mount_filesystem("/", "FAT", root_disk, root_partition, root_readonly);
-    void* addr = load_elf(init_binary_path, NULL);
-    if (!addr) {
-        panic("Failed to load init binary: %s", init_binary_path);
-    }
-    void (*init_entry)(int, char*[]) = (void (*)(int, char*[]))addr;
-    init_entry(0, (char*[]){""});
+    run_init(init_binary_path);
 }
 
 void kernel_main() {
@@ -147,7 +143,6 @@ void kernel_main() {
         : "=r"(cr3)
     );
     init_paging(cr3, memmap_request.response, hhdm_request.response->offset);
-    init_exec(cr3);
     init_mman((size_t)&__size);
     gdt_init();
     idt_init();
@@ -163,5 +158,5 @@ void kernel_main() {
 
     parse_kernel_cmdline();
 
-    panic("Init process exited unexpectedly!");
+    panic(0, "Init process exited unexpectedly!");
 }
