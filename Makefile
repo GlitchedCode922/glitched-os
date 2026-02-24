@@ -5,11 +5,12 @@ AR = ar
 ASFLAGS =
 override ASFLAGS += -f elf64
 CFLAGS =
-KERNEL_CFLAGS = -nostdlib -ffreestanding -fno-stack-protector -fno-stack-check -fno-PIC -fno-omit-frame-pointer -ffunction-sections -fdata-sections -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-sse -mno-sse2 -mno-red-zone -mcmodel=kernel
-LIBC_CFLAGS = -nostdlib -ffreestanding -fno-stack-protector -fno-stack-check -fno-PIC -fno-omit-frame-pointer -ffunction-sections -fdata-sections -m64 -march=x86-64 -mno-red-zone
-BIN_CFLAGS = -nostdlib -ffreestanding -fno-stack-protector -fno-stack-check -fno-PIC -fno-omit-frame-pointer -ffunction-sections -fdata-sections -m64 -march=x86-64 -mno-red-zone
+KERNEL_CFLAGS = -nostdlib -ffreestanding -fno-stack-protector -fno-stack-check -fno-PIC -fno-omit-frame-pointer -ffunction-sections -fdata-sections -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-sse -mno-sse2 -mno-red-zone -mcmodel=kernel -MMD -MP
+LIBC_CFLAGS = -nostdlib -ffreestanding -fno-stack-protector -fno-stack-check -fno-PIC -fno-omit-frame-pointer -ffunction-sections -fdata-sections -m64 -march=x86-64 -MMD -MP
+BIN_CFLAGS = -nostdlib -ffreestanding -fno-stack-protector -fno-stack-check -fno-PIC -fno-omit-frame-pointer -ffunction-sections -fdata-sections -m64 -march=x86-64 -MMD -MP
 LDFLAGS =
 KERNEL_LDFLAGS = -nostdlib -lgcc -T kernel/linker.ld
+BIN_LDFLAGS = -nostdlib -lgcc
 ARFLAGS =
 
 KERNEL_C_FILES = $(shell find kernel -name '*.c')
@@ -27,7 +28,13 @@ BINARIES_OBJECTS = $(patsubst binaries/%, build/obj/binaries/%,$(BINARIES:.c=.o)
 BINARIES = $(basename $(notdir $(BINARIES_SOURCE)))
 BINARY_TARGETS = $(patsubst %, build/binaries/%,$(BINARIES))
 
+.DELETE_ON_ERROR:
+.SECONDARY:
 .PHONY: all clean kernel libc binaries disk-image
+
+-include $(KERNEL_OBJECTS:.o=.d)
+-include $(LIBC_OBJECTS:.o=.d)
+-include $(BINARIES_OBJECTS:.o=.d)
 
 all: kernel libc binaries disk-image
 
@@ -61,8 +68,14 @@ binaries: $(BINARY_TARGETS)
 build/crt0.o: libc/crt0.asm
 	$(AS) $(ASFLAGS) $< -o $@
 
-build/binaries/%: binaries/%.c build/crt0.o build/libc.a | build/binaries
-	$(CC) $(CFLAGS) $(BIN_CFLAGS) -Ilibc/ $< build/crt0.o build/libc.a -o $@
+build/binaries/%: build/obj/binaries/%.o build/crt0.o build/libc.a | build/binaries
+	$(CC) $(LDFLAGS) $(BIN_LDFLAGS) build/crt0.o $< build/libc.a -o $@
+
+build/obj/binaries/%.o: binaries/%.c | build/obj/binaries
+	$(CC) $(CFLAGS) $(BIN_CFLAGS) -c -Ilibc/ $< -o $@
+
+build/obj/binaries:
+	mkdir -p build/obj/binaries
 
 build/binaries:
 	mkdir -p build/binaries
