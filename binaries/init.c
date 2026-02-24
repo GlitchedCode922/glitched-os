@@ -9,8 +9,9 @@ int main() {
     if (console_fd > STDERR_FILENO) {
         close(console_fd);
     }
+    pid_t sh = spawn("/bin/sh", (const char*[]){"/bin/sh", NULL});
+    if (sh <= 0) printf("Error running shell at /bin/sh");
     while (1) {
-        pid_t sh = spawn("/bin/sh", (const char*[]){"/bin/sh", NULL});
-        waitpid(sh, NULL, 0);
+        wait(NULL);
     }
 }

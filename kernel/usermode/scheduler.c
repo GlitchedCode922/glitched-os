@@ -33,9 +33,9 @@ void gc_tasks() {
                     s = s->next_sibling;
                 }
             }
-            p = t->next;
+            task_t* next = t->next;
             kfree(t);
-            t = p->next;
+            t = next;
             continue;
         }
         p = t;
@@ -108,6 +108,18 @@ void exit(int ret) {
     if (current_task == &init_task) panic("Init process exited!");
     current_task->state = STATE_ZOMBIE;
     current_task->return_code = ret;
+
+    // Reparent children
+    task_t* c = current_task->child;
+    while (c) {
+        task_t* next = c->next_sibling;
+        c->parent = &init_task;
+        c->next_sibling = init_task.child;
+        init_task.child = c;
+        c = next;
+    }
+
+    // Run next task
     do {
         current_task = current_task->next;
     } while (current_task->state != STATE_READY);
@@ -289,20 +301,20 @@ void sleep(uint64_t ms, iframe_t *iframe) {
 
 task_t* get_child(task_t* task, int pid) {
     task_t* c = task->child;
-    do {
+    while (c) {
         if (c->state != STATE_DELETED && c->pid == pid) return c;
         c = c->next_sibling;
-    } while (c != task->child);
+    }
     return NULL;
 }
 
 task_t* get_first_zombie(task_t* task) {
     task_t* c = task->child;
-    do {
+    while (c) {
         if (c == NULL) return NULL;
         if (c->state == STATE_ZOMBIE) return c;
         c = c->next_sibling;
-    } while (c != task->child);
+    }
     return NULL;
 }
 
@@ -393,7 +405,10 @@ void check_blocked_tasks(int reduce_ticks) {
                     }
                 } else {
                     task_t* blocked = get_first_zombie(task);
-                    if (blocked == NULL) continue;
+                    if (blocked == NULL) {
+                        task = task->next;
+                        continue;
+                    }
                     asm volatile(
                         "mov %0, %%cr3"
                         :: "r"(task->cr3)
