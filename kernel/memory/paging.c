@@ -323,6 +323,8 @@ int free_page(void *page) {
         }
     }
     if (empty) {
+        size_t page_index = (uint64_t)page_table_to_address(pd[entry.pd_index]) / PAGE_SIZE;
+        memory_bitmap[page_index / 8] &= ~(1 << (page_index % 8));
         pd[entry.pd_index] = 0;
         asm volatile("invlpg (%0)" ::"r"(pd) : "memory");
     }
@@ -335,6 +337,8 @@ int free_page(void *page) {
         }
     }
     if (empty) {
+        size_t page_index = (uint64_t)page_table_to_address(pdpt[entry.pdpt_index]) / PAGE_SIZE;
+        memory_bitmap[page_index / 8] &= ~(1 << (page_index % 8));
         pdpt[entry.pdpt_index] = 0;
         asm volatile("invlpg (%0)" ::"r"(pdpt) : "memory");
     }
@@ -347,6 +351,8 @@ int free_page(void *page) {
         }
     }
     if (empty) {
+        size_t page_index = (uint64_t)page_table_to_address(pml4[entry.pml4_index]) / PAGE_SIZE;
+        memory_bitmap[page_index / 8] &= ~(1 << (page_index % 8));
         pml4[entry.pml4_index] = 0;
         asm volatile("invlpg (%0)" ::"r"(pml4) : "memory");
     }
@@ -411,6 +417,47 @@ void* clone_page_tables(void* pml4_address) {
         }
     }
     return new_pml4;
+}
+
+void free_page_tables(void* pml4_address) {
+    uint64_t* pml4 = add_hhdm_to(pml4_address);
+    for (int i = 0; i < 256; i++) { // Skip higher half entries
+        uint64_t pml4e = pml4[i];
+        if (pml4e & FLAGS_PRESENT) {
+            uint64_t* pdpt = add_hhdm_to(page_table_to_address(pml4e));
+            for (int j = 0; j < 512; j++) {
+                uint64_t pdpte = pdpt[j];
+
+                if (pdpte & FLAGS_PRESENT) {
+                    uint64_t* pd = add_hhdm_to(page_table_to_address(pdpte));
+                    for (int k = 0; k < 512; k++) {
+                        uint64_t pde = pd[k];
+
+                        if (pde & FLAGS_PRESENT) {
+                            uint64_t* pt = add_hhdm_to(page_table_to_address(pde));
+
+                            for (int l = 0; l < 512; l++) {
+                                if (pt[l] & FLAGS_PRESENT) {
+                                    uintptr_t phys = pt[l] & PAGE_MASK;
+
+                                    size_t page_index = phys / PAGE_SIZE;
+                                    memory_bitmap[page_index / 8] &= ~(1 << (page_index % 8));
+                                }
+                            }
+                            size_t page_index = (uint64_t)page_table_to_address(pde) / PAGE_SIZE;
+                            memory_bitmap[page_index / 8] &= ~(1 << (page_index % 8));
+                        }
+                    }
+                    size_t page_index = (uint64_t)page_table_to_address(pdpte) / PAGE_SIZE;
+                    memory_bitmap[page_index / 8] &= ~(1 << (page_index % 8));
+                }
+            }
+            size_t page_index = (uint64_t)page_table_to_address(pml4e) / PAGE_SIZE;
+            memory_bitmap[page_index / 8] &= ~(1 << (page_index % 8));
+        }
+    }
+    size_t page_index = (uint64_t)pml4_address / PAGE_SIZE;
+    memory_bitmap[page_index / 8] &= ~(1 << (page_index % 8));
 }
 
 void change_pml4(void* pml4) {

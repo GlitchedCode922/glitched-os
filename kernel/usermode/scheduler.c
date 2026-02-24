@@ -19,6 +19,7 @@ void gc_tasks() {
     task_t* t = init_task.next;
     while (t != &init_task) {
         if (t->state == STATE_DELETED) {
+            free_page_tables(t->cr3);
             kfree(t->kernel_stack - 4096 * 32);
             p->next = t->next;
             if (t->parent->child == t) {
@@ -41,22 +42,6 @@ void gc_tasks() {
         p = t;
         t = p->next;
     }
-}
-
-void cleanup_memory(task_t* task) {
-    asm volatile(
-        "mov %0, %%cr3"
-        :: "r"(task->cr3)
-    );
-    change_pml4(task->cr3);
-    free_region(0x400000, (size_t)(task->brk - 0x400000));
-    free_region(0x10000000000, 4096 * 128);
-    task->state = STATE_DELETED; // Mark as deleted for garbage collection
-    asm volatile(
-        "mov %0, %%cr3"
-        :: "r"(current_task->cr3)
-    );
-    change_pml4(current_task->cr3);
 }
 
 void run_init(char* path) {
@@ -262,7 +247,7 @@ int execv(char *path, char **argv, iframe_t *iframe) {
     if (res != current_task->pid) {
         return res;
     }
-    cleanup_memory(current_task);
+    current_task->state = STATE_DELETED;
     do {
         current_task = current_task->next;
     } while (current_task->state != STATE_READY);
@@ -324,7 +309,7 @@ int waitpid(int pid, int* wstatus, int options, iframe_t* iframe) {
         if (child == NULL) return -1;
         if (child->state == STATE_ZOMBIE) {
             if (wstatus) *wstatus = child->return_code;
-            cleanup_memory(child);
+            child->state = STATE_DELETED;
             return pid;
         }
         if (options & WNOHANG) return -1;
@@ -349,7 +334,7 @@ int waitpid(int pid, int* wstatus, int options, iframe_t* iframe) {
         task_t* child = get_first_zombie(current_task);
         if (child != NULL) {
             if (wstatus) *wstatus = child->return_code;
-            cleanup_memory(child);
+            child->state = STATE_BLOCKED;
             return child->pid;
         }
         if (options & WNOHANG) return -1;
@@ -397,7 +382,7 @@ void check_blocked_tasks(int reduce_ticks) {
                             "mov %0, %%cr3"
                             :: "r"(current_task->cr3)
                         );
-                        cleanup_memory(task->blocked_process);
+                        task->blocked_process->state = STATE_DELETED;
                         task->state = STATE_READY;
                         task->block_reason = BLOCK_NONE;
                         task->iframe->rax = task->blocked_process->pid;
@@ -418,7 +403,7 @@ void check_blocked_tasks(int reduce_ticks) {
                         "mov %0, %%cr3"
                         :: "r"(current_task->cr3)
                     );
-                    cleanup_memory(blocked);
+                    blocked->state = STATE_DELETED;
                     task->state = STATE_READY;
                     task->block_reason = BLOCK_NONE;
                     task->iframe->rax = blocked->pid;
