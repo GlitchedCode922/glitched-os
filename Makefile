@@ -32,11 +32,11 @@ BINARY_TARGETS = $(patsubst %, build/binaries/%,$(BINARIES))
 .SECONDARY:
 .PHONY: all clean kernel libc binaries disk-image
 
+all: kernel libc binaries disk-image
+
 -include $(KERNEL_OBJECTS:.o=.d)
 -include $(LIBC_OBJECTS:.o=.d)
 -include $(BINARIES_OBJECTS:.o=.d)
-
-all: kernel libc binaries disk-image
 
 kernel: build/kernel
 
