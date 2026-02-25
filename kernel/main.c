@@ -9,6 +9,7 @@
 #include "idt.h"
 #include "drivers/partitions/mbr.h"
 #include "drivers/net/rtl8139.h"
+#include "drivers/fpu.h"
 #include "usermode/elf.h"
 #include "io/pci.h"
 #include "drivers/serial.h"
@@ -17,7 +18,6 @@
 #include <stdint.h>
 
 extern uint64_t __size;
-extern void init_fpu();
 
 __attribute__((used, section(".limine_requests_start")))
 static volatile LIMINE_REQUESTS_START_MARKER;

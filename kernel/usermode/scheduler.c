@@ -5,6 +5,7 @@
 #include "elf.h"
 #include "../memory/paging.h"
 #include "../panic.h"
+#include "../drivers/fpu.h"
 #include <stdint.h>
 
 task_t init_task = {.pid = 1, .next = &init_task, .time_slice = PROCESS_TICKS, .wd = "/"};
@@ -21,6 +22,7 @@ void gc_tasks() {
         if (t->state == STATE_DELETED) {
             free_page_tables(t->cr3);
             kfree(t->kernel_stack - 4096 * 32);
+            kfree(t->fpu_state);
             p->next = t->next;
             if (t->parent->child == t) {
                 t->parent->child = t->next_sibling;
@@ -64,6 +66,7 @@ void run_init(char* path) {
     void* kstack = (char*)kmalloc(4096 * 32) + 4096 * 32;
     init_task.kernel_stack = kstack;
     set_rsp0((uint64_t)kstack);
+    init_task.fpu_state = kmalloc(fpu_memory_size);
     current_task = &init_task;
     scheduler_initialized = 1;
     jump_to_user(addr, (char*)0x10000000000 + 4096 * 128 - 16);
@@ -72,6 +75,7 @@ void run_init(char* path) {
 void run_next(iframe_t* iframe) {
     if (!scheduler_initialized) return;
     current_task->iframe = iframe;
+    save_fpu(current_task->fpu_state);
     current_task->state = STATE_READY;
     do {
         current_task = current_task->next;
@@ -84,6 +88,7 @@ void run_next(iframe_t* iframe) {
         :: "r"(current_task->cr3)
     );
     change_pml4(current_task->cr3);
+    restore_fpu(current_task->fpu_state);
     set_rsp0((uint64_t)current_task->kernel_stack);
     current_task->iframe->rflags |= 0x200;
     context_switch(current_task->iframe);
@@ -114,6 +119,7 @@ void exit(int ret) {
         :: "r"(current_task->cr3)
     );
     change_pml4(current_task->cr3);
+    restore_fpu(current_task->fpu_state);
     set_rsp0((uint64_t)current_task->kernel_stack);
     current_task->iframe->rflags |= 0x200;
     context_switch(current_task->iframe);
@@ -131,6 +137,7 @@ int fork(iframe_t* iframe) {
     *new_iframe = *current_task->iframe;
     new_task->kernel_stack = kstack;
     new_task->iframe = new_iframe;
+    new_task->fpu_state = kmalloc(fpu_memory_size);
     current_task->next = new_task;
     new_task->next_sibling = current_task->child;
     new_task->child = NULL;
@@ -222,6 +229,7 @@ int add_task(char* path, char** argv, task_t* parent, int pid, iframe_t* iframe)
     new_iframe->rip = (uint64_t)entry;
     new_task->kernel_stack = kstack;
     new_task->iframe = new_iframe;
+    new_task->fpu_state = kmalloc(fpu_memory_size);
 
     // Link task tree
     new_task->next = parent->next;
@@ -258,6 +266,7 @@ int execv(char *path, char **argv, iframe_t *iframe) {
         :: "r"(current_task->cr3)
     );
     change_pml4(current_task->cr3);
+    restore_fpu(current_task->fpu_state);
     set_rsp0((uint64_t)current_task->kernel_stack);
     current_task->iframe->rflags |= 0x200;
     context_switch(current_task->iframe);
@@ -279,6 +288,7 @@ void sleep(uint64_t ms, iframe_t *iframe) {
         :: "r"(current_task->cr3)
     );
     change_pml4(current_task->cr3);
+    restore_fpu(current_task->fpu_state);
     set_rsp0((uint64_t)current_task->kernel_stack);
     current_task->iframe->rflags |= 0x200;
     context_switch(current_task->iframe);
@@ -327,6 +337,7 @@ int waitpid(int pid, int* wstatus, int options, iframe_t* iframe) {
             :: "r"(current_task->cr3)
         );
         change_pml4(current_task->cr3);
+        restore_fpu(current_task->fpu_state);
         set_rsp0((uint64_t)current_task->kernel_stack);
         current_task->iframe->rflags |= 0x200;
         context_switch(current_task->iframe);
@@ -352,6 +363,7 @@ int waitpid(int pid, int* wstatus, int options, iframe_t* iframe) {
             :: "r"(current_task->cr3)
         );
         change_pml4(current_task->cr3);
+        restore_fpu(current_task->fpu_state);
         set_rsp0((uint64_t)current_task->kernel_stack);
         current_task->iframe->rflags |= 0x200;
         context_switch(current_task->iframe);

@@ -30,6 +30,7 @@ typedef struct Task {
     void* cr3;
     void* initial_brk;
     void* brk;
+    void* fpu_state;
     char wd[MAX_PATH];
     fd_entry_t fd_table[MAX_FDS];
     fd_entry_t* fd_ptr_table[MAX_FDS];
