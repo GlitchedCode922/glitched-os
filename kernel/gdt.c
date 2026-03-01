@@ -45,6 +45,8 @@ void gdt_init() {
     gdt[5] = tss_low;
     gdt[6] = tss_high;
 
+    tss.ist1 = (uint64_t)kmalloc(4096 * 16) + 4096 * 16;
+    tss.ist2 = (uint64_t)kmalloc(4096 * 16) + 4096 * 16;
     tss.rsp0 = 0;
 
     gdt_flush();

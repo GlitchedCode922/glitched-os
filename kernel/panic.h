@@ -29,6 +29,8 @@ static inline __attribute__((noreturn)) void vpanic_int(uint64_t rbp, const char
     kprintf("\nPress Enter to reboot...");
 
     char buffer[5];
+    asm volatile ("sti");
+    input_disabled = 0;
     get_input(buffer, 5, 1);
     reboot();
 }
