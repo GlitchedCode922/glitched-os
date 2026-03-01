@@ -438,9 +438,7 @@ void free_page_tables(void* pml4_address) {
 
                             for (int l = 0; l < 512; l++) {
                                 if (pt[l] & FLAGS_PRESENT) {
-                                    uintptr_t phys = pt[l] & PAGE_MASK;
-
-                                    size_t page_index = phys / PAGE_SIZE;
+                                    size_t page_index = (uint64_t)page_table_to_address(pt[l]) / PAGE_SIZE;
                                     memory_bitmap[page_index / 8] &= ~(1 << (page_index % 8));
                                 }
                             }
