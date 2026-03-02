@@ -95,7 +95,7 @@ void irq0_handler(iframe_t* iframe) {
 
     check_blocked_tasks(1);
     ticks_remaining--;
-    if (ticks_remaining <= 0 && iframe->cs == 0x1B) {
+    if (ticks_remaining <= 0 && iframe->cs == USER_CS) {
         run_next(iframe); // Next task
     }
 }

@@ -42,7 +42,8 @@ typedef struct {
 } __attribute__((packed)) iframe_t;
 
 #define IDT_ENTRY_COUNT 256
-#define CODE_SEGMENT_SELECTOR 0x8
+#define KERNEL_CS 0x08
+#define USER_CS 0x1B
 
 void idt_set_entry(int vec, void (*isr)(), uint16_t selector, uint8_t type_attr, uint8_t ist);
 void interrupt_handler(iframe_t* iframe);
