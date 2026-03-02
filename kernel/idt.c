@@ -150,6 +150,39 @@ void decode_pfec_flags(uint64_t error_code, char buffer[128]) {
     #undef NEWLINE
 }
 
+static int strcmp(char* p1, char* p2) {
+    while (*p1 && *p2 && *p1 == *p2) {
+        p1++;
+        p2++;
+    };
+    return (unsigned char)*p1 - (unsigned char)*p2;
+}
+
+void breakpoint_debugger(iframe_t* iframe) {
+    kprintf("Breakpoint hit at 0x%x\n", iframe->rip - 1);
+    char buffer[4096];
+    asm volatile ("sti");
+    while (1) {
+        kprintf("> ");
+        int bytes_read = get_input(buffer, sizeof(buffer) - 1, 1);
+        buffer[bytes_read] = '\0'; // Null-terminate
+        if (strcmp(buffer, "?\n") == 0 || strcmp(buffer, "help\n") == 0) {
+            kprintf("Commands:\n");
+            kprintf(" ? / help: Print this message\n");
+            kprintf(" bt: Print a stack trace\n");
+            kprintf(" continue: Continue execution\n");
+        } else if (strcmp(buffer, "bt\n") == 0) {
+            stack_trace(iframe->rbp);
+        } else if (strcmp(buffer, "continue\n") == 0) {
+            // Skip consecutive breakpoints
+            while (*(uint8_t*)(iframe->rip) == 0xCC) iframe->rip++;
+            return;
+        } else {
+            kprintf("Invalid command, enter ? or help to see a list of commands\n");
+        }
+    }
+}
+
 void interrupt_handler(iframe_t* iframe) {
     uint64_t vector = iframe->vector;
     uint64_t error_code = iframe->error_code;
@@ -174,14 +207,7 @@ void interrupt_handler(iframe_t* iframe) {
             panic_int(iframe->rbp, "#GP in kernel, error code: 0x%x\n", error_code);
         }
     } else if (vector == 3) {
-        // Breakpoint
-        kprintf("Breakpoint hit at 0x%x\nPress Enter to continue...", iframe->rip);
-        char buffer[5];
-        asm volatile ("sti");
-        uint8_t in_disabled = input_disabled;
-        input_disabled = 0;
-        get_input(buffer, 5, 1);
-        input_disabled = in_disabled;
+        breakpoint_debugger(iframe);
     } else if (vector == 18 || vector == 2 || vector == 10 || vector == 11 || vector == 8 || vector == 28 || vector == 29) { // Serious errors
         panic_int(iframe->rbp, "%s with error code: 0x%x\n", exception_names[vector], error_code);
     } else if (vector < 32) {

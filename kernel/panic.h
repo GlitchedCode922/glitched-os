@@ -4,6 +4,17 @@
 #include "power.h"
 #include "drivers/ps2_keyboard.h"
 
+static inline void stack_trace(uint64_t rbp) {
+    if (rbp == 0) asm volatile("mov %%rbp, %0" : "=r"(rbp));
+    for (int i = 0; ; i++) {
+        uint64_t return_address = *((uint64_t*)(rbp + 8));
+        if (return_address == 0) break;
+        kprintf("  #%d: 0x%x\n", i, return_address);
+        rbp = *((uint64_t*)rbp);
+        if (rbp == 0) break;
+    }
+}
+
 static inline __attribute__((noreturn)) void vpanic_int(uint64_t rbp, const char *fmt, va_list args) {
     clear_screen();
 
@@ -17,14 +28,7 @@ static inline __attribute__((noreturn)) void vpanic_int(uint64_t rbp, const char
 
     // Stack trace
     kprintf("Stack trace:\n");
-    if (rbp == 0) asm volatile("mov %%rbp, %0" : "=r"(rbp));
-    for (int i = 0; ; i++) {
-        uint64_t return_address = *((uint64_t*)(rbp + 8));
-        if (return_address == 0) break;
-        kprintf("  #%d: 0x%x\n", i, return_address);
-        rbp = *((uint64_t*)rbp);
-        if (rbp == 0) break;
-    }
+    stack_trace(rbp);
 
     kprintf("\nPress Enter to reboot...");
 
