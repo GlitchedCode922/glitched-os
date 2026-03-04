@@ -10,6 +10,7 @@ extern uint32_t width;
 extern uint32_t height;
 
 void initialize_console();
+char* colorize_bitmap(uint8_t index, int inv);
 void putchar(char c);
 void puts(const char *str);
 void clear_screen();

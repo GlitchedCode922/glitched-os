@@ -34,15 +34,19 @@ void scroll() {
     if (!framebuffer) return;
     input_disabled++;
 
-    for (uint32_t y = padding_lines; y < framebuffer->height - 12 - padding_lines; y++) {
-        char *scanline;
-        scanline = (char*)(fb_address + (y * framebuffer->width + padding_pixels) * framebuffer->bpp / 8);
-        for (int i=0; i < framebuffer->width; i++) {
-            uint32_t dest_index = (y * framebuffer->width + i) * framebuffer->bpp / 8;
-            uint32_t src_index = ((y + 12) * framebuffer->width + i) * framebuffer->bpp / 8;
-            fb_address[dest_index + framebuffer->red_mask_shift/8] = fb_address[src_index + framebuffer->red_mask_shift/8];
-            fb_address[dest_index + framebuffer->green_mask_shift/8] = fb_address[src_index + framebuffer->green_mask_shift/8];
-            fb_address[dest_index + framebuffer->blue_mask_shift/8] = fb_address[src_index + framebuffer->blue_mask_shift/8];
+    for (uint32_t y = 0; y < height - 1; y++) {
+        for (uint32_t x = 0; x < width; x++) {
+            if (console_buffer[y * width + x] == console_buffer[(y + 1) * width + x]) continue;
+            char *bitmap = colorize_bitmap(console_buffer[(y + 1) * width + x], 0);
+            for (int inner_x = 0; inner_x < 12; inner_x++) {
+                for (int inner_y = 0; inner_y < 8; inner_y++) {
+                    int pixel_index = (padding_lines + y * 12 + inner_x) * framebuffer->width * framebuffer->bpp / 8 +
+                                    (padding_pixels + x * 8 + inner_y) * framebuffer->bpp / 8;
+                    fb_address[pixel_index + framebuffer->red_mask_shift/8] = bitmap[(inner_x * 8 + inner_y) * 3];
+                    fb_address[pixel_index + framebuffer->green_mask_shift/8] = bitmap[(inner_x * 8 + inner_y) * 3 + 1];
+                    fb_address[pixel_index + framebuffer->blue_mask_shift/8] = bitmap[(inner_x * 8 + inner_y) * 3 + 2];
+                }
+            }
         }
     }
     for (uint32_t y = framebuffer->height - 12 - padding_lines; y < framebuffer->height; y++) {
