@@ -1516,9 +1516,9 @@
     X, \
     Y, \
     Z, \
-    brace_left, \
+    brack_left, \
     backslash, \
-    brace_right, \
+    brack_right, \
     caret, \
     underscore, \
     missing_char, /* backtick */ \
@@ -1548,9 +1548,9 @@
     x, \
     y, \
     z, \
-    brack_left, \
+    brace_left, \
     pipe, \
-    brack_right, \
+    brace_right, \
     tilde, \
     missing_char, /* DEL */ \
 }

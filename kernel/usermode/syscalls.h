@@ -53,5 +53,8 @@
 #define SYSCALL_WAITPID 53
 #define SYSCALL_SPAWN 54
 #define SYSCALL_GETPPID 55
+#define SYSCALL_ISATTY 56
+#define SYSCALL_TCGETATTR 57
+#define SYSCALL_TCSETATTR 58
 
 uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, iframe_t* iframe);

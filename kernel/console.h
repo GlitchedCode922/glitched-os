@@ -3,11 +3,23 @@
 #include <stdint.h>
 #include <stdarg.h>
 #include "limine.h"
+#include "drivers/tty.h"
 
 #define COLOR(r, g, b) ((uint8_t[]){(r), (g), (b)})
 
 extern uint32_t width;
 extern uint32_t height;
+
+typedef struct {
+    enum {
+        TEXT,
+        ESCAPE,
+        CSI
+    } state;
+    int params[16];
+    int current_param;
+    int param_count;
+} ansi_parser_t;
 
 void initialize_console();
 char* colorize_bitmap(uint8_t index, int inv);
@@ -24,3 +36,5 @@ void setfg_color(uint8_t color[3]);
 void set_cursor_position(uint16_t x, uint16_t y);
 void get_cursor_position(uint16_t *x, uint16_t *y);
 void scroll();
+size_t console_echo(tty_t* tty, const char* buffer, size_t len);
+size_t console_write(tty_t* tty, const char* buffer, size_t len);

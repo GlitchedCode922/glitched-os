@@ -182,7 +182,7 @@ int read(int fd, void *buffer, size_t size) {
         fd_entry->offset += bytes_read;
         return bytes_read;
     } else if (fd_entry->type == FD_TYPE_CONSOLE) {
-        return get_input(buffer, size, !(fd_entry->flags & FLAG_NONBLOCKING));
+        return tty_read(&keyboard_tty, buffer, size, !(fd_entry->flags & FLAG_NONBLOCKING));
     } else if (fd_entry->type == FD_TYPE_FRAMEBUFFER) {
         uint8_t* read_ptr = framebuffer->address + fd_entry->offset;
         size_t to_copy = size < (framebuffer->pitch * framebuffer->height - fd_entry->offset) ? size : (framebuffer->pitch * framebuffer->height - fd_entry->offset);
@@ -190,7 +190,7 @@ int read(int fd, void *buffer, size_t size) {
         fd_entry->offset += to_copy;
         return to_copy;
     } else if (fd_entry->type == FD_TYPE_SERIAL) {
-        return serial_read(fd_entry->serial_port, (char*)buffer, size, !(fd_entry->flags & FLAG_NONBLOCKING));
+        return tty_read(serial_ttys + fd_entry->serial_port - 1, buffer, size, !(fd_entry->flags & FLAG_NONBLOCKING));
     }
     return -1;
 }
@@ -205,10 +205,7 @@ int write(int fd, const void *buffer, size_t size) {
         fd_entry->offset += bytes_written;
         return bytes_written;
     } else if (fd_entry->type == FD_TYPE_CONSOLE) {
-        for (size_t i = 0; i < size; i++) {
-            putchar(((char*)buffer)[i]);
-        }
-        return size;
+        return tty_write(&keyboard_tty, (char*)buffer, size);
     } else if (fd_entry->type == FD_TYPE_FRAMEBUFFER) {
         uint8_t* write_ptr = framebuffer->address + fd_entry->offset;
         size_t to_copy = size < (framebuffer->pitch * framebuffer->height - fd_entry->offset) ? size : (framebuffer->pitch * framebuffer->height - fd_entry->offset);
@@ -216,8 +213,7 @@ int write(int fd, const void *buffer, size_t size) {
         fd_entry->offset += to_copy;
         return to_copy;
     } else if (fd_entry->type == FD_TYPE_SERIAL) {
-        serial_write(fd_entry->serial_port, (const char*)buffer, size);
-        return size;
+        return tty_write(serial_ttys + fd_entry->serial_port - 1, buffer, size);
     }
     return -1;
 }
@@ -250,4 +246,40 @@ int dup2(int fd, int new_fd) {
     current_task->fd_ptr_table[new_fd] = current_task->fd_ptr_table[fd];
     current_task->fd_ptr_table[fd]->refcount++;
     return new_fd;
+}
+
+int isatty(int fd) {
+    if (fd < 0 || fd >= MAX_FDS || current_task->fd_ptr_table[fd] == NULL) {
+        return -1;
+    }
+    int type = current_task->fd_ptr_table[fd]->type;
+    return type == FD_TYPE_CONSOLE || type == FD_TYPE_SERIAL;
+}
+
+int tcgetattr(int fd, termios_t *termios) {
+    if (fd < 0 || fd >= MAX_FDS || current_task->fd_ptr_table[fd] == NULL) {
+        return -1;
+    }
+    if (!isatty(fd)) return -2;
+    int type = current_task->fd_ptr_table[fd]->type;
+    if (type == FD_TYPE_CONSOLE) {
+        *termios = keyboard_tty.termios;
+    } else if (type == FD_TYPE_SERIAL) {
+        *termios = serial_ttys[current_task->fd_ptr_table[fd]->serial_port - 1].termios;
+    }
+    return 1;
+}
+
+int tcsetattr(int fd, termios_t *termios) {
+    if (fd < 0 || fd >= MAX_FDS || current_task->fd_ptr_table[fd] == NULL) {
+        return -1;
+    }
+    if (!isatty(fd)) return -2;
+    int type = current_task->fd_ptr_table[fd]->type;
+    if (type == FD_TYPE_CONSOLE) {
+        keyboard_tty.termios = *termios;
+    } else if (type == FD_TYPE_SERIAL) {
+        serial_ttys[current_task->fd_ptr_table[fd]->serial_port - 1].termios = *termios;
+    }
+    return 1;
 }

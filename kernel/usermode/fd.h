@@ -1,6 +1,7 @@
 #pragma once
 #include <stddef.h>
 #include <stdint.h>
+#include "../drivers/tty.h"
 
 #define MAX_FDS 256
 #define FD_TYPE_FILE 1
@@ -20,7 +21,7 @@ typedef struct {
     int type;
     void* path;
     size_t offset;
-    int serial_port; // Only used if type is FD_TYPE_SERIAL
+    int serial_port;
     int flags;
     int refcount;
 } fd_entry_t;
@@ -35,3 +36,7 @@ int open_serial(int port, uint16_t flags);
 int close(int fd);
 int dup(int fd);
 int dup2(int fd, int new_fd);
+
+int isatty(int fd);
+int tcgetattr(int fd, termios_t* termios);
+int tcsetattr(int fd, termios_t* termios);

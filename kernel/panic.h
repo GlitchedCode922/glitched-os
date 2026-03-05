@@ -3,6 +3,7 @@
 #include <stdarg.h>
 #include "power.h"
 #include "drivers/ps2_keyboard.h"
+#include "drivers/tty.h"
 
 static inline void stack_trace(uint64_t rbp) {
     if (rbp == 0) asm volatile("mov %%rbp, %0" : "=r"(rbp));
@@ -17,6 +18,7 @@ static inline void stack_trace(uint64_t rbp) {
 
 static inline __attribute__((noreturn)) void vpanic_int(uint64_t rbp, const char *fmt, va_list args) {
     clear_screen();
+    set_cursor_position(0, 0);
 
     // Set background color to black for panic messages
     setbg_color(COLOR(0, 0, 0));
@@ -32,10 +34,11 @@ static inline __attribute__((noreturn)) void vpanic_int(uint64_t rbp, const char
 
     kprintf("\nPress Enter to reboot...");
 
-    char buffer[5];
+    char c = 0;
     asm volatile ("sti");
     input_disabled = 0;
-    get_input(buffer, 5, 1);
+    keyboard_tty.termios.c_lflag = 0;
+    while (c != '\n') tty_read(&keyboard_tty, &c, 1, 0);
     reboot();
 }
 

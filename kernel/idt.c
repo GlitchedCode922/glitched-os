@@ -162,9 +162,11 @@ void breakpoint_debugger(iframe_t* iframe) {
     kprintf("Breakpoint hit at 0x%x\n", iframe->rip - 1);
     char buffer[4096];
     asm volatile ("sti");
+    termios_t term = keyboard_tty.termios;
+    keyboard_tty.termios.c_lflag = ICANON | ECHO | ECHOE;
     while (1) {
         kprintf("> ");
-        int bytes_read = get_input(buffer, sizeof(buffer) - 1, 1);
+        int bytes_read = tty_read(&keyboard_tty, buffer, sizeof(buffer) - 1, 1);
         buffer[bytes_read] = '\0'; // Null-terminate
         if (strcmp(buffer, "?\n") == 0 || strcmp(buffer, "help\n") == 0) {
             kprintf("Commands:\n");
@@ -176,6 +178,7 @@ void breakpoint_debugger(iframe_t* iframe) {
         } else if (strcmp(buffer, "continue\n") == 0) {
             // Skip consecutive breakpoints
             while (*(uint8_t*)(iframe->rip) == 0xCC) iframe->rip++;
+            keyboard_tty.termios = term;
             return;
         } else {
             kprintf("Invalid command, enter ? or help to see a list of commands\n");

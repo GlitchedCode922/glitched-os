@@ -24,3 +24,5 @@ pid_t wait(int *wstatus);
 
 void yield();
 void sleep(uint64_t ms);
+
+int isatty(int fd);

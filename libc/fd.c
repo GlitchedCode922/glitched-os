@@ -1,5 +1,6 @@
 #include "syscall.h"
 #include "unistd.h"
+#include "termios.h"
 
 int read(int path, void* buffer, size_t size) {
     return syscall(SYSCALL_READ, (uint64_t)path, (uint64_t)buffer, (uint64_t)size, 0, 0);
@@ -39,4 +40,16 @@ int dup(int fd) {
 
 int dup2(int fd, int new_fd) {
     return syscall(SYSCALL_DUP2, (uint64_t)fd, (uint64_t)new_fd, 0, 0, 0);
+}
+
+int isatty(int fd) {
+    return syscall(SYSCALL_ISATTY, (uint64_t)fd, 0, 0, 0, 0);
+}
+
+int tcgetattr(int fd, struct termios* p_termios) {
+    return syscall(SYSCALL_TCGETATTR, (uint64_t)fd, (uint64_t)p_termios, 0, 0, 0);
+}
+
+int tcsetattr(int fd, struct termios* p_termios) {
+    return syscall(SYSCALL_TCSETATTR, (uint64_t)fd, (uint64_t)p_termios, 0, 0, 0);
 }

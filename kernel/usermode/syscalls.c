@@ -178,8 +178,14 @@ uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t
     case SYSCALL_SPAWN:
         ret = spawn((char*)arg1, (char**)arg2, iframe);
         break;
-    case SYSCALL_GETPPID:
-        ret = getppid();
+    case SYSCALL_ISATTY:
+        ret = isatty(arg1);
+        break;
+    case SYSCALL_TCGETATTR:
+        ret = tcgetattr(arg1, (termios_t*)arg2);
+        break;
+    case SYSCALL_TCSETATTR:
+        ret = tcsetattr(arg1, (termios_t*)arg2);
         break;
     default:
         // Invalid syscall, return an error code

@@ -23,12 +23,15 @@ uint8_t fg_color[3] = {255, 255, 255};
 uint16_t cursor_x = 0;
 uint16_t cursor_y = 0;
 
+ansi_parser_t ansi_parser = {.state = TEXT};
+
 #undef x
 #undef y
 #undef c
 #undef s
 #undef i
 #undef p
+#undef n
 
 void scroll() {
     if (!framebuffer) return;
@@ -77,9 +80,6 @@ void clear_screen() {
     }
 
     for (uint32_t i = 0; i < width * height; i++) console_buffer[i] = ' ';
-
-    cursor_x = 0;
-    cursor_y = 0;
     input_disabled--;
 }
 
@@ -93,6 +93,7 @@ void initialize_console() {
     console_buffer = (volatile char*)kmalloc(width * height);
 
     clear_screen();
+    set_cursor_position(0, 0);
 }
 
 char* colorize_bitmap(uint8_t index, int inv) {
@@ -176,6 +177,19 @@ void putchar(const char c) {
     if (c == '\n') {
         newline();
         return;
+    } else if (c == '\b') {
+        int old_x = cursor_x;
+        int old_y = cursor_y;
+        if (cursor_x == 0) {
+            if (cursor_y > 0) {
+                cursor_x = width - 1;
+                cursor_y--;
+            }
+        } else {
+            cursor_x--;
+        }
+        update_cursor(old_x, old_y);
+        return;
     } else if (c == '\0') {
         return;
     }
@@ -193,6 +207,7 @@ void putchar(const char c) {
     console_buffer[cursor_y * width + cursor_x] = c;
     cursor_x++;
     if (cursor_x >= width) {
+        cursor_x = width - 1;
         newline();
         return;
     }
@@ -322,7 +337,6 @@ void setbg_color(uint8_t color[3]) {
     bg_color[0] = color[0];
     bg_color[1] = color[1];
     bg_color[2] = color[2];
-    clear_screen();
 }
 
 void setfg_color(uint8_t color[3]) {
@@ -346,3 +360,91 @@ void get_cursor_position(uint16_t *x, uint16_t *y) {
     if (y) *y = cursor_y;
 }
 
+size_t console_echo(tty_t *tty, const char *buffer, size_t len) {
+    for (int i = 0; i < len; i++) {
+        putchar(buffer[i]);
+    }
+    return len;
+}
+
+size_t console_write(tty_t* tty, const char* buffer, size_t len) {
+    for (int i = 0; i < len; i++) {
+        if (ansi_parser.state == TEXT) {
+            if (buffer[i] == '\033') {
+                ansi_parser.state = ESCAPE;
+                continue;
+            }
+            putchar(buffer[i]);
+            continue;
+        } else if (ansi_parser.state == ESCAPE) {
+            if (buffer[i] == '[') {
+                ansi_parser.state = CSI;
+                memset(ansi_parser.params, 0, sizeof(ansi_parser.params));
+                ansi_parser.param_count = 0;
+                ansi_parser.current_param = 0;
+                continue;
+            }
+            ansi_parser.state = TEXT;
+            continue;
+        } else if (ansi_parser.state == CSI) {
+            if (buffer[i] >= '0' && buffer[i] <= '9') {
+                ansi_parser.current_param *= 10;
+                ansi_parser.current_param += (buffer[i] - '0');
+            } else if (buffer[i] == ';' && ansi_parser.param_count < 16) {
+                ansi_parser.params[ansi_parser.param_count++] = ansi_parser.current_param;
+                ansi_parser.current_param = 0;
+            } else {
+                if (ansi_parser.param_count < 16) ansi_parser.params[ansi_parser.param_count++] = ansi_parser.current_param;
+                // End of sequence
+                switch (buffer[i]) {
+                    case 'H':
+                    case 'f':
+                        set_cursor_position(
+                            ansi_parser.params[0] ? ansi_parser.params[0] - 1 : 0,
+                            ansi_parser.params[1] ? ansi_parser.params[1] - 1 : 0
+                        );
+                        break;
+                    case 'J':
+                        clear_screen();
+                        draw_cursor();
+                        break;
+                    case 'A': {
+                        int n = (ansi_parser.params[0] ? ansi_parser.params[0] : 1);
+                        set_cursor_position(cursor_x, cursor_y > n ? cursor_y - n : 0);
+                        break;
+                    }
+                    case 'B': {
+                        int n = (ansi_parser.params[0] ? ansi_parser.params[0] : 1);
+                        int new_y = cursor_y + n;
+                        if (new_y >= height) {
+                            int scroll_amount = new_y - (height - 1);
+                            for (int i = 0; i < scroll_amount; i++) scroll();
+                            new_y = height - 1;
+                        }
+                        set_cursor_position(cursor_x, new_y);
+                        break;
+                    }
+                    case 'C': {
+                        int n = (ansi_parser.params[0] ? ansi_parser.params[0] : 1);
+                        int new_x = cursor_x + n;
+                        if (new_x >= width) new_x = width - 1;
+                        set_cursor_position(new_x, cursor_y);
+                        break;
+                    }
+                    case 'D': {
+                        int n = (ansi_parser.params[0] ? ansi_parser.params[0] : 1);
+                        int new_x = cursor_x - n;
+                        if (new_x < 0) new_x = 0;
+                        set_cursor_position(new_x, cursor_y);
+                        break;
+                    }
+                    default:
+                        // Invalid sequence
+                        break;
+                }
+                ansi_parser.state = TEXT;
+            }
+        }
+    }
+    return len;
+}
