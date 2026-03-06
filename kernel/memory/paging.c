@@ -7,40 +7,11 @@
 void* pml4_address = NULL;
 void* hhdm_base = 0;
 struct limine_memmap_response *memory_map = NULL;
-char* memory_bitmap = NULL;
+uint32_t* memory_bitmap = NULL;
+uintptr_t first_usable = 0;
 uint64_t page_count = 0;
 
 #define HIGHER_LEVEL_FLAGS (FLAGS_PRESENT | FLAGS_RW | FLAGS_USER)
-
-int check_used(uintptr_t addr) {
-    if (!memory_bitmap) return 1;
-    size_t page = addr / PAGE_SIZE;
-
-    if (page >= page_count)
-        return 0; // invalid address
-
-    size_t byte_index = page / 8;
-    size_t bit_index  = page % 8;
-
-    return (memory_bitmap[byte_index] & (1 << bit_index)) != 0;
-}
-
-int check_reserved(uintptr_t addr) {
-    // Check if the address is reserved in the memory map
-    if (memory_map == NULL) {
-        return -1;
-    }
-
-    for (size_t i = 0; i < memory_map->entry_count; i++) {
-        struct limine_memmap_entry *entry = memory_map->entries[i];
-        if (entry->type == LIMINE_MEMMAP_RESERVED && 
-            addr >= entry->base && 
-            addr < entry->base + entry->length) {
-            return 1; // Address is reserved
-        }
-    }
-    return 0; // Address is not reserved
-}
 
 uint64_t* add_hhdm_to(uint64_t* ptr) {
     return (uint64_t*)((uintptr_t)ptr + (uintptr_t)hhdm_base);
@@ -85,7 +56,7 @@ void init_paging(uintptr_t cr3, struct limine_memmap_response *memmap, uintptr_t
     }
 
     page_count = highest / PAGE_SIZE;
-    size_t bitmap_size = (page_count + 7) / 8;
+    size_t bitmap_size = page_count * 4;
     uintptr_t bitmap_phys = 0;
 
     for (size_t i = 0; i < memmap->entry_count; i++) {
@@ -101,13 +72,24 @@ void init_paging(uintptr_t cr3, struct limine_memmap_response *memmap, uintptr_t
     }
 
     if (!bitmap_phys) panic("Cannot allocate paging bitmap");
-    memory_bitmap = (char*)add_hhdm_to((uint64_t*)bitmap_phys);
+    memory_bitmap = (uint32_t*)add_hhdm_to((uint64_t*)bitmap_phys);
 
     // Clear the bitmap and mark its pages as used
-    for (size_t i = 0; i < bitmap_size; i++) memory_bitmap[i] = 0;
+    memset(memory_bitmap, 0, bitmap_size);
     for (uintptr_t addr = bitmap_phys; addr < bitmap_phys + bitmap_size; addr += PAGE_SIZE) {
         size_t page = addr / PAGE_SIZE;
-        memory_bitmap[page / 8] |= (1 << (page % 8));
+        memory_bitmap[page] = 1;
+    }
+    // Mark reserved segments as used
+    for (uintptr_t i = 0; i < memory_map->entry_count; i++) {
+        struct limine_memmap_entry *entry = memory_map->entries[i];
+        if (entry->type != LIMINE_MEMMAP_USABLE) {
+            uintptr_t start = entry->base / PAGE_SIZE;
+            uintptr_t end = (entry->base + entry->length) / PAGE_SIZE;
+            for (uintptr_t j = start; j < end; j++) {
+                memory_bitmap[j] = 1;
+            }
+        }
     }
 }
 
@@ -123,29 +105,19 @@ page_address_t get_page_entry(uintptr_t addr) {
 }
 
 uintptr_t get_available_address() {
-    for (int i = 0; i < memory_map->entry_count; i++) {
-        struct limine_memmap_entry *entry = memory_map->entries[i];
-        if (entry->type == LIMINE_MEMMAP_USABLE) {
-            uintptr_t start = entry->base;
-            uintptr_t end = entry->base + entry->length;
-            for (uintptr_t i = start; i < end; i += PAGE_SIZE) {
-                if (i >= end) {
-                    break; // No more space in this region
-                }
-                // Check if the address is not reserved or used
-                if (check_reserved(i) == 0 && check_used(i) == 0) {
-                    return i; // Return the first available address
-                }
-            }
+    for (uintptr_t i = first_usable; i < page_count; i++) {
+        if (memory_bitmap[i] == 0) {
+            first_usable = i + 1;
+            return i * PAGE_SIZE;
         }
     }
-    panic("Out of memory: No available address found in the memory map");
+    panic("Out of memory: No available address found");
 }
 
 void* allocate_page_table() {
     uintptr_t addr = get_available_address();
     size_t page = addr / PAGE_SIZE;
-    memory_bitmap[page / 8] |= (1 << (page % 8));
+    memory_bitmap[page]++;
 
     memset(add_hhdm_to((uint64_t*)addr), 0, PAGE_SIZE);
     return (void*)addr;
@@ -210,7 +182,7 @@ void* alloc_page(uintptr_t vaddr, uint64_t flags) {
                       | flags
                       | FLAGS_PRESENT;
     size_t page = phys / PAGE_SIZE;
-    memory_bitmap[page / 8] |= (1 << (page % 8));
+    memory_bitmap[page]++;
 
     return (void*)vaddr;
 }
@@ -312,7 +284,8 @@ int free_page(void *page) {
 
     // Remove allocation from bitmap
     size_t page_index = phys / PAGE_SIZE;
-    memory_bitmap[page_index / 8] &= ~(1 << (page_index % 8));
+    if (memory_bitmap[page_index] > 0) memory_bitmap[page_index]--;
+    if (memory_bitmap[page_index] == 0 && page_index < first_usable) first_usable = page_index;
 
     // Check if the PT, PD, or PDPT can be freed
     int empty = 1;
@@ -324,7 +297,8 @@ int free_page(void *page) {
     }
     if (empty) {
         size_t page_index = (uint64_t)page_table_to_address(pd[entry.pd_index]) / PAGE_SIZE;
-        memory_bitmap[page_index / 8] &= ~(1 << (page_index % 8));
+        if (memory_bitmap[page_index] > 0) memory_bitmap[page_index]--;
+        if (memory_bitmap[page_index] == 0 && page_index < first_usable) first_usable = page_index;
         pd[entry.pd_index] = 0;
         asm volatile("invlpg (%0)" ::"r"(pd) : "memory");
     }
@@ -338,7 +312,8 @@ int free_page(void *page) {
     }
     if (empty) {
         size_t page_index = (uint64_t)page_table_to_address(pdpt[entry.pdpt_index]) / PAGE_SIZE;
-        memory_bitmap[page_index / 8] &= ~(1 << (page_index % 8));
+        if (memory_bitmap[page_index] > 0) memory_bitmap[page_index]--;
+        if (memory_bitmap[page_index] == 0 && page_index < first_usable) first_usable = page_index;
         pdpt[entry.pdpt_index] = 0;
         asm volatile("invlpg (%0)" ::"r"(pdpt) : "memory");
     }
@@ -352,7 +327,8 @@ int free_page(void *page) {
     }
     if (empty) {
         size_t page_index = (uint64_t)page_table_to_address(pml4[entry.pml4_index]) / PAGE_SIZE;
-        memory_bitmap[page_index / 8] &= ~(1 << (page_index % 8));
+        if (memory_bitmap[page_index] > 0) memory_bitmap[page_index]--;
+        if (memory_bitmap[page_index] == 0 && page_index < first_usable) first_usable = page_index;
         pml4[entry.pml4_index] = 0;
         asm volatile("invlpg (%0)" ::"r"(pml4) : "memory");
     }
@@ -401,7 +377,7 @@ void* clone_page_tables(void* pml4_address) {
 
                                     // Mark the new page as allocated
                                     size_t page_index = new_phys / PAGE_SIZE;
-                                    memory_bitmap[page_index / 8] |= (1 << (page_index % 8));
+                                    memory_bitmap[page_index]++;
 
                                     // Point to new frame
                                     add_hhdm_to(new_pt)[l] = (new_phys & PAGE_MASK) | (pt[l] & FLAGS_MASK);
@@ -439,23 +415,28 @@ void free_page_tables(void* pml4_address) {
                             for (int l = 0; l < 512; l++) {
                                 if (pt[l] & FLAGS_PRESENT) {
                                     size_t page_index = (uint64_t)page_table_to_address(pt[l]) / PAGE_SIZE;
-                                    memory_bitmap[page_index / 8] &= ~(1 << (page_index % 8));
+                                    if (memory_bitmap[page_index] > 0) memory_bitmap[page_index]--;
+                                    if (memory_bitmap[page_index] == 0 && page_index < first_usable) first_usable = page_index;
                                 }
                             }
                             size_t page_index = (uint64_t)page_table_to_address(pde) / PAGE_SIZE;
-                            memory_bitmap[page_index / 8] &= ~(1 << (page_index % 8));
+                            if (memory_bitmap[page_index] > 0) memory_bitmap[page_index]--;
+                            if (memory_bitmap[page_index] == 0 && page_index < first_usable) first_usable = page_index;
                         }
                     }
                     size_t page_index = (uint64_t)page_table_to_address(pdpte) / PAGE_SIZE;
-                    memory_bitmap[page_index / 8] &= ~(1 << (page_index % 8));
+                    if (memory_bitmap[page_index] > 0) memory_bitmap[page_index]--;
+                    if (memory_bitmap[page_index] == 0 && page_index < first_usable) first_usable = page_index;
                 }
             }
             size_t page_index = (uint64_t)page_table_to_address(pml4e) / PAGE_SIZE;
-            memory_bitmap[page_index / 8] &= ~(1 << (page_index % 8));
+            if (memory_bitmap[page_index] > 0) memory_bitmap[page_index]--;
+            if (memory_bitmap[page_index] == 0 && page_index < first_usable) first_usable = page_index;
         }
     }
     size_t page_index = (uint64_t)pml4_address / PAGE_SIZE;
-    memory_bitmap[page_index / 8] &= ~(1 << (page_index % 8));
+    if (memory_bitmap[page_index] > 0) memory_bitmap[page_index]--;
+    if (memory_bitmap[page_index] == 0 && page_index < first_usable) first_usable = page_index;
 }
 
 void change_pml4(void* pml4) {

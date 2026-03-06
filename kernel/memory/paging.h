@@ -31,8 +31,6 @@ void* alloc_page(uintptr_t addr, uint64_t flags);
 void* alloc_mmio_page(uintptr_t vaddr, uintptr_t paddr, uint64_t flags);
 uintptr_t get_physical_address(uintptr_t virtual_address);
 int free_page(void* page);
-int check_reserved(uintptr_t addr);
-int check_used(uintptr_t addr);
 void* clone_page_tables(void* pml4_address);
 void free_page_tables(void* pml4_address);
 void change_pml4(void* pml4);
