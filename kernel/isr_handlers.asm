@@ -87,43 +87,6 @@ isr_common:
     add rsp, 16
     iretq
 
-isr_common_err:
-    push rax          ; Save registers
-    push rbx
-    push rcx
-    push rdx
-    push rbp
-    push rsi
-    push rdi
-    push r8
-    push r9
-    push r10
-    push r11
-    push r12
-    push r13
-    push r14
-    push r15
-    extern interrupt_handler
-    mov rdi, rsp
-    call interrupt_handler ; Call the common interrupt handler
-    pop r15           ; Restore registers
-    pop r14
-    pop r13
-    pop r12
-    pop r11
-    pop r10
-    pop r9
-    pop r8
-    pop rdi
-    pop rsi
-    pop rbp
-    pop rdx
-    pop rcx
-    pop rbx
-    pop rax
-    add rsp, 8
-    iretq
-
 isr0: ; Division by zero
     push 0
     push 0
@@ -166,7 +129,7 @@ isr7: ; Device not available
 
 isr8: ; Double fault (Error code pushed by CPU)
     push 8
-    jmp isr_common_err
+    jmp isr_common
 
 isr9: ; Coprocessor segment overrun
     push 0
@@ -175,23 +138,23 @@ isr9: ; Coprocessor segment overrun
 
 isr10: ; Invalid TSS (Error code pushed by CPU)
     push 10
-    jmp isr_common_err
+    jmp isr_common
 
 isr11: ; Segment not present (Error code pushed by CPU)
     push 11
-    jmp isr_common_err
+    jmp isr_common
 
 isr12: ; Stack segment fault (Error code pushed by CPU)
     push 12
-    jmp isr_common_err
+    jmp isr_common
 
 isr13: ; General protection fault (Error code pushed by CPU)
     push 13
-    jmp isr_common_err
+    jmp isr_common
 
 isr14: ; Page fault (Error code pushed by CPU)
     push 14
-    jmp isr_common_err
+    jmp isr_common
 
 isr15: ; Reserved
     push 15
@@ -204,7 +167,7 @@ isr16: ; x87 FPU floating-point error
 
 isr17: ; Alignment check (Error code pushed by CPU)
     push 17
-    jmp isr_common_err
+    jmp isr_common
 
 isr18: ; Machine check
     push 0
@@ -223,7 +186,7 @@ isr20: ; Virtualization exception
 
 isr21: ; Control protection exception (Error code pushed by CPU)
     push 21
-    jmp isr_common_err
+    jmp isr_common
 
 isr22: ; Reserved
     push 0
@@ -262,11 +225,11 @@ isr28: ; Hypervisor injection exception
 
 isr29: ; VMM communication exception (Error code pushed by CPU)
     push 29
-    jmp isr_common_err
+    jmp isr_common
 
 isr30: ; Security exception (Error code pushed by CPU)
     push 30
-    jmp isr_common_err
+    jmp isr_common
 
 isr31: ; Reserved
     push 0

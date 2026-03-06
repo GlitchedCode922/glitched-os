@@ -367,20 +367,14 @@ void* clone_page_tables(void* pml4_address) {
 
                             for (int l = 0; l < 512; l++) {
                                 if (pt[l] & FLAGS_PRESENT) {
-                                    uintptr_t old_phys = pt[l] & PAGE_MASK;
-                                    uintptr_t new_phys = get_available_address();
-
-                                    // Directly copy contents using HHDM
-                                    void* src = add_hhdm_to((uint64_t*)old_phys);
-                                    void* dst = add_hhdm_to((uint64_t*)new_phys);
-                                    memcpy(dst, src, PAGE_SIZE);
-
-                                    // Mark the new page as allocated
-                                    size_t page_index = new_phys / PAGE_SIZE;
-                                    memory_bitmap[page_index]++;
-
-                                    // Point to new frame
-                                    add_hhdm_to(new_pt)[l] = (new_phys & PAGE_MASK) | (pt[l] & FLAGS_MASK);
+                                    // CoW copy
+                                    uintptr_t phys = pt[l] & PAGE_MASK;
+                                    if (pt[l] & FLAGS_RW) {
+                                        pt[l] &= ~FLAGS_RW;
+                                        pt[l] |= FLAGS_COW;
+                                    }
+                                    memory_bitmap[phys / PAGE_SIZE]++;
+                                    add_hhdm_to(new_pt)[l] = (phys & PAGE_MASK) | (pt[l] & FLAGS_MASK);
                                 }
                             }
                             add_hhdm_to(new_pd)[k] = ((uintptr_t)new_pt & PAGE_MASK) | (pde & HIGHER_LEVEL_FLAGS);
@@ -437,6 +431,54 @@ void free_page_tables(void* pml4_address) {
     size_t page_index = (uint64_t)pml4_address / PAGE_SIZE;
     if (memory_bitmap[page_index] > 0) memory_bitmap[page_index]--;
     if (memory_bitmap[page_index] == 0 && page_index < first_usable) first_usable = page_index;
+}
+
+int cow_handler(void* faulting_address) {
+    page_address_t entry = get_page_entry((uintptr_t)faulting_address);
+
+    uint64_t* pml4 = (uint64_t*)pml4_address;
+    if (!(pml4[entry.pml4_index] & FLAGS_PRESENT)) {
+        return 0; // PML4 entry not present
+    }
+
+    uint64_t* pdpt = add_hhdm_to(page_table_to_address(pml4[entry.pml4_index]));
+    if (!(pdpt[entry.pdpt_index] & FLAGS_PRESENT)) {
+        return 0; // PDPT entry not present
+    }
+
+    uint64_t* pd = add_hhdm_to(page_table_to_address(pdpt[entry.pdpt_index]));
+    if (!(pd[entry.pd_index] & FLAGS_PRESENT)) {
+        return 0; // PD entry not present
+    }
+
+    uint64_t* pt = add_hhdm_to(page_table_to_address(pd[entry.pd_index]));
+    if (!(pt[entry.pt_index] & FLAGS_PRESENT)) {
+        return 0; // PT entry not present
+    }
+
+    uint64_t pte = pt[entry.pt_index];
+    uintptr_t phys = pte & PAGE_MASK;
+    uintptr_t page_index = phys / PAGE_SIZE;
+    if (pte & FLAGS_COW) {
+        if (memory_bitmap[page_index] > 1) {
+            // Copy the page
+            uintptr_t new_phys = get_available_address();
+            memory_bitmap[page_index]--;
+            memory_bitmap[new_phys / PAGE_SIZE] = 1;
+
+            void* old_virt = add_hhdm_to((uint64_t*)phys);
+            void* new_virt = add_hhdm_to((uint64_t*)new_phys);
+            memcpy(new_virt, old_virt, PAGE_SIZE);
+
+            pt[entry.pt_index] = (new_phys & PAGE_MASK) | (pt[entry.pt_index] & ~FLAGS_COW & FLAGS_MASK) | FLAGS_RW;
+        } else {
+            pt[entry.pt_index] &= ~FLAGS_COW;
+            pt[entry.pt_index] |= FLAGS_RW;
+        }
+        asm volatile("invlpg (%0)" ::"r"(faulting_address) : "memory");
+        return 1;
+    }
+    return 0;
 }
 
 void change_pml4(void* pml4) {

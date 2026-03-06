@@ -16,6 +16,7 @@
 #define FLAGS_DIRTY    0x40
 #define FLAGS_PSE      0x80
 #define FLAGS_GLOBAL   0x100
+#define FLAGS_COW      0x200
 #define FLAGS_PAT      0x1000
 #define FLAGS_NX       0x8000000000000000
 
@@ -33,6 +34,7 @@ uintptr_t get_physical_address(uintptr_t virtual_address);
 int free_page(void* page);
 void* clone_page_tables(void* pml4_address);
 void free_page_tables(void* pml4_address);
+int cow_handler(void* faulting_address);
 void change_pml4(void* pml4);
 
 page_address_t get_page_entry(uintptr_t addr);

@@ -6,6 +6,7 @@
 #include "drivers/ps2_keyboard.h"
 #include "usermode/scheduler.h"
 #include "usermode/syscalls.h"
+#include "memory/paging.h"
 #include <stdint.h>
 
 // ISR handlers (defined in assembly)
@@ -193,6 +194,7 @@ void interrupt_handler(iframe_t* iframe) {
         // Page fault
         uint64_t cr2;
         asm volatile("mov %%cr2, %0" : "=r"(cr2));
+        if (error_code & 0x2 && cow_handler((void*)(cr2 & PAGE_MASK))) return; // CoW page
         char flags[128] = {0};
         decode_pfec_flags(error_code, flags);
         if (iframe->cs == USER_CS) {
