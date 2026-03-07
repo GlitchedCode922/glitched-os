@@ -223,7 +223,7 @@ void interrupt_handler(iframe_t* iframe) {
             panic_int(iframe->rbp, "%s in kernel, error code: 0x%x\n", exception_names[vector], error_code);
         }
     } else if (vector == 128) {
-        syscall(iframe->rax, iframe->r12, iframe->rsi, iframe->rdx, iframe->r10, iframe->r8, iframe);
+        syscall(iframe->rax, iframe->rdi, iframe->rsi, iframe->rdx, iframe->r10, iframe->r8, iframe->r9, iframe);
         if (ticks_remaining <= 0 && iframe->cs == USER_CS) {
             run_next(iframe); // Next task
         }

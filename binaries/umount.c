@@ -13,9 +13,9 @@ int main(int argc, char *argv[]) {
     const char *mountpoint = argv[1];
 
     if (strcmp(mountpoint, "all") == 0) {
-        int result = syscall(SYSCALL_UNMOUNT_ALL, 0, 0, 0, 0, 0);
+        int result = syscall(SYSCALL_UNMOUNT_ALL, 0, 0, 0, 0, 0, 0);
         return result;
     }
-    int result = syscall(SYSCALL_UNMOUNT, (uint64_t)mountpoint, 0, 0, 0, 0);
+    int result = syscall(SYSCALL_UNMOUNT, (uint64_t)mountpoint, 0, 0, 0, 0, 0);
     return result;
 }

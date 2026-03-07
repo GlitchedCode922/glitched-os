@@ -38,6 +38,6 @@ int main(int argc, char *argv[]) {
         flags = atoi(argv[5]);
     }
 
-    int result = syscall(SYSCALL_MOUNT, (uint64_t)mountpoint, (uint64_t)filesystem_type, disk, partition, flags);
+    int result = syscall(SYSCALL_MOUNT, (uint64_t)mountpoint, (uint64_t)filesystem_type, disk, partition, flags, 0);
     return result;
 }
