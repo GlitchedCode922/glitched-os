@@ -187,6 +187,9 @@ uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t
     case SYSCALL_TCSETATTR:
         ret = tcsetattr(arg1, (termios_t*)arg2);
         break;
+    case SYSCALL_DRIVE_LOAD_EJECT:
+        ret = load_eject(arg1, arg2);
+        break;
     default:
         // Invalid syscall, return an error code
         ret = 0xFFFFFFFFFFFFFFFF;

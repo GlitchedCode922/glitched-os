@@ -1,0 +1,10 @@
+#pragma once
+
+#include <stdint.h>
+#include "ata.h"
+
+ata_device_t detect_packet_device(uint16_t bus_port, uint16_t disk);
+int atapi_read_sectors(uint8_t drive, uint64_t lba, uint8_t* buffer, uint32_t count);
+int atapi_write_sectors(uint8_t drive, uint64_t lba, uint8_t* buffer, uint32_t count);
+void atapi_load_or_eject(uint8_t drive, uint8_t load);
+int atapi_get_disk_size(uint8_t drive, uint64_t* last_lba, uint64_t* block_size);

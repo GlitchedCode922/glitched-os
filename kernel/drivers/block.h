@@ -7,6 +7,7 @@ typedef struct {
     uint64_t (*get_size)(uint8_t disk);
     int (*get_smart_data)(uint8_t disk, uint8_t *buffer);
     void (*standby)(uint8_t disk);
+    int (*load_eject)(uint8_t disk, uint8_t load);
 } block_driver_t;
 
 typedef struct {
@@ -19,6 +20,7 @@ int write_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t count);
 uint64_t get_drive_size(uint8_t drive);
 int get_smart_data(uint8_t drive, uint8_t *buffer);
 int standby(uint8_t drive);
+int load_eject(uint8_t drive, uint8_t load);
 int get_disk_index(uint8_t driver, uint8_t disk);
 int register_block_driver(block_driver_t *driver);
 int register_block_device(block_device_t *device);

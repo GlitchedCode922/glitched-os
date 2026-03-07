@@ -32,6 +32,11 @@ int standby(uint8_t drive) {
     return 0;
 }
 
+int load_eject(uint8_t drive, uint8_t load) {
+    if (block_devices[drive].driver_index == 0) return -2;
+    return block_drivers[block_devices[drive].driver_index].load_eject(block_devices[drive].disk_index, load);
+}
+
 int get_disk_index(uint8_t driver, uint8_t disk) {
     for (int i = 0; i < block_device_count; i++) {
         if (block_devices[i].driver_index == driver && block_devices[i].disk_index == disk) {
