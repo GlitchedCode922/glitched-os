@@ -3,6 +3,7 @@
 #include "../../io/ports.h"
 #include "../block.h"
 #include <stdint.h>
+#include <stddef.h>
 
 ata_device_t devices[4] = {0};
 
@@ -353,7 +354,9 @@ uint64_t ata_get_drive_size(uint8_t drive) {
 
     // Check if the drive is an ATAPI device
     if (devices[drive].type == 1) {
-        return -4; // Not implemented yet
+        uint64_t capacity;
+        atapi_get_disk_size(drive, &capacity, NULL);
+        return capacity;
     }
 
     uint64_t size = 0;

@@ -148,3 +148,40 @@ void atapi_load_or_eject(uint8_t drive, uint8_t load) {
     while (inb(bus_port + 0x07) & 0x80); // Wait for BSY to clear
     if (inb(bus_port + 0x07) & 0x01) return; // Error occurred
 }
+
+int atapi_get_disk_size(uint8_t drive, uint64_t* last_lba, uint64_t* block_size) {
+    uint16_t bus_port = (drive / 2 == 0 ? PRIMARY_BUS : SECONDARY_BUS);
+    select_drive(bus_port, drive % 2 == 0 ? 0xA0 : 0xB0);
+    uint8_t scsi_cmd[12] = {0};
+    scsi_cmd[0] = 0x25;
+
+    // Wait for BSY to clear before issuing command
+    while (inb(bus_port + 0x07) & 0x80);
+
+    outb(bus_port + 0x07, 0xA0); // Send PACKET command
+
+    while (inb(bus_port + 0x07) & 0x80); // Wait for BSY to clear
+    while (!(inb(bus_port + 0x07) & 0x09)); // Wait for DRQ or ERR to be set
+
+    if (inb(bus_port + 0x07) & 0x01) return -1; // Error occurred
+
+    for (int i = 0; i < sizeof(scsi_cmd); i += 2) {
+        uint16_t data = scsi_cmd[i] | (scsi_cmd[i + 1] << 8);
+        outw(bus_port, data); // Send command bytes
+    }
+
+    while (inb(bus_port + 0x07) & 0x80); // Wait for BSY to clear
+    while (!(inb(bus_port + 0x07) & 0x09)); // Wait for DRQ or ERR to be set
+
+    if (inb(bus_port + 0x07) & 0x01) return -1; // Error occurred
+
+    uint8_t buffer[8];
+    for (int i = 0; i < 4; i++) {
+        uint16_t word = inw(bus_port);
+        buffer[i * 2] = word & 0xFF;
+        buffer[i * 2 + 1] = word >> 8;
+    }
+    if (last_lba) *last_lba = (buffer[0] << 24) | (buffer[1] << 16) | (buffer[2] << 8) | buffer[3];
+    if (block_size) *block_size = (buffer[4] << 24) | (buffer[5] << 16) | (buffer[6] << 8) | buffer[7];
+    return 0;
+}
