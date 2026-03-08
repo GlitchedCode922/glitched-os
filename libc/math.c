@@ -1,16 +1,85 @@
 #include "math.h"
+#include "stdlib.h"
 
-/* Integer absolute value */
+int atoi(const char *str) {
+    int result = 0;
+    int sign = 1;
+
+    while (*str == ' ' || *str == '\t' || *str == '\n') str++;
+
+    if (*str == '-') {
+        sign = -1;
+        str++;
+    } else if (*str == '+') {
+        str++;
+    }
+
+    while (*str >= '0' && *str <= '9') {
+        result *= 10;
+        result += *str - '0';
+        str++;
+    }
+    return sign * result;
+}
+
+long atol(const char *str) {
+    long result = 0;
+    int sign = 1;
+
+    while (*str == ' ' || *str == '\t' || *str == '\n') str++;
+
+    if (*str == '-') {
+        sign = -1;
+        str++;
+    } else if (*str == '+') {
+        str++;
+    }
+
+    while (*str >= '0' && *str <= '9') {
+        result *= 10;
+        result += *str - '0';
+        str++;
+    }
+    return sign * result;
+}
+
+long long atoll(const char *str) {
+    long long result = 0;
+    int sign = 1;
+
+    while (*str == ' ' || *str == '\t' || *str == '\n') str++;
+
+    if (*str == '-') {
+        sign = -1;
+        str++;
+    } else if (*str == '+') {
+        str++;
+    }
+
+    while (*str >= '0' && *str <= '9') {
+        result *= 10;
+        result += *str - '0';
+        str++;
+    }
+    return sign * result;
+}
+
 int abs(int x) {
     return x < 0 ? -x : x;
 }
 
-/* Floating point absolute value */
+long labs(long x) {
+    return x < 0 ? -x : x;
+}
+
+long long llabs(long long x) {
+    return x < 0 ? -x : x;
+}
+
 double fabs(double x) {
     return x < 0 ? -x : x;
 }
 
-/* Square root using Newton-Raphson method */
 double sqrt(double x) {
     if (x < 0) return -1; // error, no complex support
     double guess = x / 2.0;
@@ -20,14 +89,12 @@ double sqrt(double x) {
     return guess;
 }
 
-/* Factorial helper for series expansion */
 static double factorial(int n) {
     double result = 1.0;
     for (int i = 2; i <= n; i++) result *= i;
     return result;
 }
 
-/* Exponential function e^x using Taylor series */
 static double exp_taylor(double x) {
     double sum = 1.0;
     double term = 1.0;
@@ -38,7 +105,6 @@ static double exp_taylor(double x) {
     return sum;
 }
 
-/* Natural logarithm using series around x = 1 */
 static double log_taylor(double x) {
     if (x <= 0) return -1; // error, no complex support
     double y = (x - 1) / (x + 1);
@@ -56,14 +122,12 @@ static double log_taylor(double x) {
     return 2 * sum;
 }
 
-/* Power function x^y using exp(y * log(x)) */
 double pow(double x, double y) {
     if (x == 0) return 0;
     if (y == 0) return 1;
     return exp_taylor(y * log_taylor(x));
 }
 
-/* Sine using Taylor series (radians) */
 double sin(double x) {
     double term = x;
     double sum = x;
@@ -74,7 +138,6 @@ double sin(double x) {
     return sum;
 }
 
-/* Cosine using Taylor series (radians) */
 double cos(double x) {
     double term = 1.0;
     double sum = 1.0;
@@ -85,18 +148,15 @@ double cos(double x) {
     return sum;
 }
 
-/* Tangent as sin/cos */
 double tan(double x) {
     return sin(x) / cos(x);
 }
 
-/* Floor: round down */
 double floor(double x) {
     int xi = (int)x;
     return x < xi ? xi - 1 : xi;
 }
 
-/* Ceil: round up */
 double ceil(double x) {
     int xi = (int)x;
     return x > xi ? xi + 1 : xi;
