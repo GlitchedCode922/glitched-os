@@ -21,6 +21,13 @@ typedef struct {
     int param_count;
 } ansi_parser_t;
 
+typedef struct {
+    char c;
+    uint8_t fg[3];
+    uint8_t bg[3];
+    uint8_t padding;
+} character_t;
+
 void initialize_console();
 char* colorize_bitmap(uint8_t index, int inv);
 void putchar(char c);

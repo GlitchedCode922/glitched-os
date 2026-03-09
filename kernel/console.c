@@ -10,7 +10,7 @@ char ascii[128][12] = ascii_set;
 
 extern volatile struct limine_framebuffer* framebuffer;
 volatile char* fb_address = NULL;
-volatile char* console_buffer = NULL;
+character_t* console_buffer = NULL;
 
 uint32_t width = 0;
 uint32_t height = 0;
@@ -37,10 +37,19 @@ void scroll() {
     if (!framebuffer) return;
     input_disabled++;
 
+    uint8_t bg[3] = {bg_color[0], bg_color[1], bg_color[2]};
+    uint8_t fg[3] = {fg_color[0], fg_color[1], fg_color[2]};
+
     for (uint32_t y = 0; y < height - 1; y++) {
         for (uint32_t x = 0; x < width; x++) {
-            if (console_buffer[y * width + x] == console_buffer[(y + 1) * width + x]) continue;
-            char *bitmap = colorize_bitmap(console_buffer[(y + 1) * width + x], 0);
+            if (memcmp(&console_buffer[y * width + x], &console_buffer[(y + 1) * width + x], sizeof(character_t)) == 0) continue;
+            bg_color[0] = console_buffer[(y + 1) * width + x].bg[0];
+            bg_color[1] = console_buffer[(y + 1) * width + x].bg[1];
+            bg_color[2] = console_buffer[(y + 1) * width + x].bg[2];
+            fg_color[0] = console_buffer[(y + 1) * width + x].fg[0];
+            fg_color[1] = console_buffer[(y + 1) * width + x].fg[1];
+            fg_color[2] = console_buffer[(y + 1) * width + x].fg[2];
+            char *bitmap = colorize_bitmap(console_buffer[(y + 1) * width + x].c, 0);
             for (int inner_x = 0; inner_x < 12; inner_x++) {
                 for (int inner_y = 0; inner_y < 8; inner_y++) {
                     int pixel_index = (padding_lines + y * 12 + inner_x) * framebuffer->width * framebuffer->bpp / 8 +
@@ -55,15 +64,22 @@ void scroll() {
     for (uint32_t y = framebuffer->height - 12 - padding_lines; y < framebuffer->height; y++) {
         for (uint32_t x = 0; x < framebuffer->width; x++) {
             uint32_t pixel_index = (y * framebuffer->width + x) * framebuffer->bpp / 8;
-            fb_address[pixel_index + framebuffer->red_mask_shift/8] = bg_color[0];
-            fb_address[pixel_index + framebuffer->green_mask_shift/8] = bg_color[1];
-            fb_address[pixel_index + framebuffer->blue_mask_shift/8] = bg_color[2];
+            fb_address[pixel_index + framebuffer->red_mask_shift/8] = 0;
+            fb_address[pixel_index + framebuffer->green_mask_shift/8] = 0;
+            fb_address[pixel_index + framebuffer->blue_mask_shift/8] = 0;
         }
     }
     for (uint32_t y = 0; y < height - 1; y++) {
         for (uint32_t x = 0; x < width; x++) console_buffer[y * width + x] = console_buffer[(y + 1) * width + x];
     }
-    for (uint32_t x = 0; x < width; x++) console_buffer[(height - 1) * width + x] = ' ';
+    for (uint32_t x = 0; x < width; x++) {
+        character_t* entry = &console_buffer[(height - 1) * width + x];
+        entry->c = ' ';
+        memset(entry->bg, 0, 3);
+        memset(entry->fg, 0, 3);
+    };
+    memcpy(bg_color, bg, 3);
+    memcpy(fg_color, fg, 3);
     input_disabled--;
 }
 
@@ -79,7 +95,11 @@ void clear_screen() {
         }
     }
 
-    for (uint32_t i = 0; i < width * height; i++) console_buffer[i] = ' ';
+    for (uint32_t i = 0; i < width * height; i++) {
+        console_buffer[i].c = ' ';
+        memcpy(console_buffer[i].bg, bg_color, 3);
+        memcpy(console_buffer[i].fg, fg_color, 3);
+    };
     input_disabled--;
 }
 
@@ -90,7 +110,7 @@ void initialize_console() {
     padding_lines = (framebuffer->height % 12) / 2;
     padding_pixels = (framebuffer->width % 8) / 2;
 
-    console_buffer = (volatile char*)kmalloc(width * height);
+    console_buffer = kmalloc(width * height * sizeof(character_t));
 
     clear_screen();
     set_cursor_position(0, 0);
@@ -129,7 +149,7 @@ char* colorize_bitmap(uint8_t index, int inv) {
 void draw_cursor() {
     if (!framebuffer) return;
 
-    char *bitmap = colorize_bitmap(console_buffer[cursor_y * width + cursor_x], 1);
+    char *bitmap = colorize_bitmap(console_buffer[cursor_y * width + cursor_x].c, 1);
     for (int x = 0; x < 12; x++) {
         for (int y = 0; y < 8; y++) {
             int pixel_index = (padding_lines + cursor_y * 12 + x) * framebuffer->width * framebuffer->bpp / 8 +
@@ -142,9 +162,13 @@ void draw_cursor() {
 }
 
 void update_cursor(int old_x, int old_y) {
+    uint8_t bg[3] = {bg_color[0], bg_color[1], bg_color[2]};
+    uint8_t fg[3] = {fg_color[0], fg_color[1], fg_color[2]};
+    memset(bg_color, 0, 3);
+    memset(fg_color, 0, 3);
     if (old_x != cursor_x || old_y != cursor_y) {
         // Redraw the old cursor position to erase it
-        char *old_bitmap = colorize_bitmap(console_buffer[old_y * width + old_x], 0);
+        char *old_bitmap = colorize_bitmap(console_buffer[old_y * width + old_x].c, 0);
         for (int x = 0; x < 12; x++) {
             for (int y = 0; y < 8; y++) {
                 int pixel_index = (padding_lines + old_y * 12 + x) * framebuffer->width * framebuffer->bpp / 8 +
@@ -155,6 +179,8 @@ void update_cursor(int old_x, int old_y) {
             }
         }
     }
+    memcpy(bg_color, bg, 3);
+    memcpy(fg_color, fg, 3);
     draw_cursor();
 }
 
@@ -204,7 +230,9 @@ void putchar(const char c) {
             fb_address[pixel_index + framebuffer->blue_mask_shift/8] = bitmap[(x * 8 + y) * 3 + 2];
         }
     }
-    console_buffer[cursor_y * width + cursor_x] = c;
+    console_buffer[cursor_y * width + cursor_x].c = c;
+    memcpy(console_buffer[cursor_y * width + cursor_x].bg, bg_color, 3);
+    memcpy(console_buffer[cursor_y * width + cursor_x].fg, fg_color, 3);
     cursor_x++;
     if (cursor_x >= width) {
         cursor_x = width - 1;
