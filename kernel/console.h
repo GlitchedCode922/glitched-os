@@ -19,6 +19,7 @@ typedef struct {
     int params[16];
     int current_param;
     int param_count;
+    int digit_added;
 } ansi_parser_t;
 
 typedef struct {

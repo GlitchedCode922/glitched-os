@@ -18,12 +18,31 @@ uint8_t padding_lines = 0;
 uint8_t padding_pixels = 0;
 
 uint8_t bg_color[3] = {0, 0, 0};
-uint8_t fg_color[3] = {255, 255, 255};
+uint8_t fg_color[3] = {0xAA, 0xAA, 0xAA};
 
 uint16_t cursor_x = 0;
 uint16_t cursor_y = 0;
 
 ansi_parser_t ansi_parser = {.state = TEXT};
+
+uint8_t ansi_palette[16][3] = {
+    {0x00, 0x00, 0x00}, // black
+    {0xAA, 0x00, 0x00}, // red
+    {0x00, 0xAA, 0x00}, // green
+    {0xAA, 0x55, 0x00}, // yellow
+    {0x00, 0x00, 0xAA}, // blue
+    {0xAA, 0x00, 0xAA}, // magenta
+    {0x00, 0xAA, 0xAA}, // cyan
+    {0xAA, 0xAA, 0xAA}, // light gray
+    {0x55, 0x55, 0x55}, // dark gray
+    {0xFF, 0x55, 0x55}, // bright red
+    {0x55, 0xFF, 0x55}, // bright green
+    {0xFF, 0xFF, 0x55}, // bright yellow
+    {0x55, 0x55, 0xFF}, // bright blue
+    {0xFF, 0x55, 0xFF}, // bright magenta
+    {0x55, 0xFF, 0xFF}, // bright cyan
+    {0xFF, 0xFF, 0xFF}  // white
+};
 
 #undef x
 #undef y
@@ -410,6 +429,7 @@ size_t console_write(tty_t* tty, const char* buffer, size_t len) {
                 memset(ansi_parser.params, 0, sizeof(ansi_parser.params));
                 ansi_parser.param_count = 0;
                 ansi_parser.current_param = 0;
+                ansi_parser.digit_added = 0;
                 continue;
             }
             ansi_parser.state = TEXT;
@@ -418,11 +438,13 @@ size_t console_write(tty_t* tty, const char* buffer, size_t len) {
             if (buffer[i] >= '0' && buffer[i] <= '9') {
                 ansi_parser.current_param *= 10;
                 ansi_parser.current_param += (buffer[i] - '0');
+                ansi_parser.digit_added = 1;
             } else if (buffer[i] == ';' && ansi_parser.param_count < 16) {
                 ansi_parser.params[ansi_parser.param_count++] = ansi_parser.current_param;
                 ansi_parser.current_param = 0;
+                ansi_parser.digit_added = 0;
             } else {
-                if (ansi_parser.param_count < 16) ansi_parser.params[ansi_parser.param_count++] = ansi_parser.current_param;
+                if (ansi_parser.digit_added && ansi_parser.param_count < 16) ansi_parser.params[ansi_parser.param_count++] = ansi_parser.current_param;
                 // End of sequence
                 switch (buffer[i]) {
                     case 'H':
@@ -466,6 +488,38 @@ size_t console_write(tty_t* tty, const char* buffer, size_t len) {
                         set_cursor_position(new_x, cursor_y);
                         break;
                     }
+                    case 'm':
+                        if (ansi_parser.params[0] == 38 && ansi_parser.params[1] == 2 && ansi_parser.param_count >= 5) {
+                            fg_color[0] = ansi_parser.params[2];
+                            fg_color[1] = ansi_parser.params[3];
+                            fg_color[2] = ansi_parser.params[4];
+                            break;
+                        }
+
+                        if (ansi_parser.params[0] == 48 && ansi_parser.params[1] == 2 && ansi_parser.param_count >= 5) {
+                            bg_color[0] = ansi_parser.params[2];
+                            bg_color[1] = ansi_parser.params[3];
+                            bg_color[2] = ansi_parser.params[4];
+                            break;
+                        }
+
+                        if (ansi_parser.param_count == 0) {
+                            memset(bg_color, 0x00, 3);
+                            memset(fg_color, 0xAA, 3);
+                            break;
+                        }
+
+                        for (int i = 0; i < ansi_parser.param_count; i++) {
+                            int p = ansi_parser.params[i];
+                            if (p == 0) {
+                                memset(bg_color, 0x00, 3);
+                                memset(fg_color, 0xAA, 3);
+                            } else if (p >= 30 && p <= 37) memcpy(fg_color, &ansi_palette[p - 30], 3);
+                            else if (p >= 40 && p <= 47) memcpy(bg_color, &ansi_palette[p - 40], 3);
+                            else if (p >= 90 && p <= 97) memcpy(fg_color, &ansi_palette[p - 90 + 8], 3);
+                            else if (p >= 100 && p <= 107) memcpy(bg_color, &ansi_palette[p - 100 + 8], 3);
+                        }
+                        break;
                     default:
                         // Invalid sequence
                         break;
