@@ -1,12 +1,12 @@
 #include "console.h"
 #include "drivers/ps2_keyboard.h"
 #include "memory/mman.h"
-#include "bitmap.h"
+#include "default_font.h"
 #include <stdint.h>
 #include <stdarg.h>
 #include <stddef.h>
 
-char ascii[128][12] = ascii_set;
+char* ascii[128];
 
 extern volatile struct limine_framebuffer* framebuffer;
 volatile char* fb_address = NULL;
@@ -14,8 +14,12 @@ character_t* console_buffer = NULL;
 
 uint32_t width = 0;
 uint32_t height = 0;
-uint8_t padding_lines = 0;
-uint8_t padding_pixels = 0;
+
+uint8_t c_width;
+uint8_t c_height;
+
+uint32_t bottom_margin;
+uint32_t right_margin;
 
 uint8_t bg_color[3] = {0, 0, 0};
 uint8_t fg_color[3] = {0xAA, 0xAA, 0xAA};
@@ -44,14 +48,6 @@ uint8_t ansi_palette[16][3] = {
     {0xFF, 0xFF, 0xFF}  // white
 };
 
-#undef x
-#undef y
-#undef c
-#undef s
-#undef i
-#undef p
-#undef n
-
 void scroll() {
     if (!framebuffer) return;
     input_disabled++;
@@ -69,18 +65,18 @@ void scroll() {
             fg_color[1] = console_buffer[(y + 1) * width + x].fg[1];
             fg_color[2] = console_buffer[(y + 1) * width + x].fg[2];
             char *bitmap = colorize_bitmap(console_buffer[(y + 1) * width + x].c, 0);
-            for (int inner_x = 0; inner_x < 12; inner_x++) {
-                for (int inner_y = 0; inner_y < 8; inner_y++) {
-                    int pixel_index = (padding_lines + y * 12 + inner_x) * framebuffer->width * framebuffer->bpp / 8 +
-                                    (padding_pixels + x * 8 + inner_y) * framebuffer->bpp / 8;
-                    fb_address[pixel_index + framebuffer->red_mask_shift/8] = bitmap[(inner_x * 8 + inner_y) * 3];
-                    fb_address[pixel_index + framebuffer->green_mask_shift/8] = bitmap[(inner_x * 8 + inner_y) * 3 + 1];
-                    fb_address[pixel_index + framebuffer->blue_mask_shift/8] = bitmap[(inner_x * 8 + inner_y) * 3 + 2];
+            for (int inner_y = 0; inner_y < c_height; inner_y++) {
+                for (int inner_x = 0; inner_x < c_width; inner_x++) {
+                    int pixel_index = (y * c_height + inner_y) * framebuffer->width * framebuffer->bpp / 8 +
+                                    (x * c_width + inner_x) * framebuffer->bpp / 8;
+                    fb_address[pixel_index + framebuffer->red_mask_shift/8] = bitmap[(inner_y * c_width + inner_x) * 3];
+                    fb_address[pixel_index + framebuffer->green_mask_shift/8] = bitmap[(inner_y * c_width + inner_x) * 3 + 1];
+                    fb_address[pixel_index + framebuffer->blue_mask_shift/8] = bitmap[(inner_y * c_width + inner_x) * 3 + 2];
                 }
             }
         }
     }
-    for (uint32_t y = framebuffer->height - 12 - padding_lines; y < framebuffer->height; y++) {
+    for (uint32_t y = framebuffer->height - c_height - bottom_margin; y < framebuffer->height; y++) {
         for (uint32_t x = 0; x < framebuffer->width; x++) {
             uint32_t pixel_index = (y * framebuffer->width + x) * framebuffer->bpp / 8;
             fb_address[pixel_index + framebuffer->red_mask_shift/8] = 0;
@@ -124,10 +120,14 @@ void clear_screen() {
 
 void initialize_console() {
     fb_address = (volatile char *)framebuffer->address;
-    width = framebuffer->width / 8;
-    height = framebuffer->height / 12;
-    padding_lines = (framebuffer->height % 12) / 2;
-    padding_pixels = (framebuffer->width % 8) / 2;
+    memcpy(ascii, default_font, 128 * sizeof(char*));
+    c_width = default_font_width;
+    c_height = default_font_height;
+
+    width = framebuffer->width / c_width;
+    height = framebuffer->height / c_height;
+    right_margin = framebuffer->width % c_width;
+    bottom_margin = framebuffer->height % c_height;
 
     console_buffer = kmalloc(width * height * sizeof(character_t));
 
@@ -140,26 +140,22 @@ char* colorize_bitmap(uint8_t index, int inv) {
         return NULL; // Invalid character index
     }
     char *bitmap = ascii[index];
-    static char colored_bitmap[12 * 8 * 3]; // 12 rows, 8 columns, 3 colors (RGB)
+    static char colored_bitmap[4096]; // 12 rows, 8 columns, 3 colors (RGB)
     char fg[3];
     char bg[3];
     for (int i = 0; i < 3; i++) {
         fg[i] = inv ? bg_color[i] : fg_color[i];
         bg[i] = inv ? fg_color[i] : bg_color[i];
     }
-    for (int x = 0; x < 12; x++) {
-        char row = bitmap[x];
-        for (int y = 0; y < 8; y++) {
-            int pixel_index = (x * 8 + y) * 3;
-            if (row & (1 << (7 - y))) {
-                colored_bitmap[pixel_index] = fg[0];
-                colored_bitmap[pixel_index + 1] = fg[1];
-                colored_bitmap[pixel_index + 2] = fg[2];
-            } else {
-                colored_bitmap[pixel_index] = bg[0];
-                colored_bitmap[pixel_index + 1] = bg[1];
-                colored_bitmap[pixel_index + 2] = bg[2];
-            }
+    for (int x = 0; x < c_width * c_height; x++) {
+        if (bitmap[x / 8] & (1 << (7 - (x % 8)))) {
+            colored_bitmap[x * 3] = fg[0];
+            colored_bitmap[x * 3 + 1] = fg[1];
+            colored_bitmap[x * 3 + 2] = fg[2];
+        } else {
+            colored_bitmap[x * 3] = bg[0];
+            colored_bitmap[x * 3 + 1] = bg[1];
+            colored_bitmap[x * 3 + 2] = bg[2];
         }
     }
     return colored_bitmap;
@@ -169,13 +165,13 @@ void draw_cursor() {
     if (!framebuffer) return;
 
     char *bitmap = colorize_bitmap(console_buffer[cursor_y * width + cursor_x].c, 1);
-    for (int x = 0; x < 12; x++) {
-        for (int y = 0; y < 8; y++) {
-            int pixel_index = (padding_lines + cursor_y * 12 + x) * framebuffer->width * framebuffer->bpp / 8 +
-                              (padding_pixels + cursor_x * 8 + y) * framebuffer->bpp / 8;
-            fb_address[pixel_index + framebuffer->red_mask_shift/8] = bitmap[(x * 8 + y) * 3];
-            fb_address[pixel_index + framebuffer->green_mask_shift/8] = bitmap[(x * 8 + y) * 3 + 1];
-            fb_address[pixel_index + framebuffer->blue_mask_shift/8] = bitmap[(x * 8 + y) * 3 + 2];
+    for (int y = 0; y < c_height; y++) {
+        for (int x = 0; x < c_width; x++) {
+            int pixel_index = (cursor_y * c_height + y) * framebuffer->width * framebuffer->bpp / 8 +
+                              (cursor_x * c_width + x) * framebuffer->bpp / 8;
+            fb_address[pixel_index + framebuffer->red_mask_shift/8] = bitmap[(y * c_width + x) * 3];
+            fb_address[pixel_index + framebuffer->green_mask_shift/8] = bitmap[(y * c_width + x) * 3 + 1];
+            fb_address[pixel_index + framebuffer->blue_mask_shift/8] = bitmap[(y * c_width + x) * 3 + 2];
         }
     }
 }
@@ -188,13 +184,13 @@ void update_cursor(int old_x, int old_y) {
     if (old_x != cursor_x || old_y != cursor_y) {
         // Redraw the old cursor position to erase it
         char *old_bitmap = colorize_bitmap(console_buffer[old_y * width + old_x].c, 0);
-        for (int x = 0; x < 12; x++) {
-            for (int y = 0; y < 8; y++) {
-                int pixel_index = (padding_lines + old_y * 12 + x) * framebuffer->width * framebuffer->bpp / 8 +
-                                  (padding_pixels + old_x * 8 + y) * framebuffer->bpp / 8;
-                fb_address[pixel_index + framebuffer->red_mask_shift/8] = old_bitmap[(x * 8 + y) * 3];
-                fb_address[pixel_index + framebuffer->green_mask_shift/8] = old_bitmap[(x * 8 + y) * 3 + 1];
-                fb_address[pixel_index + framebuffer->blue_mask_shift/8] = old_bitmap[(x * 8 + y) * 3 + 2];
+        for (int y = 0; y < c_height; y++) {
+            for (int x = 0; x < c_width; x++) {
+                int pixel_index = (old_y * c_height + y) * framebuffer->width * framebuffer->bpp / 8 +
+                                  (old_x * c_width + x) * framebuffer->bpp / 8;
+                fb_address[pixel_index + framebuffer->red_mask_shift/8] = old_bitmap[(y * c_width + x) * 3];
+                fb_address[pixel_index + framebuffer->green_mask_shift/8] = old_bitmap[(y * c_width + x) * 3 + 1];
+                fb_address[pixel_index + framebuffer->blue_mask_shift/8] = old_bitmap[(y * c_width + x) * 3 + 2];
             }
         }
     }
@@ -240,13 +236,13 @@ void putchar(const char c) {
     }
 
     char *bitmap = colorize_bitmap(c, 0);
-    for (int x = 0; x < 12; x++) {
-        for (int y = 0; y < 8; y++) {
-            int pixel_index = (padding_lines + cursor_y * 12 + x) * framebuffer->width * framebuffer->bpp / 8 +
-                              (padding_pixels + cursor_x * 8 + y) * framebuffer->bpp / 8;
-            fb_address[pixel_index + framebuffer->red_mask_shift/8] = bitmap[(x * 8 + y) * 3];
-            fb_address[pixel_index + framebuffer->green_mask_shift/8] = bitmap[(x * 8 + y) * 3 + 1];
-            fb_address[pixel_index + framebuffer->blue_mask_shift/8] = bitmap[(x * 8 + y) * 3 + 2];
+    for (int y = 0; y < c_height; y++) {
+        for (int x = 0; x < c_width; x++) {
+            int pixel_index = (cursor_y * c_height + y) * framebuffer->width * framebuffer->bpp / 8 +
+                              (cursor_x * c_width + x) * framebuffer->bpp / 8;
+            fb_address[pixel_index + framebuffer->red_mask_shift/8] = bitmap[(y * c_width + x) * 3];
+            fb_address[pixel_index + framebuffer->green_mask_shift/8] = bitmap[(y * c_width + x) * 3 + 1];
+            fb_address[pixel_index + framebuffer->blue_mask_shift/8] = bitmap[(y * c_width + x) * 3 + 2];
         }
     }
     console_buffer[cursor_y * width + cursor_x].c = c;
