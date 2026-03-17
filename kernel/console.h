@@ -29,7 +29,14 @@ typedef struct {
     uint8_t padding;
 } character_t;
 
+typedef struct {
+    char* ascii[128];
+    uint8_t width;
+    uint8_t height;
+} font_t;
+
 void initialize_console();
+void setfont(font_t* font);
 char* colorize_bitmap(uint8_t index, int inv);
 void putchar(char c);
 void puts(const char *str);

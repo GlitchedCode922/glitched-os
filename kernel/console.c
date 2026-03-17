@@ -6,7 +6,9 @@
 #include <stdarg.h>
 #include <stddef.h>
 
+char* glyphs; // For custom fonts
 char* ascii[128];
+char* colored_bitmap;
 
 extern volatile struct limine_framebuffer* framebuffer;
 volatile char* fb_address = NULL;
@@ -129,6 +131,31 @@ void initialize_console() {
     right_margin = framebuffer->width % c_width;
     bottom_margin = framebuffer->height % c_height;
 
+    colored_bitmap = kmalloc(c_width * c_height * 3);
+    console_buffer = kmalloc(width * height * sizeof(character_t));
+
+    clear_screen();
+    set_cursor_position(0, 0);
+}
+
+void setfont(font_t* font) {
+    kfree(glyphs);
+    int glyph_size = (font->width * font->height) / 8 + 1;
+    glyphs = kmalloc(glyph_size * 128);
+    for (int i = 0; i < 128; i++) {
+        memcpy(glyphs + glyph_size * i, font->ascii[i], glyph_size);
+        ascii[i] = glyphs + glyph_size * i;
+    }
+
+    c_width = font->width;
+    c_height = font->height;
+    width = framebuffer->width / c_width;
+    height = framebuffer->height / c_height;
+    right_margin = framebuffer->width % c_width;
+    bottom_margin = framebuffer->height % c_height;
+    kfree(colored_bitmap);
+    kfree(console_buffer);
+    colored_bitmap = kmalloc(c_width * c_height * 3);
     console_buffer = kmalloc(width * height * sizeof(character_t));
 
     clear_screen();
@@ -140,7 +167,6 @@ char* colorize_bitmap(uint8_t index, int inv) {
         return NULL; // Invalid character index
     }
     char *bitmap = ascii[index];
-    static char colored_bitmap[4096]; // 12 rows, 8 columns, 3 colors (RGB)
     char fg[3];
     char bg[3];
     for (int i = 0; i < 3; i++) {

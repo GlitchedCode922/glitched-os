@@ -12,6 +12,7 @@
 #include "../net/ip.h"
 #include "../drivers/net.h"
 #include "../drivers/serial.h"
+#include "../panic.h"
 #include "scheduler.h"
 #include <stdarg.h>
 #include <stdint.h>
@@ -34,7 +35,6 @@ uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t
         break;
     case SYSCALL_GET_PPID:
         // Not implemented, will come with process management
-        ret = 0;
         break;
     case SYSCALL_LIST_DIR:
         ret = list_directory((const char*)arg1, (char*)arg2, arg3);
@@ -46,12 +46,10 @@ uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t
         ret = fork(iframe);
         break;
     case SYSCALL_EXECV:
-        ret = 0;
         execv((char*)arg1, (char**)arg2, iframe);
         break;
     case SYSCALL_GET_TIME:
         // Not implemented, will come with RTC
-        ret = 0;
         break;
     case SYSCALL_GETPID:
         ret = getpid();
@@ -61,7 +59,6 @@ uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t
         break;
     case SYSCALL_SLEEP:
         sleep(arg1, iframe);
-        ret = 0;
         break;
     case SYSCALL_BRK:
         ret = (uintptr_t)set_brk((void*)arg1);
@@ -73,14 +70,13 @@ uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t
         // Reboot the system
         asm volatile("cli"); // Disable interrupts
         reboot();
-        ret = 0; // This line will not be reached
-        break;
+        panic("reboot");
+        break; // This line will not be reached
     case SYSCALL_CHDIR:
         ret = chdir((char*)arg1);
         break;
     case SYSCALL_GETCWD:
         getcwd((char*)arg1, arg2);
-        ret = 0;
         break;
     case SYSCALL_FILE_EXISTS:
         ret = exists((const char*)arg1);
@@ -90,20 +86,16 @@ uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t
         break;
     case SYSCALL_SEND_UDP:
         udp_send((uint8_t*)arg1, arg2, arg3, (uint8_t*)arg4, arg5);
-        ret = 0;
         break;
     case SYSCALL_LISTEN_UDP:
         // Temporarily disabled
         //register_udp_listener(arg1, (void (*)(uint8_t*, uint16_t, uint8_t*, int))arg2);
-        ret = 0;
         break;
     case SYSCALL_STOP_UDP_LISTEN:
         //unregister_udp_listener(arg1);
-        ret = 0;
         break;
     case SYSCALL_PING:
         ping((uint8_t*)arg1);
-        ret = 0;
         break;
     case SYSCALL_GET_MAC:
         ret = get_mac(arg1, (uint8_t*)arg2);
@@ -113,15 +105,12 @@ uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t
         break;
     case SYSCALL_ADD_ROUTE:
         add_route((uint8_t*)arg1, (uint8_t*)arg2, (uint8_t*)arg3, arg4);
-        ret = 0;
         break;
     case SYSCALL_REMOVE_ROUTE:
         remove_route((uint8_t*)arg1, (uint8_t*)arg2);
-        ret = 0;
         break;
     case SYSCALL_SETUP_AUTOMATIC_ROUTING:
         setup_automatic_routing();
-        ret = 0;
         break;
     case SYSCALL_CONFIG_DHCP:
         ret = configure_network_interface_dhcp(arg1);
@@ -189,6 +178,9 @@ uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t
         break;
     case SYSCALL_DRIVE_LOAD_EJECT:
         ret = load_eject(arg1, arg2);
+        break;
+    case SYSCALL_SETFONT:
+        setfont((font_t*)arg1);
         break;
     default:
         // Invalid syscall, return an error code
