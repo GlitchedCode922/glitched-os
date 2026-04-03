@@ -33,7 +33,7 @@ typedef struct {
     char* ascii[128];
     uint8_t width;
     uint8_t height;
-} font_t;
+} __attribute__((packed)) font_t;
 
 void initialize_console();
 void setfont(font_t* font);
