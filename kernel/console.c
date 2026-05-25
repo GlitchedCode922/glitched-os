@@ -140,7 +140,7 @@ void initialize_console() {
 
 void setfont(font_t* font) {
     kfree(glyphs);
-    int glyph_size = (font->width * font->height) / 8 + 1;
+    int glyph_size = (font->width + 7 / 8) * font->height;
     glyphs = kmalloc(glyph_size * 128);
     for (int i = 0; i < 128; i++) {
         memcpy(glyphs + glyph_size * i, font->ascii[i], glyph_size);
@@ -173,15 +173,18 @@ char* colorize_bitmap(uint8_t index, int inv) {
         fg[i] = inv ? bg_color[i] : fg_color[i];
         bg[i] = inv ? fg_color[i] : bg_color[i];
     }
-    for (int x = 0; x < c_width * c_height; x++) {
-        if (bitmap[x / 8] & (1 << (7 - (x % 8)))) {
-            colored_bitmap[x * 3] = fg[0];
-            colored_bitmap[x * 3 + 1] = fg[1];
-            colored_bitmap[x * 3 + 2] = fg[2];
-        } else {
-            colored_bitmap[x * 3] = bg[0];
-            colored_bitmap[x * 3 + 1] = bg[1];
-            colored_bitmap[x * 3 + 2] = bg[2];
+    for (int y = 0; y < c_height; y++) {
+        for (int x = 0; x < c_width; x++) {
+            int pos = (y * c_width + x) * 3;
+            if (bitmap[y * ((c_width + 7) / 8) + x / 8] & (1 << (7 - (x % 8)))) {
+                colored_bitmap[pos] = fg[0];
+                colored_bitmap[pos + 1] = fg[1];
+                colored_bitmap[pos + 2] = fg[2];
+            } else {
+                colored_bitmap[pos] = bg[0];
+                colored_bitmap[pos + 1] = bg[1];
+                colored_bitmap[pos + 2] = bg[2];
+            }
         }
     }
     return colored_bitmap;
