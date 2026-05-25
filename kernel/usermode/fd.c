@@ -22,6 +22,8 @@ static int strlen(const char* str) {
 int open_file(const char *path, uint16_t flags) {
     if (flags & FLAG_CREATE) {
         create_file(path);
+    } else if (!exists(path) || is_directory(path)) {
+        return 0;
     }
     int fd_index = -1;
     for (int i = 0; i < MAX_FDS; i++) {
@@ -39,7 +41,7 @@ int open_file(const char *path, uint16_t flags) {
         }
     }
     if (fd_index == -1) {
-        return -1;
+        return 0;
     }
     for (int i = 0; i < MAX_FDS; i++) {
         if (current_task->fd_ptr_table[i] == NULL) {
@@ -47,7 +49,7 @@ int open_file(const char *path, uint16_t flags) {
             return i;
         }
     }
-    return -1;
+    return 0;
 }
 
 int open_console(uint16_t flags) {
@@ -65,7 +67,7 @@ int open_console(uint16_t flags) {
         }
     }
     if (fd_index == -1) {
-        return -1;
+        return 0;
     }
     for (int i = 0; i < MAX_FDS; i++) {
         if (current_task->fd_ptr_table[i] == NULL) {
@@ -73,7 +75,7 @@ int open_console(uint16_t flags) {
             return i;
         }
     }
-    return -1;
+    return 0;
 }
 
 int open_framebuffer(uint16_t flags) {
@@ -91,7 +93,7 @@ int open_framebuffer(uint16_t flags) {
         }
     }
     if (fd_index == -1) {
-        return -1;
+        return 0;
     }
     for (int i = 0; i < MAX_FDS; i++) {
         if (current_task->fd_ptr_table[i] == NULL) {
@@ -99,12 +101,12 @@ int open_framebuffer(uint16_t flags) {
             return i;
         }
     }
-    return -1;
+    return 0;
 }
 
 int open_serial(int port, uint16_t flags) {
     if (!serial_port_exists(port)) {
-        return -1;
+        return 0;
     }
     int fd_index = -1;
     for (int i = 0; i < MAX_FDS; i++) {
@@ -120,7 +122,7 @@ int open_serial(int port, uint16_t flags) {
         }
     }
     if (fd_index == -1) {
-        return -1;
+        return 0;
     }
     for (int i = 0; i < MAX_FDS; i++) {
         if (current_task->fd_ptr_table[i] == NULL) {
@@ -128,7 +130,7 @@ int open_serial(int port, uint16_t flags) {
             return i;
         }
     }
-    return -1;
+    return 0;
 }
 
 int close(int fd) {
