@@ -210,7 +210,7 @@ void update_cursor(int old_x, int old_y) {
     uint8_t fg[3] = {fg_color[0], fg_color[1], fg_color[2]};
     memset(bg_color, 0, 3);
     memset(fg_color, 0, 3);
-    if (old_x != cursor_x || old_y != cursor_y) {
+    if ((old_x != cursor_x || old_y != cursor_y) && (old_x < width && old_y < height)) {
         // Redraw the old cursor position to erase it
         char *old_bitmap = colorize_bitmap(console_buffer[old_y * width + old_x].c, 0);
         for (int y = 0; y < c_height; y++) {
@@ -418,7 +418,7 @@ void setfg_color(uint8_t color[3]) {
 }
 
 void set_cursor_position(uint16_t x, uint16_t y) {
-    if (x < width && y < height) {
+    if (x >= 0 && y >= 0 && x < width && y < height) {
         int old_x = cursor_x;
         int old_y = cursor_y;
         cursor_x = x;
