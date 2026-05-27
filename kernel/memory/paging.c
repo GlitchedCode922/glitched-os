@@ -9,7 +9,7 @@ void* hhdm_base = 0;
 struct limine_memmap_response *memory_map = NULL;
 uint32_t* memory_bitmap = NULL;
 uintptr_t first_usable = 0;
-uint64_t page_count = 0;
+uint64_t usable_page_count = 0;
 
 #define HIGHER_LEVEL_FLAGS (FLAGS_PRESENT | FLAGS_RW | FLAGS_USER)
 
@@ -46,17 +46,18 @@ void init_paging(uintptr_t cr3, struct limine_memmap_response *memmap, uintptr_t
     hhdm_base = (void*)hhdm;
     memory_map = memmap;
 
-    // --- Find highest physical address ---
+    // --- Find highest usable physical address ---
     uintptr_t highest = 0;
 
     for (size_t i = 0; i < memmap->entry_count; i++) {
         struct limine_memmap_entry *e = memmap->entries[i];
+        if (e->type != LIMINE_MEMMAP_USABLE) continue;
         uintptr_t end = e->base + e->length;
         if (end > highest) highest = end;
     }
 
-    page_count = highest / PAGE_SIZE;
-    size_t bitmap_size = page_count * 4;
+    usable_page_count = highest / PAGE_SIZE;
+    size_t memory_bitmap_size = usable_page_count * 4;
     uintptr_t bitmap_phys = 0;
 
     for (size_t i = 0; i < memmap->entry_count; i++) {
@@ -65,7 +66,7 @@ void init_paging(uintptr_t cr3, struct limine_memmap_response *memmap, uintptr_t
         if (e->type != LIMINE_MEMMAP_USABLE)
             continue;
 
-        if (e->length >= bitmap_size) {
+        if (e->length >= memory_bitmap_size) {
             bitmap_phys = e->base;
             break;
         }
@@ -74,22 +75,23 @@ void init_paging(uintptr_t cr3, struct limine_memmap_response *memmap, uintptr_t
     if (!bitmap_phys) panic("Cannot allocate paging bitmap");
     memory_bitmap = (uint32_t*)add_hhdm_to((uint64_t*)bitmap_phys);
 
-    // Clear the bitmap and mark its pages as used
-    memset(memory_bitmap, 0, bitmap_size);
-    for (uintptr_t addr = bitmap_phys; addr < bitmap_phys + bitmap_size; addr += PAGE_SIZE) {
-        size_t page = addr / PAGE_SIZE;
-        memory_bitmap[page] = 1;
-    }
-    // Mark reserved segments as used
+    // Clear the bitmap and mark all pages as used
+    memset(memory_bitmap, 1, memory_bitmap_size);
+    // Mark usable segments as free
     for (uintptr_t i = 0; i < memory_map->entry_count; i++) {
         struct limine_memmap_entry *entry = memory_map->entries[i];
-        if (entry->type != LIMINE_MEMMAP_USABLE) {
+        if (entry->type == LIMINE_MEMMAP_USABLE) {
             uintptr_t start = entry->base / PAGE_SIZE;
             uintptr_t end = (entry->base + entry->length) / PAGE_SIZE;
             for (uintptr_t j = start; j < end; j++) {
-                memory_bitmap[j] = 1;
+                memory_bitmap[j] = 0;
             }
         }
+    }
+    // Mark bitmap pages as used
+    for (uintptr_t addr = bitmap_phys; addr < bitmap_phys + memory_bitmap_size; addr += PAGE_SIZE) {
+        size_t page = addr / PAGE_SIZE;
+        memory_bitmap[page] = 1;
     }
 }
 
@@ -105,7 +107,7 @@ page_address_t get_page_entry(uintptr_t addr) {
 }
 
 uintptr_t get_available_address() {
-    for (uintptr_t i = first_usable; i < page_count; i++) {
+    for (uintptr_t i = first_usable; i < usable_page_count; i++) {
         if (memory_bitmap[i] == 0) {
             first_usable = i + 1;
             return i * PAGE_SIZE;
