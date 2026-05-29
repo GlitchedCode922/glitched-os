@@ -4,7 +4,7 @@
 #include "memory/mman.h"
 #include "memory/paging.h"
 #include "drivers/block/ata.h"
-#include "mount.h"
+#include "vfs.h"
 #include "gdt.h"
 #include "idt.h"
 #include "drivers/partitions/mbr.h"
@@ -132,7 +132,7 @@ void parse_kernel_cmdline() {
             panic("Unknown kernel command line argument here: %s", cmdline);
         }
     }
-    mount_filesystem("/", "FAT", root_disk, root_partition, root_readonly);
+    mount_root_filesystem("FAT", root_disk, root_partition, root_readonly);
     run_init(init_binary_path);
 }
 

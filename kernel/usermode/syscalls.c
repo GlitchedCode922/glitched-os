@@ -2,7 +2,7 @@
 #include "fd.h"
 #include "break.h"
 #include "../drivers/block.h"
-#include "../mount.h"
+#include "../vfs.h"
 #include "../drivers/timer.h"
 #include "../memory/paging.h"
 #include "../console.h"

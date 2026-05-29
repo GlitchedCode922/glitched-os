@@ -1,10 +1,13 @@
 #pragma once
-
 #include <stdint.h>
 #include <stddef.h>
 
+#define FLAG_READ_ONLY 0x01
+#define MAX_PATH 2048
+
 typedef struct {
     char name[32];          // Name of the filesystem
+    int case_sensitive;     // Whether the filesystem is case-sensitive
 
     int (*check)(uint8_t drive, uint8_t partition);  // Function to check if the filesystem is valid
     void (*select)(uint8_t drive, uint8_t partition);
@@ -23,19 +26,20 @@ typedef struct {
     int (*get_last_modification_time)(const char *path, uint64_t *timestamp); // Get last modification time
 } filesystem_t;
 
-typedef struct {
-    int drive;              // Drive number
-    int partition;          // Partition number
-    int flags;             // Flags for mounting (e.g., read-only)
-    char mount_point[256]; // Mount point path
-    char type[32];         // Filesystem type (e.g., "FAT32", "EXT4")
+typedef struct mountpoint {
+    int drive;                   // Drive number
+    int partition;               // Partition number
+    int flags;                   // Flags for mounting (e.g., read-only)
+    char mount_point[MAX_PATH];  // Relative mount point path
+    int type;                    // Filesystem type
+    struct mountpoint* parent;   // Pointer to the parent mount point
+    struct mountpoint* next;     // Pointer to the next mount point
+    struct mountpoint* children; // Pointer to the first child mount point (for nested mounts)
 } mountpoint_t;
-
-#define FLAG_READ_ONLY 0x01
-#define MAX_PATH 1024
 
 int register_filesystem(filesystem_t fs);
 int mount_filesystem(const char *path, const char *type, int drive, int partition, int flags);
+int mount_root_filesystem(const char *type, int drive, int partition, int flags);
 int unmount_filesystem(const char *path);
 int unmount_all_filesystems();
 int list_directory(const char *path, char *element, uint64_t element_index);

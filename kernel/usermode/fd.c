@@ -1,6 +1,6 @@
 #include "fd.h"
 #include "scheduler.h"
-#include "../mount.h"
+#include "../vfs.h"
 #include "../console.h"
 #include "../limine.h"
 #include "../drivers/ps2_keyboard.h"

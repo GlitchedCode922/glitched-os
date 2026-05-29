@@ -1,7 +1,7 @@
 #include "fat.h"
 #include "../drivers/partitions.h"
 #include "../memory/mman.h"
-#include "../mount.h"
+#include "../vfs.h"
 #include "../console.h"
 #include <stddef.h>
 #include <stdint.h>
@@ -92,7 +92,7 @@ int is_fat_partition(uint8_t disk, uint8_t partition) {
     active_partition = partition;
     bpb_t local_bpb = fat_get_bpb();
     char f32_signature[8] = "FAT32   ";
-    return memcmp(local_bpb.file_system_type, f32_signature, 8);
+    return memcmp(local_bpb.file_system_type, f32_signature, 8) == 0;
 }
 
 void fat_select_partition(uint8_t disk, uint8_t partition) {
@@ -822,6 +822,7 @@ void fat_register() {
     fat_fs.remove = fat_delete;
     fat_fs.get_creation_time = fat_get_creation_time;
     fat_fs.get_last_modification_time = fat_get_last_modification_time;
+    fat_fs.case_sensitive = 0;
 
     register_filesystem(fat_fs);
 }

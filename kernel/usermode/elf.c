@@ -1,5 +1,5 @@
 #include "elf.h"
-#include "../mount.h"
+#include "../vfs.h"
 #include "../memory/mman.h"
 #include "../memory/paging.h"
 #include <stdint.h>

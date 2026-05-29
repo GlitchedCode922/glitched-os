@@ -1,7 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include "../idt.h"
-#include "../mount.h"
+#include "../vfs.h"
 #include "fd.h"
 
 typedef enum {
