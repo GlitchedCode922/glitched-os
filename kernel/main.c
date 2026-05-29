@@ -157,6 +157,4 @@ void kernel_main() {
     init_fpu();
 
     parse_kernel_cmdline();
-
-    panic(0, "Init process exited unexpectedly!");
 }
