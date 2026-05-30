@@ -780,6 +780,48 @@ int fat_write_to_file(const char *path, const uint8_t *buffer, size_t offset, si
     return bytes_written;
 }
 
+int fat_rename(const char *old_path, const char *new_path) {
+    if (read_only) {
+        return -1; // Filesystem is read-only
+    }
+
+    char old_npath[MAX_PATH];
+    char new_npath[MAX_PATH];
+    normalize_fat_path(old_path, old_npath);
+    normalize_fat_path(new_path, new_npath);
+    old_path = old_npath;
+    new_path = new_npath;
+
+    dirent_ref_t old_dirent_ref = fat_get_dirent_ref(old_path);
+    if (!old_dirent_ref.found) {
+        return -2; // Old file not found
+    }
+    if (fat_exists(new_path)) {
+        fat_delete(new_path);
+    }
+
+    // Extract new filename and parent directory
+    char new_dirname[256];
+    char new_filename[12];
+    separate_dirname_filename(new_path, new_dirname, new_filename);
+    readable_to_8d3(new_filename);
+    // Update dirent with new name
+    dirent_t updated_dirent = old_dirent_ref.dirent;
+    memcpy(updated_dirent.name, new_filename, 11);
+    int res = fat_add_dirent(new_dirname, updated_dirent);
+    if (res != 0) {
+        return -4; // Failed to add new dirent
+    }
+    // Delete old dirent
+    // Read the sector containing the dirent
+    uint8_t sector_buffer[512];
+    read_sectors_relative(active_disk, active_partition, old_dirent_ref.position[0], sector_buffer, 1);
+    // Set first byte of name to 0xE5
+    sector_buffer[old_dirent_ref.position[1]] = DIRENT_DELETED;
+    write_sectors_relative(active_disk, active_partition, old_dirent_ref.position[0], sector_buffer, 1);
+    return 0;
+}
+
 int fat_get_creation_time(const char *path, uint64_t *timestamp) {
     dirent_ref_t dirent_ref = fat_get_dirent_ref(path);
     if (!dirent_ref.found) {
@@ -820,6 +862,7 @@ void fat_register() {
     fat_fs.create_file = fat_create_file;
     fat_fs.create_directory = fat_create_directory;
     fat_fs.remove = fat_delete;
+    fat_fs.rename = fat_rename;
     fat_fs.get_creation_time = fat_get_creation_time;
     fat_fs.get_last_modification_time = fat_get_last_modification_time;
     fat_fs.case_sensitive = 0;

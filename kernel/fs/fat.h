@@ -100,6 +100,7 @@ int fat_add_dirent(const char* path, dirent_t dirent);
 int fat_create_file(const char* path);
 int fat_create_directory(const char* path);
 int fat_write_to_file(const char *path, const uint8_t *buffer, size_t offset, size_t size);
+int fat_rename(const char* old_path, const char* new_path);
 int fat_get_creation_time(const char* path, uint64_t* timestamp);
 int fat_get_modification_time(const char* path, uint64_t* timestamp);
 void fat_register();

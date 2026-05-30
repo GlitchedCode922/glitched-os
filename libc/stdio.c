@@ -208,6 +208,10 @@ void create_directory(const char* path) {
     syscall(SYSCALL_CREATE_DIR, (uint64_t)path, 0, 0, 0, 0, 0);
 }
 
+int rename_file(const char* old_path, const char* new_path) {
+    syscall(SYSCALL_RENAME_FILE, (uint64_t)old_path, (uint64_t)new_path, 0, 0, 0, 0);
+}
+
 void getcwd(char *buffer, size_t size) {
     syscall(SYSCALL_GETCWD, (uint64_t)buffer, size, 0, 0, 0, 0);
 }

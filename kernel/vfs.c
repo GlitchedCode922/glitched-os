@@ -442,6 +442,23 @@ int remove_file(const char *path) {
     return fs->remove(remaining_path);
 }
 
+int rename_file(const char *old_path, const char *new_path) {
+    char old_remaining_path[MAX_PATH];
+    char new_remaining_path[MAX_PATH];
+    mountpoint_t* old_mount = find_mountpoint(old_path, old_remaining_path);
+    mountpoint_t* new_mount = find_mountpoint(new_path, new_remaining_path);
+    if (old_mount != new_mount) {
+        return -1; // Cannot rename across different filesystems
+    }
+    filesystem_t* old_fs = &filesystems[old_mount->type];
+    old_fs->select(old_mount->drive, old_mount->partition);
+    old_fs->set_read_only(old_mount->flags & FLAG_READ_ONLY);
+    if (!old_fs->rename) {
+        return -1; // Rename operation not supported by this filesystem
+    }
+    return old_fs->rename(old_remaining_path, new_remaining_path);
+}
+
 int create_file(const char *path) {
     char remaining_path[MAX_PATH];
     mountpoint_t* mount = find_mountpoint(path, remaining_path);

@@ -25,5 +25,6 @@ uint64_t get_file_size(const char* path);
 void remove_file(const char* path);
 void create_file(const char* path);
 void create_directory(const char* path);
+int rename_file(const char* old_path, const char* new_path);
 int chdir(char* path);
 void getcwd(char* buffer, size_t size);

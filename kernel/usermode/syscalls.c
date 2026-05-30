@@ -182,6 +182,9 @@ uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t
     case SYSCALL_SETFONT:
         setfont((font_t*)arg1);
         break;
+    case SYSCALL_RENAME_FILE:
+        ret = rename_file((const char*)arg1, (const char*)arg2);
+        break;
     default:
         // Invalid syscall, return an error code
         ret = 0xFFFFFFFFFFFFFFFF;
