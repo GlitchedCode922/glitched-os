@@ -33,7 +33,6 @@ int open_file(const char *path, uint16_t flags) {
             memcpy(p, path, strlen(path) + 1);
             current_task->fd_table[i].path = p;
             current_task->fd_table[i].offset = 0;
-            current_task->fd_table[i].serial_port = 0;
             current_task->fd_table[i].flags = flags;
             current_task->fd_table[i].refcount = 1;
             fd_index = i;
@@ -56,10 +55,9 @@ int open_console(uint16_t flags) {
     int fd_index = -1;
     for (int i = 0; i < MAX_FDS; i++) {
         if (current_task->fd_table[i].type == 0) {
-            current_task->fd_table[i].type = FD_TYPE_CONSOLE;
-            current_task->fd_table[i].path = NULL;
+            current_task->fd_table[i].type = FD_TYPE_TTY;
+            current_task->fd_table[i].path = &keyboard_tty;
             current_task->fd_table[i].offset = 0;
-            current_task->fd_table[i].serial_port = 0;
             current_task->fd_table[i].flags = flags;
             current_task->fd_table[i].refcount = 1;
             fd_index = i;
@@ -85,7 +83,6 @@ int open_framebuffer(uint16_t flags) {
             current_task->fd_table[i].type = FD_TYPE_FRAMEBUFFER;
             current_task->fd_table[i].path = NULL;
             current_task->fd_table[i].offset = 0;
-            current_task->fd_table[i].serial_port = 0;
             current_task->fd_table[i].flags = flags;
             current_task->fd_table[i].refcount = 1;
             fd_index = i;
@@ -111,10 +108,9 @@ int open_serial(int port, uint16_t flags) {
     int fd_index = -1;
     for (int i = 0; i < MAX_FDS; i++) {
         if (current_task->fd_table[i].type == 0) {
-            current_task->fd_table[i].type = FD_TYPE_SERIAL;
-            current_task->fd_table[i].path = NULL;
+            current_task->fd_table[i].type = FD_TYPE_TTY;
+            current_task->fd_table[i].path = serial_ttys + port - 1;
             current_task->fd_table[i].offset = 0;
-            current_task->fd_table[i].serial_port = port;
             current_task->fd_table[i].flags = flags;
             current_task->fd_table[i].refcount = 1;
             fd_index = i;
@@ -183,16 +179,14 @@ int read(int fd, void *buffer, size_t size) {
         int bytes_read = read_file(fd_entry->path, buffer, fd_entry->offset, size);
         fd_entry->offset += bytes_read;
         return bytes_read;
-    } else if (fd_entry->type == FD_TYPE_CONSOLE) {
-        return tty_read(&keyboard_tty, buffer, size, !(fd_entry->flags & FLAG_NONBLOCKING));
+    } else if (fd_entry->type == FD_TYPE_TTY) {
+        return tty_read(fd_entry->path, buffer, size, !(fd_entry->flags & FLAG_NONBLOCKING));
     } else if (fd_entry->type == FD_TYPE_FRAMEBUFFER) {
         uint8_t* read_ptr = framebuffer->address + fd_entry->offset;
         size_t to_copy = size < (framebuffer->pitch * framebuffer->height - fd_entry->offset) ? size : (framebuffer->pitch * framebuffer->height - fd_entry->offset);
         memcpy(buffer, read_ptr, to_copy);
         fd_entry->offset += to_copy;
         return to_copy;
-    } else if (fd_entry->type == FD_TYPE_SERIAL) {
-        return tty_read(serial_ttys + fd_entry->serial_port - 1, buffer, size, !(fd_entry->flags & FLAG_NONBLOCKING));
     }
     return -1;
 }
@@ -206,16 +200,14 @@ int write(int fd, const void *buffer, size_t size) {
         int bytes_written = write_file(fd_entry->path, buffer, fd_entry->offset, size);
         fd_entry->offset += bytes_written;
         return bytes_written;
-    } else if (fd_entry->type == FD_TYPE_CONSOLE) {
-        return tty_write(&keyboard_tty, (char*)buffer, size);
+    } else if (fd_entry->type == FD_TYPE_TTY) {
+        return tty_write(fd_entry->path, (char*)buffer, size);
     } else if (fd_entry->type == FD_TYPE_FRAMEBUFFER) {
         uint8_t* write_ptr = framebuffer->address + fd_entry->offset;
         size_t to_copy = size < (framebuffer->pitch * framebuffer->height - fd_entry->offset) ? size : (framebuffer->pitch * framebuffer->height - fd_entry->offset);
         memcpy(write_ptr, buffer, to_copy);
         fd_entry->offset += to_copy;
         return to_copy;
-    } else if (fd_entry->type == FD_TYPE_SERIAL) {
-        return tty_write(serial_ttys + fd_entry->serial_port - 1, buffer, size);
     }
     return -1;
 }
@@ -254,8 +246,7 @@ int isatty(int fd) {
     if (fd < 0 || fd >= MAX_FDS || current_task->fd_ptr_table[fd] == NULL) {
         return -1;
     }
-    int type = current_task->fd_ptr_table[fd]->type;
-    return type == FD_TYPE_CONSOLE || type == FD_TYPE_SERIAL;
+    return current_task->fd_ptr_table[fd]->type == FD_TYPE_TTY;
 }
 
 int tcgetattr(int fd, termios_t *termios) {
@@ -263,12 +254,7 @@ int tcgetattr(int fd, termios_t *termios) {
         return -1;
     }
     if (!isatty(fd)) return -2;
-    int type = current_task->fd_ptr_table[fd]->type;
-    if (type == FD_TYPE_CONSOLE) {
-        *termios = keyboard_tty.termios;
-    } else if (type == FD_TYPE_SERIAL) {
-        *termios = serial_ttys[current_task->fd_ptr_table[fd]->serial_port - 1].termios;
-    }
+    *termios = ((tty_t*)current_task->fd_ptr_table[fd]->path)->termios;
     return 1;
 }
 
@@ -277,11 +263,6 @@ int tcsetattr(int fd, termios_t *termios) {
         return -1;
     }
     if (!isatty(fd)) return -2;
-    int type = current_task->fd_ptr_table[fd]->type;
-    if (type == FD_TYPE_CONSOLE) {
-        keyboard_tty.termios = *termios;
-    } else if (type == FD_TYPE_SERIAL) {
-        serial_ttys[current_task->fd_ptr_table[fd]->serial_port - 1].termios = *termios;
-    }
+    ((tty_t*)current_task->fd_ptr_table[fd]->path)->termios = *termios;
     return 1;
 }

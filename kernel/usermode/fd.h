@@ -5,9 +5,8 @@
 
 #define MAX_FDS 256
 #define FD_TYPE_FILE 1
-#define FD_TYPE_CONSOLE 2
+#define FD_TYPE_TTY 2
 #define FD_TYPE_FRAMEBUFFER 3
-#define FD_TYPE_SERIAL 4
 
 #define SEEK_START 0
 #define SEEK_CURRENT 1
@@ -21,7 +20,6 @@ typedef struct {
     int type;
     void* path;
     size_t offset;
-    int serial_port;
     int flags;
     int refcount;
 } fd_entry_t;
