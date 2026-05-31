@@ -146,6 +146,7 @@ void kernel_main() {
     init_mman((size_t)&__size);
     gdt_init();
     idt_init();
+    scheduler_init();
     framebuffer = framebuffer_request.response->framebuffers[0];
     initialize_console();
     serial_init();

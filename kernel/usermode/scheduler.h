@@ -37,6 +37,7 @@ typedef struct Task {
     int64_t time_slice;
     block_reason_t block_reason;
     uint64_t blocked_ticks;
+    int is_kworker;
     int* wstatus;
     struct Task* blocked_process;
     int return_code;
@@ -49,12 +50,17 @@ typedef struct Task {
 extern task_t* current_task;
 extern int64_t ticks_remaining;
 
+void scheduler_init();
 void run_init(char* path);
 void run_next(iframe_t* iframe);
 void exit(int ret);
 int fork(iframe_t* iframe);
 int spawn(char* path, char** argv, iframe_t* iframe);
 int execv(char* path, char** argv, iframe_t* iframe);
+int create_kworker(void (*function)(void*), void* arg);
+void kworker_yield();
+void kworker_sleep(uint64_t ms);
+void kworker_exit();
 void sleep(uint64_t ms, iframe_t* iframe);
 int waitpid(int pid, int* wstatus, int options, iframe_t* iframe);
 int getpid();

@@ -1,5 +1,6 @@
 #include "scheduler.h"
 #include "../user_jump.h"
+#include "syscalls.h"
 #include "../gdt.h"
 #include "../memory/mman.h"
 #include "elf.h"
@@ -24,16 +25,18 @@ void gc_tasks() {
             kfree(t->kernel_stack - 4096 * 32);
             kfree(t->fpu_state);
             p->next = t->next;
-            if (t->parent->child == t) {
-                t->parent->child = t->next_sibling;
-            } else {
-                task_t* s = t->parent->child;
-                while (s->next_sibling) {
-                    if (s->next_sibling == t) {
-                        s->next_sibling = t->next_sibling;
-                        break;
+            if (!t->is_kworker) {
+                if (t->parent->child == t) {
+                    t->parent->child = t->next_sibling;
+                } else {
+                    task_t* s = t->parent->child;
+                    while (s->next_sibling) {
+                        if (s->next_sibling == t) {
+                            s->next_sibling = t->next_sibling;
+                            break;
+                        }
+                        s = s->next_sibling;
                     }
-                    s = s->next_sibling;
                 }
             }
             task_t* next = t->next;
@@ -46,11 +49,14 @@ void gc_tasks() {
     }
 }
 
-void run_init(char* path) {
+void scheduler_init() {
     asm volatile(
         "mov %%cr3, %0"
         : "=r"(base_pml4)
     );
+}
+
+void run_init(char* path) {
     init_task.cr3 = clone_page_tables(base_pml4);
     asm volatile(
         "mov %0, %%cr3"
@@ -271,6 +277,78 @@ int execv(char *path, char **argv, iframe_t *iframe) {
     current_task->iframe->rflags |= 0x200;
     context_switch(current_task->iframe);
     return 0;
+}
+
+int create_kworker(void (*function)(void*), void* arg) {
+    if (last_pid == 2147483647) panic("No PIDs available");
+    iframe_t iframe = {0};
+    iframe.rip = (uint64_t)function;
+    iframe.rdi = (uint64_t)arg;
+    iframe.rflags = 0x200;
+    iframe.cs = KERNEL_CS;
+    int pid = ++last_pid;
+    task_t* new_task = kmalloc(sizeof(task_t));
+    *new_task = init_task;
+    new_task->state = STATE_READY;
+    new_task->cr3 = clone_page_tables(base_pml4);
+    void* kstack = (char*)kmalloc(4096 * 32) + 4096 * 32;
+    iframe.rsp = (uint64_t)kstack;
+    iframe.ss = 0x10;
+    iframe_t* new_iframe = kstack - sizeof(iframe_t);
+    *new_iframe = iframe;
+    new_task->kernel_stack = kstack;
+    new_task->iframe = new_iframe;
+    new_task->fpu_state = kmalloc(fpu_memory_size);
+    new_task->is_kworker = 1;
+    current_task->next = new_task;
+    new_task->child = NULL;
+    new_task->next_sibling = NULL;
+    new_task->pid = pid;
+    new_task->parent = NULL;
+    return pid;
+}
+
+void kworker_yield() {
+    if (!current_task->is_kworker) return;
+    asm volatile(
+        "movq %0, %%rax\n\t"
+        "int $0x80\n\t"
+        :
+        : "r"((uint64_t)SYSCALL_YIELD)
+        : "rax"
+    );
+}
+
+void kworker_sleep(uint64_t ms) {
+    if (!current_task->is_kworker) return;
+    asm volatile(
+        "movq %0, %%rdi\n\t"
+        "movq %1, %%rax\n\t"
+        "int $0x80\n\t"
+        :
+        : "r"(ms), "r"((uint64_t)SYSCALL_SLEEP)
+        : "rax", "rdi"
+    );
+}
+
+void kworker_exit() {
+    if (!current_task->is_kworker) return;
+    current_task->state = STATE_DELETED;
+
+    // Run next task
+    do {
+        current_task = current_task->next;
+    } while (current_task->state != STATE_READY);
+    current_task->state = STATE_RUNNING;
+    asm volatile(
+        "mov %0, %%cr3"
+        :: "r"(current_task->cr3)
+    );
+    change_pml4(current_task->cr3);
+    restore_fpu(current_task->fpu_state);
+    set_rsp0((uint64_t)current_task->kernel_stack);
+    current_task->iframe->rflags |= 0x200;
+    context_switch(current_task->iframe);
 }
 
 void sleep(uint64_t ms, iframe_t *iframe) {
