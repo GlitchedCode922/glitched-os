@@ -1,3 +1,10 @@
+# Build files
 /build
 *.o
 
+# Editor settings
+.cache
+.clangd
+compile_commands.json
+.vscode
+.editorconfig
