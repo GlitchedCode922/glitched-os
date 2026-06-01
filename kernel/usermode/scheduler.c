@@ -279,11 +279,17 @@ int execv(char *path, char **argv, iframe_t *iframe) {
     return 0;
 }
 
+void kworker_trampoline(void (*fn)(void*), void* arg) {
+    fn(arg);
+    kworker_exit();
+}
+
 int create_kworker(void (*function)(void*), void* arg) {
     if (last_pid == 2147483647) panic("No PIDs available");
     iframe_t iframe = {0};
-    iframe.rip = (uint64_t)function;
-    iframe.rdi = (uint64_t)arg;
+    iframe.rip = (uint64_t)kworker_trampoline;
+    iframe.rdi = (uint64_t)function;
+    iframe.rsi = (uint64_t)arg;
     iframe.rflags = 0x200;
     iframe.cs = KERNEL_CS;
     int pid = ++last_pid;
