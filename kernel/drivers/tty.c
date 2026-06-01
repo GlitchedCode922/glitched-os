@@ -1,6 +1,7 @@
 #include "tty.h"
 #include <stddef.h>
 #include "../memory/mman.h"
+#include "../usermode/scheduler.h"
 
 static inline int is_printable(char c) {
     return c >= 0x20 && c <= 0x7E;
@@ -56,7 +57,12 @@ void tty_char_recv(tty_t *tty, char c) {
 }
 
 size_t tty_read(tty_t *tty, char *buffer, size_t len, int block) {
-    if (block) while (tty->read_head == tty->write_head);
+    while (block && tty->read_head == tty->write_head) {
+        current_task->block_reason = BLOCK_TTY_READ;
+        current_task->block_data = tty;
+        current_task->state = STATE_BLOCKED;
+        yield_current();
+    }
     int bytes_read = 0;
     for (bytes_read = 0; bytes_read < len; bytes_read++) {
         if (tty->read_head == tty->write_head) return bytes_read;

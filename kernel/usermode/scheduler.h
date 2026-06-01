@@ -20,6 +20,7 @@ typedef enum {
     BLOCK_NONE,
     BLOCK_DELAY,
     BLOCK_WAITPID,
+    BLOCK_TTY_READ,
 } block_reason_t;
 
 typedef struct Task {
@@ -36,6 +37,7 @@ typedef struct Task {
     fd_entry_t* fd_ptr_table[MAX_FDS];
     int64_t time_slice;
     block_reason_t block_reason;
+    void* block_data;
     uint64_t blocked_ticks;
     int is_kworker;
     int* wstatus;
@@ -58,8 +60,8 @@ int fork(iframe_t* iframe);
 int spawn(char* path, char** argv, iframe_t* iframe);
 int execv(char* path, char** argv, iframe_t* iframe);
 int create_kworker(void (*function)(void*), void* arg);
-void kworker_yield();
-void kworker_sleep(uint64_t ms);
+void yield_current();
+void sleep_current(uint64_t ms);
 void kworker_exit();
 void sleep(uint64_t ms, iframe_t* iframe);
 int waitpid(int pid, int* wstatus, int options, iframe_t* iframe);

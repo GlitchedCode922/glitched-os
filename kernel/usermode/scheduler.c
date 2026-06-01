@@ -308,8 +308,7 @@ int create_kworker(void (*function)(void*), void* arg) {
     return pid;
 }
 
-void kworker_yield() {
-    if (!current_task->is_kworker) return;
+void yield_current() {
     asm volatile(
         "movq %0, %%rax\n\t"
         "int $0x80\n\t"
@@ -319,8 +318,7 @@ void kworker_yield() {
     );
 }
 
-void kworker_sleep(uint64_t ms) {
-    if (!current_task->is_kworker) return;
+void sleep_current(uint64_t ms) {
     asm volatile(
         "movq %0, %%rdi\n\t"
         "movq %1, %%rax\n\t"
@@ -497,6 +495,13 @@ void check_blocked_tasks(int reduce_ticks) {
                     task->state = STATE_READY;
                     task->block_reason = BLOCK_NONE;
                     task->iframe->rax = blocked->pid;
+                }
+            } else if (task->block_reason == BLOCK_TTY_READ) {
+                tty_t* tty = (tty_t*)task->block_data;
+                if (tty->read_head != tty->write_head) {
+                    task->state = STATE_READY;
+                    task->block_reason = BLOCK_NONE;
+                    task->block_data = NULL;
                 }
             }
         }
