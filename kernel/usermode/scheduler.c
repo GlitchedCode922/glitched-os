@@ -144,6 +144,7 @@ int fork(iframe_t* iframe) {
     new_task->kernel_stack = kstack;
     new_task->iframe = new_iframe;
     new_task->fpu_state = kmalloc(fpu_memory_size);
+    new_task->next = current_task->next;
     current_task->next = new_task;
     new_task->next_sibling = current_task->child;
     new_task->child = NULL;
@@ -306,6 +307,7 @@ int create_kworker(void (*function)(void*), void* arg) {
     new_task->iframe = new_iframe;
     new_task->fpu_state = kmalloc(fpu_memory_size);
     new_task->is_kworker = 1;
+    new_task->next = current_task->next;
     current_task->next = new_task;
     new_task->child = NULL;
     new_task->next_sibling = NULL;
