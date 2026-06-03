@@ -61,7 +61,7 @@ stack_trace_failed:
     asm volatile ("sti");
     input_disabled = 0;
     keyboard_tty.termios.c_lflag = 0;
-    while (c != '\n') tty_read(&keyboard_tty, &c, 1, 0);
+    while (c != '\n') tty_read_poll(&keyboard_tty, &c, 1, 0);
     panic_state = OPERATIONAL;
     reboot();
 }

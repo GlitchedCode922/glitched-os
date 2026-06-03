@@ -34,4 +34,5 @@ typedef struct tty {
 
 void tty_char_recv(tty_t* tty, char c);
 size_t tty_read(tty_t* tty, char* buffer, size_t len, int block);
+size_t tty_read_poll(tty_t* tty, char* buffer, size_t len, int block);
 size_t tty_write(tty_t* tty, const char* buffer, size_t len);

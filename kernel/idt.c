@@ -165,9 +165,10 @@ void breakpoint_debugger(iframe_t* iframe) {
     asm volatile ("sti");
     termios_t term = keyboard_tty.termios;
     keyboard_tty.termios.c_lflag = ICANON | ECHO | ECHOE;
+    size_t (*read_fn)(tty_t*, char*, size_t, int) = scheduler_initialized ? tty_read : tty_read_poll;
     while (1) {
         kprintf("> ");
-        int bytes_read = tty_read(&keyboard_tty, buffer, sizeof(buffer) - 1, 1);
+        int bytes_read = read_fn(&keyboard_tty, buffer, sizeof(buffer) - 1, 1);
         buffer[bytes_read] = '\0'; // Null-terminate
         if (strcmp(buffer, "?\n") == 0 || strcmp(buffer, "help\n") == 0) {
             kprintf("Commands:\n");

@@ -49,6 +49,7 @@ typedef struct Task {
     struct Task* child;
 } task_t;
 
+extern uint8_t scheduler_initialized;
 extern task_t* current_task;
 extern int64_t ticks_remaining;
 
