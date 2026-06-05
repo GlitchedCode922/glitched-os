@@ -209,7 +209,7 @@ void create_directory(const char* path) {
 }
 
 int rename_file(const char* old_path, const char* new_path) {
-    syscall(SYSCALL_RENAME_FILE, (uint64_t)old_path, (uint64_t)new_path, 0, 0, 0, 0);
+    return syscall(SYSCALL_RENAME_FILE, (uint64_t)old_path, (uint64_t)new_path, 0, 0, 0, 0);
 }
 
 void getcwd(char *buffer, size_t size) {

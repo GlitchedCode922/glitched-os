@@ -236,7 +236,7 @@ void newline() {
 }
 
 void putchar(const char c) {
-    if (!framebuffer || c < 0 || c >= 128) return;
+    if (!framebuffer || (unsigned char)c >= 128) return;
 
     if (c == '\n') {
         newline();

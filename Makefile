@@ -1,17 +1,36 @@
-CC = x86_64-elf-gcc
-HOSTCC = gcc
+TOOLCHAIN = llvm
+TARGET = x86_64-elf
+HOSTCC = cc
 AS = nasm
-AR = ar
 ASFLAGS =
 override ASFLAGS += -f elf64
 CFLAGS =
-KERNEL_CFLAGS = -nostdlib -ffreestanding -fno-stack-protector -fno-stack-check -fno-PIC -fno-omit-frame-pointer -ffunction-sections -fdata-sections -m64 -march=x86-64 -mno-80387 -mno-mmx -mno-sse -mno-sse2 -mno-red-zone -mcmodel=kernel -MMD -MP
-LIBC_CFLAGS = -nostdlib -ffreestanding -fno-stack-protector -fno-stack-check -fno-PIC -fno-omit-frame-pointer -ffunction-sections -fdata-sections -m64 -march=x86-64 -MMD -MP
-BIN_CFLAGS = -nostdlib -ffreestanding -fno-stack-protector -fno-stack-check -fno-PIC -fno-omit-frame-pointer -ffunction-sections -fdata-sections -m64 -march=x86-64 -MMD -MP
+override CFLAGS += -nostdlib -ffreestanding -fno-stack-protector -fno-stack-check -fno-pic -fno-omit-frame-pointer -ffunction-sections -fdata-sections -m64 -march=x86-64 -MMD -MP
+KERNEL_CFLAGS =
+LIBC_CFLAGS =
+BIN_CFLAGS =
+override KERNEL_CFLAGS += -mno-80387 -mno-mmx -mno-sse -mno-sse2 -mno-red-zone -mcmodel=kernel
 LDFLAGS =
-KERNEL_LDFLAGS = -nostdlib -lgcc -T kernel/linker.ld
-BIN_LDFLAGS = -nostdlib -lgcc
+KERNEL_LDFLAGS =
+BIN_LDFLAGS =
+override LDFLAGS += -nostdlib
+override KERNEL_LDFLAGS += -T kernel/linker.ld
+LDLIBS =
 ARFLAGS =
+
+ifeq ($(TOOLCHAIN), llvm)
+	CC = clang
+	AR = llvm-ar
+	override CFLAGS += --target=$(TARGET)
+	override LDFLAGS += --target=$(TARGET) -fuse-ld=lld
+else ifeq ($(TOOLCHAIN), gcc)
+	CC = $(TARGET)-gcc
+	AR = $(TARGET)-ar
+	override LDLIBS += -lgcc
+else ifeq ($(TOOLCHAIN), custom)
+else
+	$(error Invalid TOOLCHAIN specified: $(TOOLCHAIN))
+endif
 
 KERNEL_C_FILES = $(shell find kernel -name '*.c')
 KERNEL_ASM_FILES = $(shell find kernel -name '*.asm')
@@ -41,7 +60,7 @@ all: kernel libc binaries disk-image
 kernel: build/kernel
 
 build/kernel: $(KERNEL_OBJECTS)
-	$(CC) $(LDFLAGS) $(KERNEL_LDFLAGS) -o $@ $^
+	$(CC) $(LDFLAGS) $(KERNEL_LDFLAGS) $^ $(LDLIBS) -o $@
 
 build/obj/kernel/%.o: kernel/%.c
 	@mkdir -p $(dir $@)
@@ -69,7 +88,7 @@ build/crt0.o: libc/crt0.asm
 	$(AS) $(ASFLAGS) $< -o $@
 
 build/binaries/%: build/obj/binaries/%.o build/crt0.o build/libc.a | build/binaries
-	$(CC) $(LDFLAGS) $(BIN_LDFLAGS) build/crt0.o $< build/libc.a -o $@
+	$(CC) $(LDFLAGS) $(BIN_LDFLAGS) build/crt0.o $< build/libc.a $(LDLIBS) -o $@
 
 build/obj/binaries/%.o: binaries/%.c | build/obj/binaries
 	$(CC) $(CFLAGS) $(BIN_CFLAGS) -c -Ilibc/ $< -o $@
