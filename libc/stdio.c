@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include "errno.h"
 #include "syscall.h"
 #include "unistd.h"
 #include <stddef.h>
@@ -9,7 +10,11 @@ char* readline(char* buffer, size_t size) {
     if (size == 0) return NULL;
     for (size_t i = 0; i < size - 1; i++) {
         char c;
-        if (read(STDIN_FILENO, &c, 1) <= 0) {
+        int res = read(STDIN_FILENO, &c, 1);
+        if (res == 0) {
+            if (i == 0) return NULL;
+            break;
+        } else if (res < 0 && res != -EAGAIN) {
             if (i == 0) return NULL;
             break;
         }
@@ -180,36 +185,76 @@ void printf(const char *fmt, ...){
     va_end(args);
 }
 
-uint64_t get_file_size(const char* path) {
-    return syscall(SYSCALL_GET_FILE_SIZE, (uint64_t)path, 0, 0, 0, 0, 0);
+int64_t get_file_size(const char* path) {
+    int64_t res = syscall(SYSCALL_GET_FILE_SIZE, (uint64_t)path, 0, 0, 0, 0, 0);
+    if (res < 0) {
+        errno = -res;
+        return -1;
+    }
+    return res;
 }
 
 int list_directory(const char *path, char *element, uint64_t element_index) {
-    return syscall(SYSCALL_LIST_DIR, (uint64_t)path, (uint64_t)element, element_index, 0, 0, 0);
+    int res = syscall(SYSCALL_LIST_DIR, (uint64_t)path, (uint64_t)element, element_index, 0, 0, 0);
+    if (res < 0) {
+        errno = -res;
+        return -1;
+    }
+    return res;
 }
 
 int file_exists(const char *path) {
-    return syscall(SYSCALL_FILE_EXISTS, (uint64_t)path, 0, 0, 0, 0, 0);
+    int res = syscall(SYSCALL_FILE_EXISTS, (uint64_t)path, 0, 0, 0, 0, 0);
+    if (res < 0) {
+        errno = -res;
+        return -1;
+    }
+    return res;
 }
 
 int is_directory(const char *path) {
-    return syscall(SYSCALL_IS_DIRECTORY, (uint64_t)path, 0, 0, 0, 0, 0);
+    int res = syscall(SYSCALL_IS_DIRECTORY, (uint64_t)path, 0, 0, 0, 0, 0);
+    if (res < 0) {
+        errno = -res;
+        return -1;
+    }
+    return res;
 }
 
-void remove_file(const char* path) {
-    syscall(SYSCALL_DELETE_FILE, (uint64_t)path, 0, 0, 0, 0, 0);
+int remove_file(const char* path) {
+    int res = syscall(SYSCALL_DELETE_FILE, (uint64_t)path, 0, 0, 0, 0, 0);
+    if (res < 0) {
+        errno = -res;
+        return -1;
+    }
+    return res;
 }
 
-void create_file(const char* path) {
-    syscall(SYSCALL_CREATE_FILE, (uint64_t)path, 0, 0, 0, 0, 0);
+int create_file(const char* path) {
+    int res = syscall(SYSCALL_CREATE_FILE, (uint64_t)path, 0, 0, 0, 0, 0);
+    if (res < 0) {
+        errno = -res;
+        return -1;
+    }
+    return res;
 }
 
-void create_directory(const char* path) {
-    syscall(SYSCALL_CREATE_DIR, (uint64_t)path, 0, 0, 0, 0, 0);
+int create_directory(const char* path) {
+    int res = syscall(SYSCALL_CREATE_DIR, (uint64_t)path, 0, 0, 0, 0, 0);
+    if (res < 0) {
+        errno = -res;
+        return -1;
+    }
+    return res;
 }
 
 int rename_file(const char* old_path, const char* new_path) {
-    return syscall(SYSCALL_RENAME_FILE, (uint64_t)old_path, (uint64_t)new_path, 0, 0, 0, 0);
+    int res = syscall(SYSCALL_RENAME_FILE, (uint64_t)old_path, (uint64_t)new_path, 0, 0, 0, 0);
+    if (res < 0) {
+        errno = -res;
+        return -1;
+    }
+    return res;
 }
 
 void getcwd(char *buffer, size_t size) {
@@ -217,5 +262,10 @@ void getcwd(char *buffer, size_t size) {
 }
 
 int chdir(char *path) {
-    return syscall(SYSCALL_CHDIR, (uint64_t)path, 0, 0, 0, 0, 0);
+    int res = syscall(SYSCALL_CHDIR, (uint64_t)path, 0, 0, 0, 0, 0);
+    if (res < 0) {
+        errno = -res;
+        return -1;
+    }
+    return res;
 }

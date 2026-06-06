@@ -4,22 +4,21 @@
 #include "../drivers/block.h"
 #include "../vfs.h"
 #include "../drivers/timer.h"
-#include "../memory/paging.h"
 #include "../console.h"
 #include "../power.h"
 #include "../net/udp.h"
 #include "../net/icmp.h"
 #include "../net/ip.h"
 #include "../drivers/net.h"
-#include "../drivers/serial.h"
 #include "../panic.h"
+#include "../error.h"
 #include "scheduler.h"
 #include <stdarg.h>
 #include <stdint.h>
 
-uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6, iframe_t* iframe) {
+int64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6, iframe_t* iframe) {
     asm volatile("sti");
-    uint64_t ret = 0;
+    int64_t ret = 0;
     switch (syscall_number) {
     case SYSCALL_EXIT:
         exit((int)arg1);
@@ -90,9 +89,11 @@ uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t
     case SYSCALL_LISTEN_UDP:
         // Temporarily disabled
         //register_udp_listener(arg1, (void (*)(uint8_t*, uint16_t, uint8_t*, int))arg2);
+        ret = -ENOSYS;
         break;
     case SYSCALL_STOP_UDP_LISTEN:
         //unregister_udp_listener(arg1);
+        ret = -ENOSYS;
         break;
     case SYSCALL_PING:
         ping((uint8_t*)arg1);
@@ -187,8 +188,8 @@ uint64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t
         break;
     default:
         // Invalid syscall, return an error code
-        ret = 0xFFFFFFFFFFFFFFFF;
+        ret = -ENOSYS;
     }
-    iframe->rax = ret;
+    iframe->rax = (uint64_t)ret;
     return ret;
 }

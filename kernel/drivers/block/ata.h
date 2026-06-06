@@ -17,7 +17,7 @@ ata_device_t detect_device(uint16_t bus_port, uint16_t disk);
 int ata_read_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t count);
 int ata_write_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t count);
 int ata_get_smart_data(uint8_t drive, uint8_t *buffer);
-uint64_t ata_get_drive_size(uint8_t drive);
+int64_t ata_get_drive_size(uint8_t drive);
 void ata_standby(uint8_t drive);
 int ata_load_eject(uint8_t drive, uint8_t load);
 int ata_supports_lba48(int drive);

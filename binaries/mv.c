@@ -59,16 +59,23 @@ int main(int argc, char** argv) {
     size_t bytes_read, bytes_written;
     while ((bytes_read = read(fd_read, buffer, sizeof(buffer))) != 0) {
         if (bytes_read < 0) {
-            printf("Error reading from source file\n");
+            perror("Error reading from source file");
             return 1;
         }
         bytes_written = write(fd_write, buffer, bytes_read);
-        if (bytes_written != bytes_read) {
+        if (bytes_written < 0) {
+            perror("Error writing to destination file");
+            return 1;
+        } else if (bytes_written != bytes_read) {
             printf("Error writing to destination file\n");
             return 1;
         }
     }
-    remove_file(argv[1]);
+    int res = remove_file(argv[1]);
+    if (res < 0) {
+        perror("Error deleting source file");
+        return 1;
+    }
     close(fd_read);
     close(fd_write);
 

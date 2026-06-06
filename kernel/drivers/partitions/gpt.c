@@ -1,22 +1,24 @@
 #include "gpt.h"
 #include <stdint.h>
 #include "../block.h"
-#include "../../console.h"
+#include "../../error.h"
 #include "../../memory/mman.h"
 
 int has_gpt(uint8_t disk) {
     uint8_t buffer[1024];
-    if (read_sectors(disk, 0, buffer, 2) != 0) return 0;
+    int res = read_sectors(disk, 0, buffer, 2);
+    if (res < 0) return res;
     return memcmp(&buffer[512], "EFI PART", 8) == 0;
 }
 
-uint64_t gpt_get_partition_start(uint8_t disk, uint8_t partition) {
+int64_t gpt_get_partition_start(uint8_t disk, uint8_t partition) {
     if (!has_gpt(disk)) {
-        return 0; // Not a GPT disk
+        return -EINVAL; // Not a GPT disk
     }
     uint8_t gpt_header_buffer[512];
-    if (read_sectors(disk, 1, gpt_header_buffer, 1) != 0) {
-        return 0; // Handle read error
+    int res = read_sectors(disk, 1, gpt_header_buffer, 1);
+    if (res < 0) {
+        return res; // Handle read error
     }
     gpt_header_t *gpt_header = (gpt_header_t *)gpt_header_buffer;
     uint32_t partition_entry_lba = gpt_header->partition_entry_lba;
@@ -27,21 +29,27 @@ uint64_t gpt_get_partition_start(uint8_t disk, uint8_t partition) {
     uint32_t sector_offset = (partition * size_of_partition_entry) / 512;
     uint32_t entry_offset = (partition * size_of_partition_entry) % 512;
 
-    if (read_sectors(disk, partition_entry_lba + sector_offset, partition_entry_buffer, 1) != 0) {
-        return 0; // Handle read error
+    if ((res = read_sectors(disk, partition_entry_lba + sector_offset, partition_entry_buffer, 1)) < 0) {
+        return res; // Handle read error
+    }
+
+    // Check if the partition entry is valid (not empty)
+    if (memcmp(partition_entry_buffer + entry_offset, "\0", size_of_partition_entry) == 0) {
+        return -ENODEV; // Partition not found
     }
 
     gpt_entry_t *entry = (gpt_entry_t *)(partition_entry_buffer + entry_offset);
     return entry->starting_lba;
 }
 
-uint64_t gpt_get_partition_size(uint8_t disk, uint8_t partition) {
+int64_t gpt_get_partition_size(uint8_t disk, uint8_t partition) {
     if (!has_gpt(disk)) {
-        return 0; // Not a GPT disk
+        return -EINVAL; // Not a GPT disk
     }
     uint8_t gpt_header_buffer[512];
-    if (read_sectors(disk, 1, gpt_header_buffer, 1) != 0) {
-        return 0; // Handle read error
+    int res;
+    if ((res = read_sectors(disk, 1, gpt_header_buffer, 1)) < 0) {
+        return res; // Handle read error
     }
     gpt_header_t *gpt_header = (gpt_header_t *)gpt_header_buffer;
     uint32_t partition_entry_lba = gpt_header->partition_entry_lba;
@@ -52,8 +60,8 @@ uint64_t gpt_get_partition_size(uint8_t disk, uint8_t partition) {
     uint32_t sector_offset = (partition * size_of_partition_entry) / 512;
     uint32_t entry_offset = (partition * size_of_partition_entry) % 512;
 
-    if (read_sectors(disk, partition_entry_lba + sector_offset, partition_entry_buffer, 1) != 0) {
-        return 0; // Handle read error
+    if ((res = read_sectors(disk, partition_entry_lba + sector_offset, partition_entry_buffer, 1)) < 0) {
+        return res; // Handle read error
     }
 
     gpt_entry_t *entry = (gpt_entry_t *)(partition_entry_buffer + entry_offset);
@@ -62,34 +70,39 @@ uint64_t gpt_get_partition_size(uint8_t disk, uint8_t partition) {
 
 int gpt_read_sectors_relative(uint8_t disk, uint8_t partition, uint64_t lba, uint8_t *buffer, uint16_t count) {
     if (!has_gpt(disk)) {
-        return -1; // Not a GPT disk
+        return -EINVAL; // Not a GPT disk
     }
-    uint64_t partition_start = gpt_get_partition_start(disk, partition);
-    if (partition_start == 0) {
-        return -2; // Partition not found or read error
+    int64_t partition_start = gpt_get_partition_start(disk, partition);
+    if (partition_start <= 0) {
+        return partition_start; // Partition not found or read error
     }
     // Adjust LBA to be relative to the partition start
     uint64_t adjusted_lba = partition_start + lba;
+    int64_t partition_size = gpt_get_partition_size(disk, partition);
+    if (partition_size < 0) {
+        return partition_size; // Handle error
+    }
     if (adjusted_lba < partition_start ||
-        adjusted_lba + count > partition_start + gpt_get_partition_size(disk, partition)) {
-        return -3; // Out of bounds
+        adjusted_lba + count > partition_start + partition_size) {
+        return -EINVAL; // Out of bounds
     }
     return read_sectors(disk, adjusted_lba, buffer, count);
 }
 
 int gpt_write_sectors_relative(uint8_t disk, uint8_t partition, uint64_t lba, uint8_t *buffer, uint16_t count) {
     if (!has_gpt(disk)) {
-        return -1; // Not a GPT disk
+        return -ENODEV; // Not a GPT disk
     }
-    uint64_t partition_start = gpt_get_partition_start(disk, partition);
-    if (partition_start == 0) {
-        return -2; // Partition not found or read error
+    int64_t partition_start = gpt_get_partition_start(disk, partition);
+    if (partition_start <= 0) {
+        return partition_start; // Partition not found or read error
     }
     // Adjust LBA to be relative to the partition start
     uint64_t adjusted_lba = partition_start + lba;
+    int64_t partition_size = gpt_get_partition_size(disk, partition);
     if (adjusted_lba < partition_start ||
-        adjusted_lba + count > partition_start + gpt_get_partition_size(disk, partition)) {
-        return -3; // Out of bounds
+        adjusted_lba + count > partition_start + partition_size) {
+        return -EINVAL; // Out of bounds
     }
     return write_sectors(disk, adjusted_lba, buffer, count);
 }

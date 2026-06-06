@@ -14,8 +14,16 @@ int main(int argc, char *argv[]) {
 
     if (strcmp(mountpoint, "all") == 0) {
         int result = syscall(SYSCALL_UNMOUNT_ALL, 0, 0, 0, 0, 0, 0);
-        return result;
+        if (result < 0) {
+            perror("umount failed");
+            return 1;
+        }
+        return 0;
     }
     int result = syscall(SYSCALL_UNMOUNT, (uint64_t)mountpoint, 0, 0, 0, 0, 0);
-    return result;
+    if (result < 0) {
+        perror("umount failed");
+        return 1;
+    }
+    return 0;
 }

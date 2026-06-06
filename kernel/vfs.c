@@ -1,6 +1,7 @@
 #include "vfs.h"
 #include "memory/mman.h"
 #include "usermode/scheduler.h"
+#include "error.h"
 #include "fs/fat.h"
 #include <stddef.h>
 #include <stdint.h>
@@ -20,7 +21,7 @@ static size_t strlen(const char *s) {
 
 int register_filesystem(filesystem_t fs) {
     if (filesystem_count >= 24) {
-        return -1; // Maximum number of filesystems reached
+        return -ENOSPC; // Maximum number of filesystems reached
     }
     filesystems[filesystem_count++] = fs;
     return 0; // Success
@@ -217,7 +218,7 @@ static mountpoint_t* find_mountpoint(const char *path, char *remaining_path) {
 
 int mount_filesystem(const char *path, const char *type, int drive, int partition, int flags) {
     if (filesystem_count == 0) {
-        return -1; // No filesystems registered
+        return -ENOENT; // No filesystems registered
     }
 
     int fs_index = -1;
@@ -229,21 +230,21 @@ int mount_filesystem(const char *path, const char *type, int drive, int partitio
     }
 
     if (fs_index == -1) {
-        return -1; // Filesystem type not found
+        return -EINVAL; // Filesystem type not found
     }
 
     if (!filesystems[fs_index].check(drive, partition)) {
-        return -1; // Filesystem check failed
+        return -EINVAL; // Filesystem check failed
     }
 
     char remaining_path[MAX_PATH];
     mountpoint_t* parent = find_mountpoint(path, remaining_path);
     if (!parent) {
-        return -1; // Parent mount point not found
+        return -ENOENT; // Parent mount point not found
     }
 
     if (remaining_path[0] == '\0') {
-        return -1; // Already mounted
+        return -EBUSY; // Already mounted
     }
 
     mountpoint_t* new_mount = (mountpoint_t*)kmalloc(sizeof(mountpoint_t));
@@ -265,7 +266,7 @@ int mount_filesystem(const char *path, const char *type, int drive, int partitio
 
 int mount_root_filesystem(const char *type, int drive, int partition, int flags) {
     if (filesystem_count == 0) {
-        return -1; // No filesystems registered
+        return -ENOENT; // No filesystems registered
     }
 
     int fs_index = -1;
@@ -277,11 +278,11 @@ int mount_root_filesystem(const char *type, int drive, int partition, int flags)
     }
 
     if (fs_index == -1) {
-        return -1; // Filesystem type not found
+        return -EINVAL; // Filesystem type not found
     }
 
     if (!filesystems[fs_index].check(drive, partition)) {
-        return -1; // Filesystem check failed
+        return -EINVAL; // Filesystem check failed
     }
 
     root = (mountpoint_t*)kmalloc(sizeof(mountpoint_t));
@@ -300,7 +301,7 @@ int unmount_filesystem(const char *path) {
     char remaining_path[MAX_PATH];
     mountpoint_t* mount = find_mountpoint(path, remaining_path);
     if (!mount || mount == root || remaining_path[0] != '\0') {
-        return -1; // Mount point not found or trying to unmount root
+        return -EINVAL; // Mount point not found or trying to unmount root
     }
     mountpoint_t* parent = mount->parent;
     if (parent->children == mount) {
@@ -341,13 +342,13 @@ int list_directory(const char *path, char *element, uint64_t element_index) {
     char remaining_path[MAX_PATH];
     mountpoint_t* mount = find_mountpoint(path, remaining_path);
     if (!mount) {
-        return -1; // Mount point not found
+        return -ENOENT; // Mount point not found
     }
     filesystem_t* fs = &filesystems[mount->type];
     fs->select(mount->drive, mount->partition);
     fs->set_read_only(mount->flags & FLAG_READ_ONLY);
     if (!fs->list) {
-        return -1; // List operation not supported by this filesystem
+        return -ENOSYS; // List operation not supported by this filesystem
     }
     return fs->list(remaining_path, element, element_index);
 }
@@ -371,13 +372,13 @@ int is_directory(const char *path) {
     char remaining_path[MAX_PATH];
     mountpoint_t* mount = find_mountpoint(path, remaining_path);
     if (!mount) {
-        return 0; // Mount point not found, so it can't be a directory
+        return -ENOENT; // Mount point not found
     }
     filesystem_t* fs = &filesystems[mount->type];
     fs->select(mount->drive, mount->partition);
     fs->set_read_only(mount->flags & FLAG_READ_ONLY);
     if (!fs->is_directory) {
-        return 0; // Is_directory operation not supported by this filesystem
+        return -ENOSYS; // Is_directory operation not supported by this filesystem
     }
     return fs->is_directory(remaining_path);
 }
@@ -386,13 +387,13 @@ uint64_t get_file_size(const char *path) {
     char remaining_path[MAX_PATH];
     mountpoint_t* mount = find_mountpoint(path, remaining_path);
     if (!mount) {
-        return 0; // Mount point not found, so file size is 0
+        return -ENOENT; // Mount point not found
     }
     filesystem_t* fs = &filesystems[mount->type];
     fs->select(mount->drive, mount->partition);
     fs->set_read_only(mount->flags & FLAG_READ_ONLY);
     if (!fs->get_file_size) {
-        return 0; // Get_file_size operation not supported by this filesystem
+        return -ENOSYS; // Get_file_size operation not supported by this filesystem
     }
     return fs->get_file_size(remaining_path);
 }
@@ -401,13 +402,13 @@ int read_file(const char *path, uint8_t *buffer, size_t offset, size_t size) {
     char remaining_path[MAX_PATH];
     mountpoint_t* mount = find_mountpoint(path, remaining_path);
     if (!mount) {
-        return -1; // Mount point not found
+        return -ENOENT; // Mount point not found
     }
     filesystem_t* fs = &filesystems[mount->type];
     fs->select(mount->drive, mount->partition);
     fs->set_read_only(mount->flags & FLAG_READ_ONLY);
     if (!fs->read) {
-        return -1; // Read operation not supported by this filesystem
+        return -EINVAL; // Read operation not supported by this filesystem
     }
     return fs->read(remaining_path, buffer, offset, size);
 }
@@ -416,13 +417,13 @@ int write_file(const char *path, const uint8_t *buffer, size_t offset, size_t si
     char remaining_path[MAX_PATH];
     mountpoint_t* mount = find_mountpoint(path, remaining_path);
     if (!mount) {
-        return -1; // Mount point not found
+        return -ENOENT; // Mount point not found
     }
     filesystem_t* fs = &filesystems[mount->type];
     fs->select(mount->drive, mount->partition);
     fs->set_read_only(mount->flags & FLAG_READ_ONLY);
     if (!fs->write) {
-        return -1; // Write operation not supported by this filesystem
+        return -ENOSYS; // Write operation not supported by this filesystem
     }
     return fs->write(remaining_path, buffer, offset, size);
 }
@@ -431,13 +432,13 @@ int remove_file(const char *path) {
     char remaining_path[MAX_PATH];
     mountpoint_t* mount = find_mountpoint(path, remaining_path);
     if (!mount) {
-        return -1; // Mount point not found
+        return -ENOENT; // Mount point not found
     }
     filesystem_t* fs = &filesystems[mount->type];
     fs->select(mount->drive, mount->partition);
     fs->set_read_only(mount->flags & FLAG_READ_ONLY);
     if (!fs->remove) {
-        return -1; // Remove operation not supported by this filesystem
+        return -ENOSYS; // Remove operation not supported by this filesystem
     }
     return fs->remove(remaining_path);
 }
@@ -448,13 +449,13 @@ int rename_file(const char *old_path, const char *new_path) {
     mountpoint_t* old_mount = find_mountpoint(old_path, old_remaining_path);
     mountpoint_t* new_mount = find_mountpoint(new_path, new_remaining_path);
     if (old_mount != new_mount) {
-        return -1; // Cannot rename across different filesystems
+        return -ENOENT; // Cannot rename across different filesystems
     }
     filesystem_t* old_fs = &filesystems[old_mount->type];
     old_fs->select(old_mount->drive, old_mount->partition);
     old_fs->set_read_only(old_mount->flags & FLAG_READ_ONLY);
     if (!old_fs->rename) {
-        return -1; // Rename operation not supported by this filesystem
+        return -ENOSYS; // Rename operation not supported by this filesystem
     }
     return old_fs->rename(old_remaining_path, new_remaining_path);
 }
@@ -463,13 +464,13 @@ int create_file(const char *path) {
     char remaining_path[MAX_PATH];
     mountpoint_t* mount = find_mountpoint(path, remaining_path);
     if (!mount) {
-        return -1; // Mount point not found
+        return -ENOENT; // Mount point not found
     }
     filesystem_t* fs = &filesystems[mount->type];
     fs->select(mount->drive, mount->partition);
     fs->set_read_only(mount->flags & FLAG_READ_ONLY);
     if (!fs->create_file) {
-        return -1; // Create_file operation not supported by this filesystem
+        return -ENOSYS; // Create_file operation not supported by this filesystem
     }
     return fs->create_file(remaining_path);
 }
@@ -478,13 +479,13 @@ int create_directory(const char *path) {
     char remaining_path[MAX_PATH];
     mountpoint_t* mount = find_mountpoint(path, remaining_path);
     if (!mount) {
-        return -1; // Mount point not found
+        return -ENOENT; // Mount point not found
     }
     filesystem_t* fs = &filesystems[mount->type];
     fs->select(mount->drive, mount->partition);
     fs->set_read_only(mount->flags & FLAG_READ_ONLY);
     if (!fs->create_directory) {
-        return -1; // Create_directory operation not supported by this filesystem
+        return -ENOSYS; // Create_directory operation not supported by this filesystem
     }
     return fs->create_directory(remaining_path);
 }
@@ -493,13 +494,13 @@ int get_creation_time(const char *path, uint64_t *timestamp) {
     char remaining_path[MAX_PATH];
     mountpoint_t* mount = find_mountpoint(path, remaining_path);
     if (!mount) {
-        return -1; // Mount point not found
+        return -ENOENT; // Mount point not found
     }
     filesystem_t* fs = &filesystems[mount->type];
     fs->select(mount->drive, mount->partition);
     fs->set_read_only(mount->flags & FLAG_READ_ONLY);
     if (!fs->get_creation_time) {
-        return -1; // Get_creation_time operation not supported by this filesystem
+        return -ENOSYS; // Get_creation_time operation not supported by this filesystem
     }
     return fs->get_creation_time(remaining_path, timestamp);
 }
@@ -508,13 +509,13 @@ int get_last_modification_time(const char *path, uint64_t *timestamp) {
     char remaining_path[MAX_PATH];
     mountpoint_t* mount = find_mountpoint(path, remaining_path);
     if (!mount) {
-        return -1; // Mount point not found
+        return -ENOENT; // Mount point not found
     }
     filesystem_t* fs = &filesystems[mount->type];
     fs->select(mount->drive, mount->partition);
     fs->set_read_only(mount->flags & FLAG_READ_ONLY);
     if (!fs->get_last_modification_time) {
-        return -1; // Get_last_modification_time operation not supported by this filesystem
+        return -ENOSYS; // Get_last_modification_time operation not supported by this filesystem
     }
     return fs->get_last_modification_time(remaining_path, timestamp);
 }
@@ -534,8 +535,11 @@ int chdir(char* path) {
     make_absolute(path, absolute_path);
     resolve_path(absolute_path, resolved_path);
 
-    if (!is_directory(resolved_path)) {
-        return -1; // Not a directory
+    int is_dir_result = is_directory(resolved_path);
+    if (is_dir_result < 0) {
+        return is_dir_result; // Propagate error code from is_directory
+    } else if (is_dir_result == 0) {
+        return -ENOTDIR; // Not a directory
     }
     strncpy(current_task->wd, resolved_path, MAX_PATH - 1);
     return 0; // Success

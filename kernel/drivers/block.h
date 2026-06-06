@@ -4,7 +4,7 @@
 typedef struct {
     int (*read)(uint8_t disk, uint64_t lba, uint8_t *buffer, uint16_t count);
     int (*write)(uint8_t disk, uint64_t lba, uint8_t *buffer, uint16_t count);
-    uint64_t (*get_size)(uint8_t disk);
+    int64_t (*get_size)(uint8_t disk);
     int (*get_smart_data)(uint8_t disk, uint8_t *buffer);
     void (*standby)(uint8_t disk);
     int (*load_eject)(uint8_t disk, uint8_t load);
@@ -17,7 +17,7 @@ typedef struct {
 
 int read_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t count);
 int write_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t count);
-uint64_t get_drive_size(uint8_t drive);
+int64_t get_drive_size(uint8_t drive);
 int get_smart_data(uint8_t drive, uint8_t *buffer);
 int standby(uint8_t drive);
 int load_eject(uint8_t drive, uint8_t load);

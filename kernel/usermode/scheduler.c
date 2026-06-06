@@ -1,4 +1,5 @@
 #include "scheduler.h"
+#include "../vfs.h"
 #include "../user_jump.h"
 #include "syscalls.h"
 #include "../gdt.h"
@@ -7,6 +8,7 @@
 #include "../memory/paging.h"
 #include "../panic.h"
 #include "../drivers/fpu.h"
+#include "../error.h"
 #include <stdint.h>
 
 task_t idle_task = {.pid = 0, .next = &idle_task, .time_slice = PROCESS_TICKS, .wd = "/"};
@@ -224,12 +226,30 @@ int add_task(char* path, char** argv, task_t* parent, int pid, iframe_t* iframe)
     change_pml4(new_task->cr3);
 
     // Load the ELF
+    int is_dir = is_directory(kpath);
+    if (is_dir < 0) {
+        asm volatile("mov %0, %%cr3" :: "r"(current_task->cr3));
+        change_pml4(current_task->cr3);
+        return is_dir;
+    } else if (is_dir) {
+        asm volatile("mov %0, %%cr3" :: "r"(current_task->cr3));
+        change_pml4(current_task->cr3);
+        return -EISDIR;
+    }
+
+    if (!is_compatible_binary(kpath)) {
+        // Restore old page table
+        asm volatile("mov %0, %%cr3" :: "r"(current_task->cr3));
+        change_pml4(current_task->cr3);
+        return -ENOEXEC;
+    }
+
     void* entry = load_elf(kpath, &new_task->initial_brk);
     if (!entry) {
         // Restore old page table
         asm volatile("mov %0, %%cr3" :: "r"(current_task->cr3));
         change_pml4(current_task->cr3);
-        return -1;
+        return -ENOEXEC;
     }
 
     // Allocate user stack
@@ -437,13 +457,13 @@ task_t* get_first_zombie(task_t* task) {
 int waitpid(int pid, int* wstatus, int options, iframe_t* iframe) {
     if (pid > 0) {
         task_t* child = get_child(current_task, pid);
-        if (child == NULL) return -1;
+        if (child == NULL) return -EINVAL;
         if (child->state == STATE_ZOMBIE) {
             if (wstatus) *wstatus = child->return_code;
             child->state = STATE_DELETED;
             return pid;
         }
-        if (options & WNOHANG) return -1;
+        if (options & WNOHANG) return 0;
         current_task->state = STATE_BLOCKED;
         current_task->block_reason = BLOCK_WAITPID;
         current_task->blocked_process = child;
@@ -464,7 +484,7 @@ int waitpid(int pid, int* wstatus, int options, iframe_t* iframe) {
         run_next(iframe);
     }
 
-    return -1;
+    return -1; // Unreachable
 }
 
 void check_blocked_tasks(int reduce_ticks) {

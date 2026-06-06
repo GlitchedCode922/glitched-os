@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include "../io/ports.h"
 #include "../io/8259pic.h"
+#include "../error.h"
 #include "timer.h"
 #include "tty.h"
 
@@ -82,7 +83,7 @@ int serial_port_exists(int port) {
 
 int serial_putc(int port, uint8_t data) {
     if (port < 1 || port > 4 || !enabled[port - 1]) {
-        return -1; // Invalid port or not enabled
+        return -ENODEV; // Invalid port or not enabled
     }
     uint16_t port_addr = serial_ports[port - 1];
     while (!(inb(port_addr + 5) & 0x20)); // Wait for the transmitter holding register to be empty

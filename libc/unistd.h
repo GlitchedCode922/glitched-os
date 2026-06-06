@@ -5,6 +5,10 @@
 #define SEEK_CURRENT 1
 #define SEEK_END 2
 
+#define STDIN_FILENO 0
+#define STDOUT_FILENO 1
+#define STDERR_FILENO 2
+
 #define FLAG_CREATE 0x01
 
 #define FLAG_NONBLOCKING 0x02

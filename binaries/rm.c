@@ -6,11 +6,10 @@ int main(int argc, char** argv) {
         return 2;
     }
 
-    if (!file_exists(argv[1])) {
-        printf("No such file or directory");
+    int res = remove_file(argv[1]);
+    if (res < 0) {
+        perror("Failed to remove file");
         return 1;
     }
-
-    remove_file(argv[1]);
     return 0;
 }

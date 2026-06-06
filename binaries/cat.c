@@ -8,21 +8,32 @@ int main(int argc, char** argv) {
         return 2;
     }
 
-    if (!file_exists(argv[1])) {
-        printf("No such file or directory\n");
+    int64_t file_size = get_file_size(argv[1]);
+    if (file_size < 0) {
+        perror("Failed to get file size");
         return 1;
     }
 
-    if (is_directory(argv[1])) {
-        printf("%s: is a directory\n", argv[1]);
-        return 1;
-    }
-
-    uint64_t file_size = get_file_size(argv[1]);
     uint8_t buffer[file_size];
     int file_fd = open_file(argv[1], 0);
-    read(file_fd, buffer, file_size);
-    write(STDOUT_FILENO, buffer, file_size);
+    if (file_fd < 0) {
+        perror("Failed to open file");
+        return 1;
+    }
+
+    int res = read(file_fd, buffer, file_size);
+    if (res < 0) {
+        perror("Failed to read file");
+        close(file_fd);
+        return 1;
+    }
+
+    res = write(STDOUT_FILENO, buffer, file_size);
+    if (res < 0) {
+        perror("Failed to write to stdout");
+        close(file_fd);
+        return 1;
+    }
     close(file_fd);
     return 0;
 }

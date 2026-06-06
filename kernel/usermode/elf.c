@@ -2,6 +2,7 @@
 #include "../vfs.h"
 #include "../memory/mman.h"
 #include "../memory/paging.h"
+#include "../error.h"
 #include <stdint.h>
 
 int check_nx_support() {
@@ -57,9 +58,7 @@ int is_compatible_binary(const char* path) {
 }
 
 void* load_elf(const char* path, void** brk) {
-    if (!is_compatible_binary(path)) {
-        return 0; // Not a compatible ELF binary
-    }
+    if (!is_compatible_binary(path)) return NULL; // Not a compatible ELF binary
 
     Elf64_Ehdr ehdr;
 

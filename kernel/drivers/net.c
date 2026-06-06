@@ -1,5 +1,6 @@
 #include "net.h"
 #include "../net/dhcp.h"
+#include "../error.h"
 #include <stddef.h>
 
 net_if_t net_interfaces[10];
@@ -47,7 +48,7 @@ int get_global_if_index(int driver, int driver_local_index) {
             return i;
         }
     }
-    return -1; // Not found
+    return -ENODEV; // Not found
 }
 
 int net_get_interface_count() {
@@ -56,7 +57,7 @@ int net_get_interface_count() {
 
 int configure_network_interface_dhcp(int index) {
     if (index < 0 || index >= net_interface_count) {
-        return -1; // Invalid index
+        return -ENODEV; // Invalid index
     }
     dhcp_run(index);
     return 0; // Success
@@ -64,7 +65,7 @@ int configure_network_interface_dhcp(int index) {
 
 int configure_network_interface_static(int index, uint32_t ip, uint32_t subnet, uint32_t router) {
     if (index < 0 || index >= net_interface_count) {
-        return -1; // Invalid index
+        return -ENODEV; // Invalid index
     }
     net_interfaces[index].ip = ip;
     net_interfaces[index].subnet = subnet;
@@ -74,15 +75,15 @@ int configure_network_interface_static(int index, uint32_t ip, uint32_t subnet, 
 
 int send_packet(int if_index, void* data, int length) {
     if (if_index < 0 || if_index >= net_interface_count) {
-        return -1; // Invalid interface index
+        return -ENODEV; // Invalid interface index
     }
     net_if_t* iface = &net_interfaces[if_index];
     if (iface->driver < 0 || iface->driver >= net_driver_count) {
-        return -2; // Invalid driver index
+        return -ENODEV; // Invalid driver index
     }
     net_driver_t* driver = &net_drivers[iface->driver];
     if (driver->send_packet == NULL) {
-        return -3; // Driver does not support sending packets
+        return -ENOSYS; // Driver does not support sending packets
     }
     driver->send_packet(iface->driver_local_index, data, length);
     return 0; // Success
@@ -90,15 +91,15 @@ int send_packet(int if_index, void* data, int length) {
 
 int receive_packet(int if_index, void **buffer) {
     if (if_index < 0 || if_index >= net_interface_count) {
-        return -1; // Invalid interface index
+        return -ENODEV; // Invalid interface index
     }
     net_if_t* iface = &net_interfaces[if_index];
     if (iface->driver < 0 || iface->driver >= net_driver_count) {
-        return -2; // Invalid driver index
+        return -ENODEV; // Invalid driver index
     }
     net_driver_t* driver = &net_drivers[iface->driver];
     if (driver->read_packet == NULL) {
-        return -3; // Driver does not support reading packets
+        return -ENOSYS; // Driver does not support reading packets
     }
     return driver->read_packet(iface->driver_local_index, buffer);
 }
@@ -109,7 +110,7 @@ int does_exist(int if_index) {
 
 int get_ip(int if_index, uint32_t* ip) {
     if (if_index < 0 || if_index >= net_interface_count) {
-        return -1; // Invalid interface index
+        return -ENODEV; // Invalid interface index
     }
     *ip = net_interfaces[if_index].ip;
     return 0; // Success
@@ -117,7 +118,7 @@ int get_ip(int if_index, uint32_t* ip) {
 
 int get_subnet(int if_index, uint32_t* subnet) {
     if (if_index < 0 || if_index >= net_interface_count) {
-        return -1; // Invalid interface index
+        return -ENODEV; // Invalid interface index
     }
     *subnet = net_interfaces[if_index].subnet;
     return 0; // Success
@@ -125,7 +126,7 @@ int get_subnet(int if_index, uint32_t* subnet) {
 
 int get_router(int if_index, uint32_t* router) {
     if (if_index < 0 || if_index >= net_interface_count) {
-        return -1; // Invalid interface index
+        return -ENODEV; // Invalid interface index
     }
     *router = net_interfaces[if_index].router;
     return 0; // Success
@@ -133,7 +134,7 @@ int get_router(int if_index, uint32_t* router) {
 
 int get_mac(int if_index, uint8_t* mac) {
     if (if_index < 0 || if_index >= net_interface_count) {
-        return -1; // Invalid interface index
+        return -ENODEV; // Invalid interface index
     }
     for (int i = 0; i < 6; i++) {
         mac[i] = net_interfaces[if_index].mac[i];
@@ -143,7 +144,7 @@ int get_mac(int if_index, uint8_t* mac) {
 
 int rename_interface(int if_index, const char* new_name) {
     if (if_index < 0 || if_index >= net_interface_count) {
-        return -1; // Invalid interface index
+        return -ENODEV; // Invalid interface index
     }
     strncpy(net_interfaces[if_index].name, new_name, sizeof(net_interfaces[if_index].name) - 1);
     net_interfaces[if_index].name[sizeof(net_interfaces[if_index].name) - 1] = '\0'; // Ensure null-termination
@@ -152,7 +153,7 @@ int rename_interface(int if_index, const char* new_name) {
 
 int register_net_driver(net_driver_t driver) {
     if (net_driver_count >= 10) {
-        return -1; // No space for more drivers
+        return -ENOSPC; // No space for more drivers
     }
     net_drivers[net_driver_count] = driver;
     net_driver_count++;
@@ -161,10 +162,10 @@ int register_net_driver(net_driver_t driver) {
 
 int register_net_interface(int driver, int driver_local_index) {
     if (net_interface_count >= 10) {
-        return -1; // No space for more interfaces
+        return -ENOSPC; // No space for more interfaces
     }
     if (driver < 0 || driver >= net_driver_count) {
-        return -2; // Invalid driver index
+        return -ENODEV; // Invalid driver index
     }
     net_if_t* iface = &net_interfaces[net_interface_count];
     iface->driver = driver;

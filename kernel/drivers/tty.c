@@ -1,6 +1,7 @@
 #include "tty.h"
 #include <stddef.h>
 #include "../usermode/scheduler.h"
+#include "../error.h"
 
 static inline int is_printable(char c) {
     return c >= 0x20 && c <= 0x7E;
@@ -62,6 +63,7 @@ size_t tty_read(tty_t *tty, char *buffer, size_t len, int block) {
         current_task->state = STATE_BLOCKED;
         yield_current();
     }
+    if (!block && tty->read_head == tty->write_head) return -EWOULDBLOCK;
     int bytes_read = 0;
     for (bytes_read = 0; bytes_read < len; bytes_read++) {
         if (tty->read_head == tty->write_head) return bytes_read;
@@ -73,6 +75,7 @@ size_t tty_read(tty_t *tty, char *buffer, size_t len, int block) {
 
 size_t tty_read_poll(tty_t *tty, char *buffer, size_t len, int block) {
     while (block && tty->read_head == tty->write_head) asm volatile("pause");
+    if (!block && tty->read_head == tty->write_head) return -EWOULDBLOCK;
     int bytes_read = 0;
     for (bytes_read = 0; bytes_read < len; bytes_read++) {
         if (tty->read_head == tty->write_head) return bytes_read;

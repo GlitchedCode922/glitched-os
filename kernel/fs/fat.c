@@ -1,8 +1,8 @@
 #include "fat.h"
 #include "../drivers/partitions.h"
 #include "../memory/mman.h"
+#include "../error.h"
 #include "../vfs.h"
-#include "../console.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -366,7 +366,7 @@ int fat_list(const char *path, char element[13], uint64_t element_index) {
     dirent_ref_t dirent_ref = fat_get_dirent_ref(path);
     if (!dirent_ref.found || !(dirent_ref.dirent.attributes & DIRENT_DIRECTORY)) {
         element[0] = '\0'; // Directory not found
-        return -1;
+        return -ENOENT;
     }
 
     cluster = dirent_ref.cluster;
@@ -411,7 +411,7 @@ int fat_exists(const char* path) {
 
 int fat_is_directory(const char* path) {
     dirent_ref_t dirent_ref = fat_get_dirent_ref(path);
-    if (!dirent_ref.found) return 0;
+    if (!dirent_ref.found) return -ENOENT;
     return (dirent_ref.dirent.attributes & DIRENT_DIRECTORY) != 0;
 }
 
@@ -423,12 +423,12 @@ uint64_t fat_get_file_size(const char* path) {
 
 int fat_read(const char *path, uint8_t *buffer, size_t offset, size_t size) {
     dirent_ref_t dirent_ref = fat_get_dirent_ref(path);
-    if (!dirent_ref.found) return -1; // File not found
+    if (!dirent_ref.found) return -ENOENT; // File not found
 
     uint32_t file_cluster = ((uint32_t)dirent_ref.dirent.first_cluster_high << 16) | dirent_ref.dirent.first_cluster_low;
     uint32_t file_size = dirent_ref.dirent.file_size;
 
-    if (offset >= file_size) return -2; // Offset beyond file size
+    if (offset >= file_size) return 0; // Offset beyond file size
     if (offset + size > file_size) size = file_size - offset; // Adjust size to read
 
     uint32_t cluster_size = bpb.sectors_per_cluster * bpb.bytes_per_sector;
@@ -466,7 +466,7 @@ int fat_read(const char *path, uint8_t *buffer, size_t offset, size_t size) {
 
 int fat_delete(const char* path) {
     if (read_only) {
-        return -1; // Filesystem is read-only
+        return -EROFS; // Filesystem is read-only
     }
     // Normalize path
     char npath[512];
@@ -475,7 +475,7 @@ int fat_delete(const char* path) {
     dirent_ref_t dirent_ref = fat_get_dirent_ref(path);
     // Go to position in dirent_ref and set first byte of name to 0xE5
     if (!dirent_ref.found) {
-        return -2; // File not found
+        return -ENOENT; // File not found
     }
     // Read the sector containing the dirent
     uint8_t sector_buffer[512];
@@ -496,7 +496,7 @@ int fat_delete(const char* path) {
 
 int fat_add_dirent(const char *path, dirent_t dirent) {
     if (read_only) {
-        return -1; // Filesystem is read-only
+        return -EROFS; // Filesystem is read-only
     }
     // Add a dirent at the specified path
     char npath[512];
@@ -505,10 +505,10 @@ int fat_add_dirent(const char *path, dirent_t dirent) {
 
     dirent_ref_t parent_dirent_ref = fat_get_dirent_ref(path);
     if (!parent_dirent_ref.found) {
-        return -2; // Parent directory not found
+        return -ENOENT; // Parent directory not found
     }
     if (!(parent_dirent_ref.dirent.attributes & DIRENT_DIRECTORY)) {
-        return -3; // Parent is not a directory
+        return -ENOTDIR; // Parent is not a directory
     }
     // Find end of dirents in parent directory
     uint32_t cluster = parent_dirent_ref.cluster;
@@ -537,7 +537,7 @@ int fat_add_dirent(const char *path, dirent_t dirent) {
             // No more clusters, need to allocate a new one
             uint32_t free_cluster = fat_compute_free_cluster();
             if (free_cluster == 0) {
-                return -4; // No free clusters available
+                return -ENOSPC; // No free clusters available
             }
             // Update FAT to link new cluster
             write_fat(cluster, free_cluster | 0x0FFFFFFF);
@@ -583,10 +583,10 @@ int fat_create_file(const char *path) {
     normalize_fat_path(path, npath);
     path = npath; // Replace path with normalized for the rest of the function
     if (read_only) {
-        return -1; // Filesystem is read-only
+        return -EROFS; // Filesystem is read-only
     }
     if (fat_exists(path)) {
-        return -1; // File already exists
+        return -EEXIST; // File already exists
     }
     dirent_t dirent;
     memset(&dirent, 0, sizeof(dirent_t));
@@ -618,10 +618,10 @@ int fat_create_directory(const char *path) {
     normalize_fat_path(path, npath);
     path = npath; // Replace path with normalized for the rest of the function
     if (read_only) {
-        return -1; // Filesystem is read-only
+        return -EROFS; // Filesystem is read-only
     }
     if (fat_exists(path)) {
-        return -1; // Directory already exists
+        return -EEXIST; // Directory already exists
     }
     dirent_t dirent;
     memset(&dirent, 0, sizeof(dirent_t));
@@ -638,7 +638,7 @@ int fat_create_directory(const char *path) {
     // Allocate new cluster
     uint32_t free_cluster = fat_compute_free_cluster();
     if (free_cluster == 0) {
-        return -4; // No free clusters available
+        return -ENOSPC; // No free clusters available
     }
     // Update FAT to mark end of chain
     write_fat(free_cluster, CLUSTER_CHAIN_END);
@@ -659,8 +659,8 @@ int fat_create_directory(const char *path) {
     memcpy(dirent.name, filename, 11);
 
     int res = fat_add_dirent(dirname, dirent);
-    if (res != 0) {
-        return -5; // Failed to add dirent
+    if (res < 0) {
+        return res; // Failed to add dirent
     }
     // Initialize the new directory cluster with '.' and '..' entries
     uint8_t sector_buffer[512];
@@ -685,19 +685,19 @@ int fat_create_directory(const char *path) {
     entries[2].name[0] = DIRENT_END; // End entry
     uint32_t first_sector = get_first_cluster_sector(free_cluster);
     res = write_sectors_relative(active_disk, active_partition, first_sector, sector_buffer, 1);
-    if (res != 0) {
-        return -6; // Failed to add '.' or '..' entries
+    if (res < 0) {
+        return res; // Failed to add '.' or '..' entries
     }
     return 0;
 }
 
 int fat_write_to_file(const char *path, const uint8_t *buffer, size_t offset, size_t size) {
     if (read_only) {
-        return -1; // Filesystem is read-only
+        return -EROFS; // Filesystem is read-only
     }
     dirent_ref_t dirent_ref = fat_get_dirent_ref(path);
     if (!dirent_ref.found) {
-        return -2; // File not found
+        return -ENOENT; // File not found
     }
     uint32_t file_size = dirent_ref.dirent.file_size;
 
@@ -721,7 +721,7 @@ int fat_write_to_file(const char *path, const uint8_t *buffer, size_t offset, si
             // Allocate new cluster
             uint32_t free_cluster = fat_compute_free_cluster();
             if (free_cluster == 0) {
-                return -3; // No free clusters available
+                return -ENOSPC; // No free clusters available
             }
             // Update FAT to link new cluster
             write_fat(current_cluster, free_cluster | 0x0FFFFFFF);
@@ -739,7 +739,7 @@ int fat_write_to_file(const char *path, const uint8_t *buffer, size_t offset, si
             // Allocate new cluster
             uint32_t free_cluster = fat_compute_free_cluster();
             if (free_cluster == 0) {
-                return -4; // No free clusters available
+                return -ENOSPC; // No free clusters available
             }
             // Update FAT to link new cluster
             write_fat(current_cluster, free_cluster | 0x0FFFFFFF);
@@ -747,7 +747,10 @@ int fat_write_to_file(const char *path, const uint8_t *buffer, size_t offset, si
         }
         uint32_t first_sector = get_first_cluster_sector(current_cluster);
         uint8_t cluster_buffer[cluster_size];
-        read_sectors_relative(active_disk, active_partition, first_sector, cluster_buffer, bpb.sectors_per_cluster);
+        int res = read_sectors_relative(active_disk, active_partition, first_sector, cluster_buffer, bpb.sectors_per_cluster);
+        if (res < 0) {
+            return res; // Failed to read cluster
+        }
 
         while (cluster_offset < cluster_size && bytes_written < size) {
             cluster_buffer[cluster_offset++] = buffer[bytes_written++];
@@ -782,7 +785,7 @@ int fat_write_to_file(const char *path, const uint8_t *buffer, size_t offset, si
 
 int fat_rename(const char *old_path, const char *new_path) {
     if (read_only) {
-        return -1; // Filesystem is read-only
+        return -EROFS; // Filesystem is read-only
     }
 
     char old_npath[MAX_PATH];
@@ -794,10 +797,13 @@ int fat_rename(const char *old_path, const char *new_path) {
 
     dirent_ref_t old_dirent_ref = fat_get_dirent_ref(old_path);
     if (!old_dirent_ref.found) {
-        return -2; // Old file not found
+        return -ENOENT; // Old file not found
     }
     if (fat_exists(new_path)) {
-        fat_delete(new_path);
+        int res = fat_delete(new_path);
+        if (res < 0) {
+            return res; // Failed to delete existing file at new path
+        }
     }
 
     // Extract new filename and parent directory
@@ -810,7 +816,7 @@ int fat_rename(const char *old_path, const char *new_path) {
     memcpy(updated_dirent.name, new_filename, 11);
     int res = fat_add_dirent(new_dirname, updated_dirent);
     if (res != 0) {
-        return -4; // Failed to add new dirent
+        return res; // Failed to add new dirent
     }
     // Delete old dirent
     // Read the sector containing the dirent
@@ -826,7 +832,7 @@ int fat_get_creation_time(const char *path, uint64_t *timestamp) {
     dirent_ref_t dirent_ref = fat_get_dirent_ref(path);
     if (!dirent_ref.found) {
         *timestamp = 0;
-        return -1; // File not found
+        return -ENOENT; // File not found
     }
     uint16_t fat_date = dirent_ref.dirent.creation_date;
     uint16_t fat_time = dirent_ref.dirent.creation_time;
@@ -838,7 +844,7 @@ int fat_get_last_modification_time(const char *path, uint64_t *timestamp) {
     dirent_ref_t dirent_ref = fat_get_dirent_ref(path);
     if (!dirent_ref.found) {
         *timestamp = 0;
-        return -1; // File not found
+        return -ENOENT; // File not found
     }
     uint16_t fat_date = dirent_ref.dirent.last_modification_date;
     uint16_t fat_time = dirent_ref.dirent.last_modification_time;

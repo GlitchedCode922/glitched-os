@@ -60,8 +60,9 @@ typedef struct __attribute__((packed)) {
 } dirent_t;
 
 typedef struct __attribute__((packed)) {
-    int found;
     dirent_t dirent;
+    int found;
+    int error;
     uint32_t cluster;
     uint32_t position[2];
 } dirent_ref_t;

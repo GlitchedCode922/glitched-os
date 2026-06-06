@@ -2,6 +2,7 @@
 #include "atapi.h"
 #include "ata.h"
 #include "../../io/ports.h"
+#include "../../error.h"
 
 ata_device_t detect_packet_device(uint16_t bus_port, uint16_t disk) {
     ata_device_t device = {0};
@@ -40,7 +41,7 @@ int atapi_read_sectors(uint8_t drive, uint64_t lba, uint8_t* buffer, uint32_t co
     while (inb(bus_port + 0x07) & 0x80); // Wait for BSY to clear
     while (!(inb(bus_port + 0x07) & 0x09)); // Wait for DRQ or ERR to be set
 
-    if (inb(bus_port + 0x07) & 0x01) return -1; // Error occurred
+    if (inb(bus_port + 0x07) & 0x01) return -EIO; // Error occurred
 
     outw(bus_port, ((uint16_t*)&read_cmd)[0]); // Send command
     outw(bus_port, ((uint16_t*)&read_cmd)[1]);
@@ -53,7 +54,7 @@ int atapi_read_sectors(uint8_t drive, uint64_t lba, uint8_t* buffer, uint32_t co
         while (inb(bus_port + 0x07) & 0x80); // Wait for BSY to clear
         while (!(inb(bus_port + 0x07) & 0x09)); // Wait for DRQ or ERR to be set
 
-        if (inb(bus_port + 0x07) & 0x01) return -1; // Error occurred
+        if (inb(bus_port + 0x07) & 0x01) return -EIO; // Error occurred
 
         uint64_t size = inb(bus_port + 0x04) | (inb(bus_port + 0x05) << 8);
 
@@ -87,7 +88,7 @@ int atapi_write_sectors(uint8_t drive, uint64_t lba, uint8_t* buffer, uint32_t c
     while (inb(bus_port + 0x07) & 0x80); // Wait for BSY to clear
     while (!(inb(bus_port + 0x07) & 0x09)); // Wait for DRQ or ERR to be set
 
-    if (inb(bus_port + 0x07) & 0x01) return -1; // Error occurred
+    if (inb(bus_port + 0x07) & 0x01) return -EIO; // Error occurred
 
     outw(bus_port, ((uint16_t*)&write_cmd)[0]); // Send command
     outw(bus_port, ((uint16_t*)&write_cmd)[1]);
@@ -99,7 +100,7 @@ int atapi_write_sectors(uint8_t drive, uint64_t lba, uint8_t* buffer, uint32_t c
     for (int i = 0; i < count; i++) {
         while (inb(bus_port + 0x07) & 0x80); // Wait for BSY to clear
         while (!(inb(bus_port + 0x07) & 0x09)); // Wait for DRQ or ERR to be set
-        if (inb(bus_port + 0x07) & 0x01) return -1; // Error occurred
+        if (inb(bus_port + 0x07) & 0x01) return -EIO; // Error occurred
 
         uint64_t size = inb(bus_port + 0x04) | (inb(bus_port + 0x05) << 8);
 
@@ -163,7 +164,7 @@ int atapi_get_disk_size(uint8_t drive, uint64_t* last_lba, uint64_t* block_size)
     while (inb(bus_port + 0x07) & 0x80); // Wait for BSY to clear
     while (!(inb(bus_port + 0x07) & 0x09)); // Wait for DRQ or ERR to be set
 
-    if (inb(bus_port + 0x07) & 0x01) return -1; // Error occurred
+    if (inb(bus_port + 0x07) & 0x01) return -EIO; // Error occurred
 
     for (int i = 0; i < sizeof(scsi_cmd); i += 2) {
         uint16_t data = scsi_cmd[i] | (scsi_cmd[i + 1] << 8);
@@ -173,7 +174,7 @@ int atapi_get_disk_size(uint8_t drive, uint64_t* last_lba, uint64_t* block_size)
     while (inb(bus_port + 0x07) & 0x80); // Wait for BSY to clear
     while (!(inb(bus_port + 0x07) & 0x09)); // Wait for DRQ or ERR to be set
 
-    if (inb(bus_port + 0x07) & 0x01) return -1; // Error occurred
+    if (inb(bus_port + 0x07) & 0x01) return -EIO; // Error occurred
 
     uint8_t buffer[8];
     for (int i = 0; i < 4; i++) {

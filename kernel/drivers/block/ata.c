@@ -2,6 +2,7 @@
 #include "atapi.h"
 #include "../../io/ports.h"
 #include "../block.h"
+#include "../../error.h"
 #include <stdint.h>
 #include <stddef.h>
 
@@ -70,7 +71,7 @@ void select_drive(uint16_t bus_port, uint16_t disk) {
 
 int ata_read_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t count) {
     // Select the drive
-    if (devices[drive].exists == 0) return -2;
+    if (devices[drive].exists == 0) return -ENODEV;
 
     // Check if the drive is an ATAPI device
     if (devices[drive].type == 1) {
@@ -79,10 +80,10 @@ int ata_read_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t coun
 
     // Check if sectors to read exceed the disk capacity
     uint64_t disk_size = ata_get_drive_size(drive);
-    if (lba + count > disk_size) return -3;
+    if (lba + count > disk_size) return -EINVAL;
 
     // Verify that count != 0
-    if (count == 0) return -3;
+    if (count == 0) return -EINVAL;
 
     uint16_t bus_port = (drive / 2 == 0 ? PRIMARY_BUS : SECONDARY_BUS);
     select_drive(bus_port, drive % 2 == 0 ? 0xA0 : 0xB0);
@@ -117,7 +118,7 @@ int ata_read_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t coun
         // Send read sectors command (0x20)
         outb(bus_port + 7, 0x20);
     } else {
-        return -3; // Invalid LBA or sector count for non-LBA48 devices
+        return -EINVAL; // Invalid LBA or sector count for non-LBA48 devices
     }
 
     char to_retry[count];
@@ -179,7 +180,7 @@ int ata_read_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t coun
             while (!(inb(bus_port + 7) & 0x09)); // Wait for DRQ or ERR
 
             if (inb(bus_port + 7) & 0x01) {
-                return -1; // Hardware error on retry
+                return -EIO; // Hardware error on retry
             }
 
             // Read the sector again
@@ -193,7 +194,7 @@ int ata_read_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t coun
 
 int ata_write_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t count) {
     // Select the drive
-    if (devices[drive].exists == 0) return -2;
+    if (devices[drive].exists == 0) return -ENODEV;
 
     // Check if the drive is an ATAPI device
     if (devices[drive].type == 1) {
@@ -202,10 +203,10 @@ int ata_write_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t cou
 
     // Check if sectors to write exceed the disk capacity
     uint64_t disk_size = ata_get_drive_size(drive);
-    if (lba + count > disk_size) return -3;
+    if (lba + count > disk_size) return -EINVAL;
 
     // Verify that count != 0
-    if (count == 0) return -3;
+    if (count == 0) return -EINVAL;
 
     uint16_t bus_port = (drive / 2 == 0 ? PRIMARY_BUS : SECONDARY_BUS);
     select_drive(bus_port, drive % 2 == 0 ? 0xA0 : 0xB0);
@@ -240,7 +241,7 @@ int ata_write_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t cou
         // Send write sectors command (0x30)
         outb(bus_port + 7, 0x30);
     } else {
-        return -3; // Invalid LBA or sector count for non-LBA48 devices
+        return -EINVAL; // Invalid LBA or sector count for non-LBA48 devices
     }
 
     char to_retry[count];
@@ -298,14 +299,14 @@ int ata_write_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t cou
                 // Send write sectors command (0x30)
                 outb(bus_port + 7, 0x30);
             } else {
-                return -3; // Invalid LBA or sector count for non-LBA48 devices
+                return -EINVAL; // Invalid LBA or sector count for non-LBA48 devices
             }
-            
+
             while (inb(bus_port + 7) & 0x80); // Wait for BSY to clear
             while (!(inb(bus_port + 7) & 0x09)); // Wait for DRQ or ERR
 
             if (inb(bus_port + 7) & 0x01) {
-                return -1; // Hardware error on retry
+                return -EIO; // Hardware error on retry
             }
 
             // Write the sector again
@@ -318,11 +319,11 @@ int ata_write_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t cou
 }
 
 int ata_get_smart_data(uint8_t drive, uint8_t* buffer) {
-    if (devices[drive].exists == 0) return -2;
+    if (devices[drive].exists == 0) return -ENODEV;
 
     // Check if the drive is an ATAPI device
     if (devices[drive].type == 1) {
-        return -4; // Not supported for ATAPI devices
+        return -ENOSYS; // Not supported for ATAPI devices
     }
 
     uint16_t bus_port = (drive / 2 == 0 ? PRIMARY_BUS : SECONDARY_BUS);
@@ -344,7 +345,7 @@ int ata_get_smart_data(uint8_t drive, uint8_t* buffer) {
 
     // Wait for command to complete
     while (inb(bus_port + 0x07) & 0x80);            // Wait for BSY to clear
-    if (!(inb(bus_port + 0x07) & 0x08)) return -1;     // If DRQ not set, no data to read
+    if (!(inb(bus_port + 0x07) & 0x08)) return -EIO;     // If DRQ not set, no data to read
 
     // Read 256 words (512 bytes) from the data port
     for (int i = 0; i < 256; i++) {
@@ -358,17 +359,20 @@ int ata_supports_lba48(int drive) {
     return (devices[drive].identify[83] & 0x0400) == 0; // Check bit 10 of word 83 in IDENTIFY data
 }
 
-uint64_t ata_get_drive_size(uint8_t drive) {
-    if (devices[drive].exists == 0) return 0;
+int64_t ata_get_drive_size(uint8_t drive) {
+    if (devices[drive].exists == 0) return -ENODEV;
 
     // Check if the drive is an ATAPI device
     if (devices[drive].type == 1) {
         uint64_t capacity;
-        atapi_get_disk_size(drive, &capacity, NULL);
+        int res = atapi_get_disk_size(drive, &capacity, NULL);
+        if (res < 0) {
+            return res; // Error getting disk size
+        }
         return capacity;
     }
 
-    uint64_t size = 0;
+    int64_t size = 0;
     if (ata_supports_lba48(drive)) {
         size = ((uint64_t)devices[drive].identify[103] << 48) | ((uint64_t)devices[drive].identify[102] << 32) | ((uint64_t)devices[drive].identify[101] << 16) | devices[drive].identify[100];
     } else {
@@ -394,7 +398,7 @@ void ata_standby(uint8_t drive) {
 }
 
 int ata_load_eject(uint8_t drive, uint8_t load) {
-    if (devices[drive].exists == 0) return -2;
+    if (devices[drive].exists == 0) return -ENODEV;
 
     // Check if the drive is an ATAPI device
     if (devices[drive].type == 1) {
@@ -402,7 +406,7 @@ int ata_load_eject(uint8_t drive, uint8_t load) {
         return 0;
     }
 
-    return -1; // Cannot eject a hard disk
+    return -ENOSYS; // Cannot eject a hard disk
 }
 
 void ata_register() {
@@ -438,6 +442,6 @@ void ata_register() {
 }
 
 int is_atapi_device(uint8_t drive) {
-    if (devices[drive].exists == 0) return 0;
+    if (devices[drive].exists == 0) return -ENODEV;
     return devices[drive].type == 1; // Check if the device is an ATAPI device
 }

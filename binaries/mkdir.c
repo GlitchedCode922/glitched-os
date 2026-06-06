@@ -30,7 +30,11 @@ int main(int argc, char** argv) {
             return 2;
         }
     }
-    
-    create_directory(argv[1]);
+
+    int res = create_directory(argv[1]);
+    if (res < 0) {
+        perror("Failed to create directory");
+        return 1;
+    }
     return 0;
 }

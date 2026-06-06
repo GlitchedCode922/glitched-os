@@ -36,12 +36,15 @@ int main() {
 
         if (strcmp(args[0], "cd") == 0) {
             if (args[1] == NULL) {
-                printf("Missing argument for cd\n");
+                int ret = chdir("/");
+                if (ret != 0) {
+                    perror("Error");
+                }
                 continue;
             }
             int ret = chdir(args[1]);
             if (ret != 0) {
-                printf("Error: %d\n", (int64_t)ret);
+                perror("Error");
             }
             continue;
         }
@@ -52,15 +55,15 @@ int main() {
             strcpy(program_in_bin, "/bin/");
             strcat(program_in_bin, args[0]);
 
-            int ret; 
+            int ret;
             pid_t p = spawn(program_in_bin, (const char**)args);
             if (p > 0) {
                 waitpid(p, &ret, 0);
+                if (ret != 0) {
+                    printf("Command exited with error code %d\n", ret);
+                }
             } else {
-                ret = p;
-            }
-            if (ret != 0) {
-                printf("Error: %d\n", (int64_t)ret);
+                perror("Error");
             }
             continue;
         }
@@ -69,11 +72,11 @@ int main() {
         pid_t p = spawn(args[0], (const char**)args);
         if (p > 0) {
             waitpid(p, &ret, 0);
+            if (ret != 0) {
+                printf("Command exited with error code %d\n", ret);
+            }
         } else {
-            ret = p;
-        }
-        if (ret != 0) {
-            printf("Error: %d\n", (int64_t)ret);
+            perror("Error");
         }
     }
 }

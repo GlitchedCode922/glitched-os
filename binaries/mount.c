@@ -39,5 +39,9 @@ int main(int argc, char *argv[]) {
     }
 
     int result = syscall(SYSCALL_MOUNT, (uint64_t)mountpoint, (uint64_t)filesystem_type, disk, partition, flags, 0);
+    if (result < 0) {
+        perror("Mount failed");
+        return 1;
+    }
     return result;
 }
