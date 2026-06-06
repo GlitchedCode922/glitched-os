@@ -60,7 +60,7 @@ int main() {
             if (p > 0) {
                 waitpid(p, &ret, 0);
                 if (ret != 0) {
-                    printf("Command exited with error code %d\n", ret);
+                    printf("Command exited with error code %d\n", (int64_t)ret);
                 }
             } else {
                 perror("Error");
@@ -73,7 +73,7 @@ int main() {
         if (p > 0) {
             waitpid(p, &ret, 0);
             if (ret != 0) {
-                printf("Command exited with error code %d\n", ret);
+                printf("Command exited with error code %d\n", (int64_t)ret);
             }
         } else {
             perror("Error");
