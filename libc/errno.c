@@ -29,8 +29,10 @@ char* strerror(int errnum) {
 }
 
 void perror(const char* s) {
-    write(STDERR_FILENO, s, strlen(s));
-    write(STDERR_FILENO, ": ", 2);
+    if (s) {
+        write(STDERR_FILENO, s, strlen(s));
+        write(STDERR_FILENO, ": ", 2);
+    }
     const char* err_str = strerror(errno);
     write(STDERR_FILENO, err_str, strlen(err_str));
     write(STDERR_FILENO, "\n", 1);
