@@ -38,7 +38,7 @@ void tty_char_recv(tty_t *tty, char c) {
     }
     if (tty->termios.c_lflag & ECHOE && tty->termios.c_lflag & ICANON && c == '\x7f') {
         const char erase[3] = "\b \b";
-        if (erased) { 
+        if (erased) {
             tty->echo(tty, erase, 3);
             if (!is_printable(tty->line_buffer[tty->line_index])) {
                 tty->echo(tty, erase, 3);
@@ -57,10 +57,14 @@ void tty_char_recv(tty_t *tty, char c) {
 }
 
 size_t tty_read(tty_t *tty, char *buffer, size_t len, int block) {
+    if (block && tty->read_head == tty->write_head) {
+        while (ticks_remaining > 0) {
+            if (!(tty->read_head == tty->write_head)) {
+                break;
+            }
+        }
+    }
     while (block && tty->read_head == tty->write_head) {
-        current_task->block_reason = BLOCK_TTY_READ;
-        current_task->block_data = tty;
-        current_task->state = STATE_BLOCKED;
         yield_current();
     }
     if (!block && tty->read_head == tty->write_head) return -EWOULDBLOCK;

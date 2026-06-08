@@ -9,6 +9,7 @@
 #include "../panic.h"
 #include "../drivers/fpu.h"
 #include "../error.h"
+#include "../drivers/serial.h"
 #include <stdint.h>
 
 task_t idle_task = {.pid = 0, .next = &idle_task, .time_slice = PROCESS_TICKS, .wd = "/"};
@@ -534,13 +535,6 @@ void check_blocked_tasks(int reduce_ticks) {
                     task->state = STATE_READY;
                     task->block_reason = BLOCK_NONE;
                     task->iframe->rax = blocked->pid;
-                }
-            } else if (task->block_reason == BLOCK_TTY_READ) {
-                tty_t* tty = (tty_t*)task->block_data;
-                if (tty->read_head != tty->write_head) {
-                    task->state = STATE_READY;
-                    task->block_reason = BLOCK_NONE;
-                    task->block_data = NULL;
                 }
             }
         }

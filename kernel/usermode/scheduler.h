@@ -19,8 +19,7 @@ typedef enum {
 typedef enum {
     BLOCK_NONE,
     BLOCK_DELAY,
-    BLOCK_WAITPID,
-    BLOCK_TTY_READ,
+    BLOCK_WAITPID
 } block_reason_t;
 
 typedef struct Task {
@@ -37,7 +36,6 @@ typedef struct Task {
     fd_entry_t* fd_ptr_table[MAX_FDS];
     int64_t time_slice;
     block_reason_t block_reason;
-    void* block_data;
     uint64_t blocked_ticks;
     int is_kworker;
     int* wstatus;
