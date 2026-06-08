@@ -14,6 +14,7 @@
 #include "io/pci.h"
 #include "drivers/serial.h"
 #include "usermode/scheduler.h"
+#include "usermode/syscalls.h"
 #include "user_jump.h"
 #include <stdint.h>
 
@@ -147,6 +148,7 @@ void kernel_main() {
     gdt_init();
     idt_init();
     scheduler_init();
+    syscall_init();
     framebuffer = framebuffer_request.response->framebuffers[0];
     initialize_console();
     serial_init();

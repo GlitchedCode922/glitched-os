@@ -101,7 +101,7 @@ void run_init(char* path) {
     alloc_region(0x10000000000, 4096 * 128, FLAGS_PRESENT | FLAGS_RW | FLAGS_USER);
     void* kstack = (char*)kmalloc(4096 * 32) + 4096 * 32;
     init_task.kernel_stack = kstack;
-    set_rsp0((uint64_t)kstack);
+    tss.rsp0 = (uint64_t)kstack;
     init_task.fpu_state = kmalloc(fpu_memory_size);
     current_task = &init_task;
     scheduler_initialized = 1;
@@ -127,7 +127,7 @@ void run_next(iframe_t* iframe) {
     );
     change_pml4(current_task->cr3);
     restore_fpu(current_task->fpu_state);
-    set_rsp0((uint64_t)current_task->kernel_stack);
+    tss.rsp0 = (uint64_t)current_task->kernel_stack;
     current_task->iframe->rflags |= 0x200;
     context_switch(current_task->iframe);
 }
@@ -160,7 +160,7 @@ void exit(int ret) {
     );
     change_pml4(current_task->cr3);
     restore_fpu(current_task->fpu_state);
-    set_rsp0((uint64_t)current_task->kernel_stack);
+    tss.rsp0 = (uint64_t)current_task->kernel_stack;
     current_task->iframe->rflags |= 0x200;
     context_switch(current_task->iframe);
 }
@@ -328,7 +328,7 @@ int execv(char *path, char **argv, iframe_t *iframe) {
     );
     change_pml4(current_task->cr3);
     restore_fpu(current_task->fpu_state);
-    set_rsp0((uint64_t)current_task->kernel_stack);
+    tss.rsp0 = (uint64_t)current_task->kernel_stack;
     current_task->iframe->rflags |= 0x200;
     context_switch(current_task->iframe);
     return 0;
@@ -408,7 +408,7 @@ void kworker_exit() {
     );
     change_pml4(current_task->cr3);
     restore_fpu(current_task->fpu_state);
-    set_rsp0((uint64_t)current_task->kernel_stack);
+    tss.rsp0 = (uint64_t)current_task->kernel_stack;
     current_task->iframe->rflags |= 0x200;
     context_switch(current_task->iframe);
 }
@@ -431,7 +431,7 @@ void sleep(uint64_t ms, iframe_t *iframe) {
     );
     change_pml4(current_task->cr3);
     restore_fpu(current_task->fpu_state);
-    set_rsp0((uint64_t)current_task->kernel_stack);
+    tss.rsp0 = (uint64_t)current_task->kernel_stack;
     current_task->iframe->rflags |= 0x200;
     context_switch(current_task->iframe);
 }

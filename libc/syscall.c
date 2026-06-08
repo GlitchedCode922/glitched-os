@@ -8,7 +8,7 @@ int64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t 
     register uint64_t r9  asm("r9")  = arg6;
 
     asm volatile (
-        "int $0x80"
+        "syscall"
         : "=a"(result)
         : "a"(syscall_number),
           "D"(arg1),

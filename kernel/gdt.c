@@ -76,7 +76,3 @@ void gdt_flush() {
         1:"
         : : "m"(gdt_ptr) : "rax", "memory" );
 }
-
-void set_rsp0(uint64_t rsp) {
-    tss.rsp0 = rsp;
-}

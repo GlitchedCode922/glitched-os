@@ -24,6 +24,7 @@ typedef struct {
     uint16_t io_map_base;
 } __attribute__((packed)) tss_t;
 
+extern tss_t tss;
+
 void gdt_init();
 void gdt_flush();
-void set_rsp0(uint64_t rsp);

@@ -16,9 +16,46 @@
 #include <stdarg.h>
 #include <stdint.h>
 
-int64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6, iframe_t* iframe) {
-    asm volatile("sti");
+extern void syscall_entry();
+
+static uint64_t rdmsr(uint32_t msr) {
+    uint32_t low, high;
+    asm volatile(
+        "rdmsr"
+        : "=a"(low), "=d"(high)
+        : "c"(msr)
+    );
+    return ((uint64_t)high << 32) | low;
+}
+
+static void wrmsr(uint32_t msr, uint64_t value) {
+    uint32_t low = (uint32_t)value;
+    uint32_t high = (uint32_t)(value >> 32);
+    asm volatile(
+        "wrmsr"
+        :: "c"(msr), "a"(low), "d"(high)
+    );
+}
+
+void syscall_init() {
+    wrmsr(0xC0000081, ((uint64_t)KERNEL_CS << 32) | ((uint64_t)USER_CS << 48));
+    wrmsr(0xC0000084, 0x200);
+    wrmsr(0xC0000082, (uint64_t)syscall_entry);
+    uint64_t ia32_efer = rdmsr(0xC0000080);
+    ia32_efer |= 1;
+    wrmsr(0xC0000080, ia32_efer);
+}
+
+void syscall(iframe_t* iframe) {
+    uint64_t syscall_number = iframe->rax;
+    uint64_t arg1 = iframe->rdi;
+    uint64_t arg2 = iframe->rsi;
+    uint64_t arg3 = iframe->rdx;
+    uint64_t arg4 = iframe->r10;
+    uint64_t arg5 = iframe->r8;
+    uint64_t arg6 = iframe->r9;
     int64_t ret = 0;
+    asm volatile("sti");
     switch (syscall_number) {
     case SYSCALL_EXIT:
         exit((int)arg1);
@@ -191,5 +228,7 @@ int64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t 
         ret = -ENOSYS;
     }
     iframe->rax = (uint64_t)ret;
-    return ret;
+    if (ticks_remaining <= 0 && iframe->cs == USER_CS) {
+        run_next(iframe); // Next task
+    }
 }
