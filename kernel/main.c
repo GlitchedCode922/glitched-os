@@ -7,15 +7,12 @@
 #include "vfs.h"
 #include "gdt.h"
 #include "idt.h"
-#include "drivers/partitions/mbr.h"
 #include "drivers/net/rtl8139.h"
 #include "drivers/fpu.h"
-#include "usermode/elf.h"
 #include "io/pci.h"
 #include "drivers/serial.h"
 #include "usermode/scheduler.h"
 #include "usermode/syscalls.h"
-#include "user_jump.h"
 #include <stdint.h>
 
 extern uint64_t __size;

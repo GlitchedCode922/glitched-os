@@ -1,6 +1,5 @@
 #include "scheduler.h"
 #include "../vfs.h"
-#include "../user_jump.h"
 #include "syscalls.h"
 #include "../gdt.h"
 #include "../memory/mman.h"
@@ -9,8 +8,10 @@
 #include "../panic.h"
 #include "../drivers/fpu.h"
 #include "../error.h"
-#include "../drivers/serial.h"
 #include <stdint.h>
+
+extern void jump_to_user(void* rip, void* rsp);
+extern void context_switch(void* iframe);
 
 task_t idle_task = {.pid = 0, .next = &idle_task, .time_slice = PROCESS_TICKS, .wd = "/"};
 task_t init_task = {.pid = 1, .next = &init_task, .time_slice = PROCESS_TICKS, .wd = "/"};
@@ -49,6 +50,8 @@ void gc_tasks() {
                 }
             }
             task_t* next = t->next;
+            if (current_task == t) current_task = next;
+            if (rr_task == t) rr_task = next;
             kfree(t);
             t = next;
             continue;
@@ -108,11 +111,7 @@ void run_init(char* path) {
     jump_to_user(addr, (char*)0x10000000000 + 4096 * 128 - 16);
 }
 
-void run_next(iframe_t* iframe) {
-    if (!scheduler_initialized) return;
-    current_task->iframe = iframe;
-    save_fpu(current_task->fpu_state);
-    if (current_task->state == STATE_RUNNING) current_task->state = STATE_READY;
+static void switch_task() {
     task_t* next_task = get_next_task();
     if (!next_task) {
         next_task = &idle_task;
@@ -120,7 +119,6 @@ void run_next(iframe_t* iframe) {
     current_task = next_task;
     current_task->state = STATE_RUNNING;
     ticks_remaining = current_task->time_slice;
-    gc_tasks();
     asm volatile(
         "mov %0, %%cr3"
         :: "r"(current_task->cr3)
@@ -130,6 +128,15 @@ void run_next(iframe_t* iframe) {
     tss.rsp0 = (uint64_t)current_task->kernel_stack;
     current_task->iframe->rflags |= 0x200;
     context_switch(current_task->iframe);
+}
+
+void run_next(iframe_t* iframe) {
+    if (!scheduler_initialized) return;
+    current_task->iframe = iframe;
+    save_fpu(current_task->fpu_state);
+    if (current_task->state == STATE_RUNNING) current_task->state = STATE_READY;
+    gc_tasks();
+    switch_task();
 }
 
 void exit(int ret) {
@@ -147,22 +154,7 @@ void exit(int ret) {
         c = next;
     }
 
-    // Run next task
-    task_t* next_task = get_next_task();
-    if (!next_task) {
-        next_task = &idle_task;
-    }
-    current_task = next_task;
-    current_task->state = STATE_RUNNING;
-    asm volatile(
-        "mov %0, %%cr3"
-        :: "r"(current_task->cr3)
-    );
-    change_pml4(current_task->cr3);
-    restore_fpu(current_task->fpu_state);
-    tss.rsp0 = (uint64_t)current_task->kernel_stack;
-    current_task->iframe->rflags |= 0x200;
-    context_switch(current_task->iframe);
+    switch_task();
 }
 
 int fork(iframe_t* iframe) {
@@ -315,23 +307,9 @@ int execv(char *path, char **argv, iframe_t *iframe) {
         return res;
     }
     current_task->state = STATE_DELETED;
-    task_t* next_task = get_next_task();
-    if (!next_task) {
-        next_task = &idle_task;
-    }
-    current_task = next_task;
-    current_task->state = STATE_RUNNING;
-    ticks_remaining = current_task->time_slice;
-    asm volatile(
-        "mov %0, %%cr3"
-        :: "r"(current_task->cr3)
-    );
-    change_pml4(current_task->cr3);
-    restore_fpu(current_task->fpu_state);
-    tss.rsp0 = (uint64_t)current_task->kernel_stack;
-    current_task->iframe->rflags |= 0x200;
-    context_switch(current_task->iframe);
-    return 0;
+
+    switch_task();
+    return 0; // Suppress compiler warning
 }
 
 void kworker_trampoline(void (*fn)(void*), void* arg) {
@@ -394,23 +372,7 @@ void sleep_current(uint64_t ms) {
 void kworker_exit() {
     if (!current_task->is_kworker) return;
     current_task->state = STATE_DELETED;
-
-    // Run next task
-    task_t* next_task = get_next_task();
-    if (!next_task) {
-        next_task = &idle_task;
-    }
-    current_task = next_task;
-    current_task->state = STATE_RUNNING;
-    asm volatile(
-        "mov %0, %%cr3"
-        :: "r"(current_task->cr3)
-    );
-    change_pml4(current_task->cr3);
-    restore_fpu(current_task->fpu_state);
-    tss.rsp0 = (uint64_t)current_task->kernel_stack;
-    current_task->iframe->rflags |= 0x200;
-    context_switch(current_task->iframe);
+    switch_task();
 }
 
 void sleep(uint64_t ms, iframe_t *iframe) {
@@ -418,22 +380,8 @@ void sleep(uint64_t ms, iframe_t *iframe) {
     current_task->state = STATE_BLOCKED;
     current_task->block_reason = BLOCK_DELAY;
     current_task->blocked_ticks = ms;
-    task_t* next_task = get_next_task();
-    if (!next_task) {
-        next_task = &idle_task;
-    }
-    current_task = next_task;
-    current_task->state = STATE_RUNNING;
-    ticks_remaining = current_task->time_slice;
-    asm volatile(
-        "mov %0, %%cr3"
-        :: "r"(current_task->cr3)
-    );
-    change_pml4(current_task->cr3);
-    restore_fpu(current_task->fpu_state);
-    tss.rsp0 = (uint64_t)current_task->kernel_stack;
-    current_task->iframe->rflags |= 0x200;
-    context_switch(current_task->iframe);
+    current_task->iframe = iframe;
+    switch_task();
 }
 
 task_t* get_child(task_t* task, int pid) {
