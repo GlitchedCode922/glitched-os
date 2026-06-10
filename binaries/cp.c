@@ -8,30 +8,34 @@ int main(int argc, char** argv) {
         return 2;
     }
 
-    int64_t file_size = get_file_size(argv[1]);
-    if (file_size < 0) {
-        perror("Failed to get file size");
-        return 1;
-    }
-    unsigned char buffer[file_size];
-    int file_fd = open_file(argv[1], 0);
-    if (file_fd < 0) {
+    int fd_read = open_file(argv[1], 0);
+    if (fd_read < 0) {
         perror(argv[1]);
         return 1;
     }
-    int ret = read(file_fd, buffer, file_size);
-    if (ret < 0) {
-        perror("Read error");
+    int fd_write = open_file(argv[2], FLAG_CREATE);
+    if (fd_write < 0) {
+        perror(argv[2]);
         return 1;
     }
-    close(file_fd);
-    file_fd = open_file(argv[2], FLAG_CREATE);
-    ret = write(file_fd, buffer, file_size);
-    if (ret < 0) {
-        perror("Write error");
-        return 1;
+    size_t bytes_read, bytes_written;
+    char buffer[8192];
+    while ((bytes_read = read(fd_read, buffer, sizeof(buffer))) != 0) {
+        if (bytes_read < 0) {
+            perror("Error reading from source file");
+            return 1;
+        }
+        bytes_written = write(fd_write, buffer, bytes_read);
+        if (bytes_written < 0) {
+            perror("Error writing to destination file");
+            return 1;
+        } else if (bytes_written != bytes_read) {
+            printf("Error writing to destination file\n");
+            return 1;
+        }
     }
-    close(file_fd);
+    close(fd_read);
+    close(fd_write);
 
     return 0;
 }

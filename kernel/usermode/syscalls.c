@@ -75,8 +75,8 @@ void syscall(iframe_t* iframe) {
     case SYSCALL_LIST_DIR:
         ret = list_directory((const char*)arg1, (char*)arg2, arg3);
         break;
-    case SYSCALL_GET_FILE_SIZE:
-        ret = get_file_size((const char*)arg1);
+    case SYSCALL_STAT:
+        ret = stat((const char*)arg1, (stat_t*)arg2);
         break;
     case SYSCALL_FORK:
         ret = fork(iframe);
@@ -113,12 +113,6 @@ void syscall(iframe_t* iframe) {
         break;
     case SYSCALL_GETCWD:
         getcwd((char*)arg1, arg2);
-        break;
-    case SYSCALL_FILE_EXISTS:
-        ret = exists((const char*)arg1);
-        break;
-    case SYSCALL_IS_DIRECTORY:
-        ret = is_directory((const char*)arg1);
         break;
     case SYSCALL_SEND_UDP:
         udp_send((uint8_t*)arg1, arg2, arg3, (uint8_t*)arg4, arg5);

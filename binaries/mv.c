@@ -18,14 +18,16 @@ int main(int argc, char** argv) {
         }
     }
 
-    if (!file_exists(argv[1])) {
+    stat_t st_source;
+    stat_t st_dest;
+    if (stat(argv[1], &st_source) != 0) {
         printf("%s: No such file or directory\n", argv[1]);
         return 1;
     }
 
     char dest_path[2048];
 
-    if (is_directory(argv[2])) {
+    if (stat(argv[2], &st_dest) == 0 && st_dest.type == DT_DIR) {
         // Separate the filename from the source path
         char* filename = strrchr(argv[1], '/');
         if (filename) {
@@ -48,14 +50,22 @@ int main(int argc, char** argv) {
         return 0;
     } 
 
-    if (is_directory(argv[1])) {
+    if (st_source.type == DT_DIR) {
         printf("Recursive move of directories is not implemented, renaming failed\n");
         return 1;
     }
 
     char buffer[8192];
     int fd_read = open_file(argv[1], 0);
+    if (fd_read < 0) {
+        perror(argv[1]);
+        return 1;
+    }
     int fd_write = open_file(dest_path, FLAG_CREATE);
+    if (fd_write < 0) {
+        perror(dest_path);
+        return 1;
+    }
     size_t bytes_read, bytes_written;
     while ((bytes_read = read(fd_read, buffer, sizeof(buffer))) != 0) {
         if (bytes_read < 0) {

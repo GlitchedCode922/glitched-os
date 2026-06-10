@@ -219,12 +219,13 @@ int add_task(char* path, char** argv, task_t* parent, int pid, iframe_t* iframe)
     change_pml4(new_task->cr3);
 
     // Load the ELF
-    int is_dir = is_directory(kpath);
-    if (is_dir < 0) {
+    stat_t st;
+    int res = stat(kpath, &st);
+    if (res < 0) {
         asm volatile("mov %0, %%cr3" :: "r"(current_task->cr3));
         change_pml4(current_task->cr3);
-        return is_dir;
-    } else if (is_dir) {
+        return res;
+    } else if (st.type == DT_DIR) {
         asm volatile("mov %0, %%cr3" :: "r"(current_task->cr3));
         change_pml4(current_task->cr3);
         return -EISDIR;

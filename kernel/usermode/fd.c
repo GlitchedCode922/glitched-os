@@ -19,12 +19,15 @@ static int strlen(const char* str) {
 }
 
 int open_file(const char *path, uint16_t flags) {
-    if (flags & FLAG_CREATE) {
-        create_file(path);
-    } else if (!exists(path)) {
-        return -ENOENT;
-    } else if (is_directory(path)) {
-        return -EISDIR;
+    stat_t st;
+    int res = stat(path, &st);
+    if (res < 0) {
+        if (flags & FLAG_CREATE) {
+            res = create_file(path);
+            if (res < 0) return res;
+        } else {
+            return res;
+        }
     }
     int fd_index = -1;
     for (int i = 0; i < MAX_FDS; i++) {
@@ -158,8 +161,10 @@ int seek(int fd, int64_t offset, int type) {
     } else if (type == SEEK_CURRENT) {
         fd_entry->offset += offset;
     } else if (type == SEEK_END) {
-        size_t file_size = get_file_size((const char*)fd_entry->path);
-        fd_entry->offset = file_size + offset;
+        stat_t st;
+        int res = stat(fd_entry->path, &st);
+        if (res < 0) return res;
+        fd_entry->offset = st.size + offset;
     } else {
         return -EINVAL;
     }

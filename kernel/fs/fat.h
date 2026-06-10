@@ -1,6 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include <stddef.h>
+#include "../vfs.h"
 
 typedef struct __attribute__((packed)) {
     uint8_t jmp[3];          // Jump instruction to boot code
@@ -57,15 +58,15 @@ typedef struct __attribute__((packed)) {
     uint16_t last_modification_date; // Last modification date
     uint16_t first_cluster_low; // Low 16 bits of the first cluster number
     uint32_t file_size; // File size in bytes
-} dirent_t;
+} fat_dirent_t;
 
 typedef struct __attribute__((packed)) {
-    dirent_t dirent;
+    fat_dirent_t dirent;
     int found;
     int error;
     uint32_t cluster;
     uint32_t position[2];
-} dirent_ref_t;
+} fat_dirent_ref_t;
 
 #define DIRENT_READ_ONLY 0x01
 #define DIRENT_HIDDEN 0x02
@@ -90,18 +91,14 @@ uint32_t fat_compute_free_cluster();
 bpb_t fat_get_bpb();
 fsinfo_t fat_get_fsinfo();
 void normalize_fat_path(const char* input_path, char* output_path);
-dirent_ref_t fat_get_dirent_ref(const char* path);
+fat_dirent_ref_t fat_get_dirent_ref(const char* path);
 int fat_list(const char* path, char element[13], uint64_t element_index);
-int fat_exists(const char* path);
-int fat_is_directory(const char* path);
-uint64_t fat_get_file_size(const char* path);
 int fat_read(const char* path, uint8_t* buffer, size_t offset, size_t size);
 int fat_delete(const char* path);
-int fat_add_dirent(const char* path, dirent_t dirent);
+int fat_add_dirent(const char* path, fat_dirent_t dirent);
 int fat_create_file(const char* path);
 int fat_create_directory(const char* path);
 int fat_write_to_file(const char *path, const uint8_t *buffer, size_t offset, size_t size);
 int fat_rename(const char* old_path, const char* new_path);
-int fat_get_creation_time(const char* path, uint64_t* timestamp);
-int fat_get_modification_time(const char* path, uint64_t* timestamp);
+int fat_stat(const char* path, stat_t* out);
 void fat_register();

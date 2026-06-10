@@ -185,15 +185,6 @@ void printf(const char *fmt, ...){
     va_end(args);
 }
 
-int64_t get_file_size(const char* path) {
-    int64_t res = syscall(SYSCALL_GET_FILE_SIZE, (uint64_t)path, 0, 0, 0, 0, 0);
-    if (res < 0) {
-        errno = -res;
-        return -1;
-    }
-    return res;
-}
-
 int list_directory(const char *path, char *element, uint64_t element_index) {
     int res = syscall(SYSCALL_LIST_DIR, (uint64_t)path, (uint64_t)element, element_index, 0, 0, 0);
     if (res < 0) {
@@ -203,17 +194,8 @@ int list_directory(const char *path, char *element, uint64_t element_index) {
     return res;
 }
 
-int file_exists(const char *path) {
-    int res = syscall(SYSCALL_FILE_EXISTS, (uint64_t)path, 0, 0, 0, 0, 0);
-    if (res < 0) {
-        errno = -res;
-        return -1;
-    }
-    return res;
-}
-
-int is_directory(const char *path) {
-    int res = syscall(SYSCALL_IS_DIRECTORY, (uint64_t)path, 0, 0, 0, 0, 0);
+int stat(const char *path, stat_t* out) {
+    int res = syscall(SYSCALL_STAT, (uint64_t)path, (uint64_t)out, 0, 0, 0, 0);
     if (res < 0) {
         errno = -res;
         return -1;

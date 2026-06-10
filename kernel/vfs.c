@@ -353,51 +353,6 @@ int list_directory(const char *path, char *element, uint64_t element_index) {
     return fs->list(remaining_path, element, element_index);
 }
 
-int exists(const char *path) {
-    char remaining_path[MAX_PATH];
-    mountpoint_t* mount = find_mountpoint(path, remaining_path);
-    if (!mount) {
-        return 0; // Mount point not found, so it doesn't exist
-    }
-    filesystem_t* fs = &filesystems[mount->type];
-    fs->select(mount->drive, mount->partition);
-    fs->set_read_only(mount->flags & FLAG_READ_ONLY);
-    if (!fs->exists) {
-        return 0; // Exists operation not supported by this filesystem
-    }
-    return fs->exists(remaining_path);
-}
-
-int is_directory(const char *path) {
-    char remaining_path[MAX_PATH];
-    mountpoint_t* mount = find_mountpoint(path, remaining_path);
-    if (!mount) {
-        return -ENOENT; // Mount point not found
-    }
-    filesystem_t* fs = &filesystems[mount->type];
-    fs->select(mount->drive, mount->partition);
-    fs->set_read_only(mount->flags & FLAG_READ_ONLY);
-    if (!fs->is_directory) {
-        return -ENOSYS; // Is_directory operation not supported by this filesystem
-    }
-    return fs->is_directory(remaining_path);
-}
-
-uint64_t get_file_size(const char *path) {
-    char remaining_path[MAX_PATH];
-    mountpoint_t* mount = find_mountpoint(path, remaining_path);
-    if (!mount) {
-        return -ENOENT; // Mount point not found
-    }
-    filesystem_t* fs = &filesystems[mount->type];
-    fs->select(mount->drive, mount->partition);
-    fs->set_read_only(mount->flags & FLAG_READ_ONLY);
-    if (!fs->get_file_size) {
-        return -ENOSYS; // Get_file_size operation not supported by this filesystem
-    }
-    return fs->get_file_size(remaining_path);
-}
-
 int read_file(const char *path, uint8_t *buffer, size_t offset, size_t size) {
     char remaining_path[MAX_PATH];
     mountpoint_t* mount = find_mountpoint(path, remaining_path);
@@ -490,7 +445,8 @@ int create_directory(const char *path) {
     return fs->create_directory(remaining_path);
 }
 
-int get_creation_time(const char *path, uint64_t *timestamp) {
+int stat(const char *path, stat_t *out) {
+    if (!path || !out) return -EINVAL;
     char remaining_path[MAX_PATH];
     mountpoint_t* mount = find_mountpoint(path, remaining_path);
     if (!mount) {
@@ -499,25 +455,10 @@ int get_creation_time(const char *path, uint64_t *timestamp) {
     filesystem_t* fs = &filesystems[mount->type];
     fs->select(mount->drive, mount->partition);
     fs->set_read_only(mount->flags & FLAG_READ_ONLY);
-    if (!fs->get_creation_time) {
-        return -ENOSYS; // Get_creation_time operation not supported by this filesystem
+    if (!fs->stat) {
+        return -ENOSYS;
     }
-    return fs->get_creation_time(remaining_path, timestamp);
-}
-
-int get_last_modification_time(const char *path, uint64_t *timestamp) {
-    char remaining_path[MAX_PATH];
-    mountpoint_t* mount = find_mountpoint(path, remaining_path);
-    if (!mount) {
-        return -ENOENT; // Mount point not found
-    }
-    filesystem_t* fs = &filesystems[mount->type];
-    fs->select(mount->drive, mount->partition);
-    fs->set_read_only(mount->flags & FLAG_READ_ONLY);
-    if (!fs->get_last_modification_time) {
-        return -ENOSYS; // Get_last_modification_time operation not supported by this filesystem
-    }
-    return fs->get_last_modification_time(remaining_path, timestamp);
+    return fs->stat(remaining_path, out);
 }
 
 void register_intree_filesystems() {
@@ -535,10 +476,11 @@ int chdir(char* path) {
     make_absolute(path, absolute_path);
     resolve_path(absolute_path, resolved_path);
 
-    int is_dir_result = is_directory(resolved_path);
-    if (is_dir_result < 0) {
-        return is_dir_result; // Propagate error code from is_directory
-    } else if (is_dir_result == 0) {
+    stat_t st;
+    int res = stat(resolved_path, &st);
+    if (res < 0) {
+        return res; // Propagate error code from stat
+    } else if (st.type != DT_DIR) {
         return -ENOTDIR; // Not a directory
     }
     strncpy(current_task->wd, resolved_path, MAX_PATH - 1);

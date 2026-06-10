@@ -5,6 +5,25 @@
 #define FLAG_READ_ONLY 0x01
 #define MAX_PATH 2048
 
+enum {
+    DT_UNKNOWN = 0,
+    DT_FILE = 1,
+    DT_DIR = 2,
+};
+
+typedef struct {
+    char name[256];
+    uint32_t type;
+} __attribute__((packed)) dirent_t;
+
+typedef struct {
+    uint64_t size;
+    uint64_t ctime;
+    uint64_t mtime;
+    uint64_t btime;
+    uint32_t type;
+} __attribute__((packed)) stat_t;
+
 typedef struct {
     char name[32];          // Name of the filesystem
     int case_sensitive;     // Whether the filesystem is case-sensitive
@@ -14,17 +33,13 @@ typedef struct {
     void (*set_read_only)(uint8_t read_only); // Set the filesystem to read-only mode
 
     int (*list)(const char *path, char *element, uint64_t element_index); // List directory contents
-    int (*exists)(const char *path); // Check if a file or directory exists
-    int (*is_directory)(const char *path); // Check if a path is a directory
-    uint64_t (*get_file_size)(const char *path); // Get the size of a file
     int (*read)(const char *path, uint8_t *buffer, size_t offset, size_t size); // Read from a file
     int (*write)(const char *path, const uint8_t *buffer, size_t offset, size_t size); // Write to a file
     int (*remove)(const char *path); // Delete a file or directory
     int (*rename)(const char *old_path, const char *new_path); // Rename a file or directory 
     int (*create_file)(const char *path); // Create a new file
     int (*create_directory)(const char *path); // Create a new directory
-    int (*get_creation_time)(const char *path, uint64_t *timestamp); // Get file creation time
-    int (*get_last_modification_time)(const char *path, uint64_t *timestamp); // Get last modification time
+    int (*stat)(const char *path, stat_t *out);
 } filesystem_t;
 
 typedef struct mountpoint {
@@ -44,16 +59,12 @@ int mount_root_filesystem(const char *type, int drive, int partition, int flags)
 int unmount_filesystem(const char *path);
 int unmount_all_filesystems();
 int list_directory(const char *path, char *element, uint64_t element_index);
-int exists(const char *path);
-int is_directory(const char *path);
-uint64_t get_file_size(const char *path);
+int stat(const char* path, stat_t* out);
 int read_file(const char *path, uint8_t *buffer, size_t offset, size_t size);
 int write_file(const char *path, const uint8_t *buffer, size_t offset, size_t size);
 int remove_file(const char *path);
 int create_file(const char *path);
 int create_directory(const char *path);
-int get_creation_time(const char *path, uint64_t *timestamp);
-int get_last_modification_time(const char *path, uint64_t *timestamp);
 int rename_file(const char *old_path, const char *new_path);
 void register_intree_filesystems();
 void getcwd(char* buffer, size_t len);

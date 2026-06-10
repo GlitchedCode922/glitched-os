@@ -21,13 +21,14 @@ int main(int argc, char** argv) {
 
     if (last_slash != -1) {
         path_copy[last_slash + 1] = '\0';
-        if (!is_directory(path_copy)) {
-            if (file_exists(path_copy)) {
-                printf("Cannot create a directory inside a file\n");
-            } else {
-                printf("Recursive directory creation is not allowed\n");
-            }
-            return 2;
+        stat_t st;
+        int res = stat(path_copy, &st);
+        if (res < 0) {
+            printf("Recursive directory creation is not allowed\n");
+            return 1;
+        } else if (st.type != DT_DIR) {
+            printf("Cannot create a directory inside a file\n");
+            return 1;
         }
     }
 

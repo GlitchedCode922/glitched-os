@@ -269,9 +269,9 @@ uint32_t next_cluster(uint32_t current_cluster) {
     return read_fat(current_cluster) & 0x0FFFFFFF;
 }
 
-dirent_ref_t fat_get_dirent_ref(const char *path) {
+fat_dirent_ref_t fat_get_dirent_ref(const char *path) {
     // Find the dirent_ref for the given path
-    dirent_ref_t dirent_ref;
+    fat_dirent_ref_t dirent_ref;
     dirent_ref.dirent.attributes = DIRENT_DIRECTORY; // Start assuming root is a directory
     dirent_ref.dirent.first_cluster_low = bpb.root_cluster & 0xFFFF;
     dirent_ref.dirent.first_cluster_high = (bpb.root_cluster >> 16) & 0xFFFF;
@@ -288,7 +288,7 @@ dirent_ref_t fat_get_dirent_ref(const char *path) {
             // Not a directory
             dirent_ref.found = 0;
             dirent_ref.cluster = 0;
-            dirent_ref.dirent = (dirent_t){0};
+            dirent_ref.dirent = (fat_dirent_t){0};
             break;
         }
         // Read the directory entries in the current cluster
@@ -319,10 +319,10 @@ dirent_ref_t fat_get_dirent_ref(const char *path) {
                 read_sectors_relative(active_disk, active_partition, get_first_cluster_sector(cluster), cluster_buffer, bpb.sectors_per_cluster);
                 offset = 0;
             }
-            dirent_t* dirent = (dirent_t*)&cluster_buffer[offset];
+            fat_dirent_t* dirent = (fat_dirent_t*)&cluster_buffer[offset];
             if (dirent->name[0] == DIRENT_END) break; // No more entries
             if (dirent->name[0] == DIRENT_DELETED || dirent->attributes & DIRENT_VOLUME_LABEL) {
-                offset += sizeof(dirent_t);
+                offset += sizeof(fat_dirent_t);
                 continue; // Deleted or volume label entry
             }
 
@@ -339,13 +339,13 @@ dirent_ref_t fat_get_dirent_ref(const char *path) {
                 found = 1;
                 break;
             }
-            offset += sizeof(dirent_t);
+            offset += sizeof(fat_dirent_t);
         }
         if (!found) {
             // Component not found
             dirent_ref.found = 0;
             dirent_ref.cluster = 0;
-            dirent_ref.dirent = (dirent_t){0};
+            dirent_ref.dirent = (fat_dirent_t){0};
             break;
         }
     }
@@ -363,7 +363,7 @@ int fat_list(const char *path, char element[13], uint64_t element_index) {
     char* path_ptr = (char*)path;
 
     // Traverse to the target directory
-    dirent_ref_t dirent_ref = fat_get_dirent_ref(path);
+    fat_dirent_ref_t dirent_ref = fat_get_dirent_ref(path);
     if (!dirent_ref.found || !(dirent_ref.dirent.attributes & DIRENT_DIRECTORY)) {
         element[0] = '\0'; // Directory not found
         return -ENOENT;
@@ -379,10 +379,10 @@ int fat_list(const char *path, char element[13], uint64_t element_index) {
         // Iterate through directory entries
         uint32_t offset = 0;
         while (offset < bytes_per_cluster) {
-            dirent_t* dirent = (dirent_t*)&cluster_buffer[offset];
+            fat_dirent_t* dirent = (fat_dirent_t*)&cluster_buffer[offset];
             if (dirent->name[0] == DIRENT_END) break; // No more entries
             if (dirent->name[0] == DIRENT_DELETED || dirent->attributes & DIRENT_VOLUME_LABEL) {
-                offset += sizeof(dirent_t);
+                offset += sizeof(fat_dirent_t);
                 continue; // Deleted or volume label entry
             }
 
@@ -396,7 +396,7 @@ int fat_list(const char *path, char element[13], uint64_t element_index) {
                 return 0;
             }
             current_index++;
-            offset += sizeof(dirent_t);
+            offset += sizeof(fat_dirent_t);
         }
         cluster = next_cluster(cluster);
     }
@@ -404,25 +404,8 @@ int fat_list(const char *path, char element[13], uint64_t element_index) {
     return 1; // End of list
 }
 
-int fat_exists(const char* path) {
-    dirent_ref_t dirent_ref = fat_get_dirent_ref(path);
-    return dirent_ref.found;
-}
-
-int fat_is_directory(const char* path) {
-    dirent_ref_t dirent_ref = fat_get_dirent_ref(path);
-    if (!dirent_ref.found) return -ENOENT;
-    return (dirent_ref.dirent.attributes & DIRENT_DIRECTORY) != 0;
-}
-
-uint64_t fat_get_file_size(const char* path) {
-    dirent_ref_t dirent_ref = fat_get_dirent_ref(path);
-    if (!dirent_ref.found) return 0;
-    return dirent_ref.dirent.file_size;
-}
-
 int fat_read(const char *path, uint8_t *buffer, size_t offset, size_t size) {
-    dirent_ref_t dirent_ref = fat_get_dirent_ref(path);
+    fat_dirent_ref_t dirent_ref = fat_get_dirent_ref(path);
     if (!dirent_ref.found) return -ENOENT; // File not found
 
     uint32_t file_cluster = ((uint32_t)dirent_ref.dirent.first_cluster_high << 16) | dirent_ref.dirent.first_cluster_low;
@@ -472,7 +455,7 @@ int fat_delete(const char* path) {
     char npath[512];
     normalize_fat_path(path, npath);
     path = npath; // Replace path with normalized for the rest of the function
-    dirent_ref_t dirent_ref = fat_get_dirent_ref(path);
+    fat_dirent_ref_t dirent_ref = fat_get_dirent_ref(path);
     // Go to position in dirent_ref and set first byte of name to 0xE5
     if (!dirent_ref.found) {
         return -ENOENT; // File not found
@@ -494,7 +477,7 @@ int fat_delete(const char* path) {
     return 0;
 }
 
-int fat_add_dirent(const char *path, dirent_t dirent) {
+int fat_add_dirent(const char *path, fat_dirent_t dirent) {
     if (read_only) {
         return -EROFS; // Filesystem is read-only
     }
@@ -503,7 +486,7 @@ int fat_add_dirent(const char *path, dirent_t dirent) {
     normalize_fat_path(path, npath);
     path = npath; // Replace path with normalized for the rest of the function
 
-    dirent_ref_t parent_dirent_ref = fat_get_dirent_ref(path);
+    fat_dirent_ref_t parent_dirent_ref = fat_get_dirent_ref(path);
     if (!parent_dirent_ref.found) {
         return -ENOENT; // Parent directory not found
     }
@@ -521,15 +504,15 @@ int fat_add_dirent(const char *path, dirent_t dirent) {
         // Search for free entry
         uint32_t offset = 0;
         while (offset < bytes_per_cluster) {
-            dirent_t* current_dirent = (dirent_t*)&cluster_buffer[offset];
+            fat_dirent_t* current_dirent = (fat_dirent_t*)&cluster_buffer[offset];
             if (current_dirent->name[0] == DIRENT_END || current_dirent->name[0] == DIRENT_DELETED) {
                 // Found free entry
-                memcpy(current_dirent, &dirent, sizeof(dirent_t));
+                memcpy(current_dirent, &dirent, sizeof(fat_dirent_t));
                 // Write back the cluster
                 write_sectors_relative(active_disk, active_partition, first_sector, cluster_buffer, bpb.sectors_per_cluster);
                 return 0; // Success
             }
-            offset += sizeof(dirent_t);
+            offset += sizeof(fat_dirent_t);
         }
         // Move to next cluster
         uint32_t next = next_cluster(cluster);
@@ -585,11 +568,13 @@ int fat_create_file(const char *path) {
     if (read_only) {
         return -EROFS; // Filesystem is read-only
     }
-    if (fat_exists(path)) {
+    stat_t st;
+    int res = fat_stat(path, &st);
+    if (res == 0) {
         return -EEXIST; // File already exists
     }
-    dirent_t dirent;
-    memset(&dirent, 0, sizeof(dirent_t));
+    fat_dirent_t dirent;
+    memset(&dirent, 0, sizeof(fat_dirent_t));
     dirent.attributes = 0; // Regular file
     dirent.first_cluster_low = 0;
     dirent.first_cluster_high = 0;
@@ -620,11 +605,13 @@ int fat_create_directory(const char *path) {
     if (read_only) {
         return -EROFS; // Filesystem is read-only
     }
-    if (fat_exists(path)) {
-        return -EEXIST; // Directory already exists
+    stat_t st;
+    int res = fat_stat(path, &st);
+    if (res == 0) {
+        return -EEXIST; // File already exists
     }
-    dirent_t dirent;
-    memset(&dirent, 0, sizeof(dirent_t));
+    fat_dirent_t dirent;
+    memset(&dirent, 0, sizeof(fat_dirent_t));
     dirent.attributes = DIRENT_DIRECTORY;
     uint32_t year, month, day, hour, minute, second;
     get_wall_clock_time(&year, &month, &day, &hour, &minute, &second);
@@ -658,13 +645,13 @@ int fat_create_directory(const char *path) {
 
     memcpy(dirent.name, filename, 11);
 
-    int res = fat_add_dirent(dirname, dirent);
+    res = fat_add_dirent(dirname, dirent);
     if (res < 0) {
         return res; // Failed to add dirent
     }
     // Initialize the new directory cluster with '.' and '..' entries
     uint8_t sector_buffer[512];
-    dirent_t* entries = (dirent_t*)sector_buffer;
+    fat_dirent_t* entries = (fat_dirent_t*)sector_buffer;
     memcpy(entries[0].name, ".          ", 11);
     entries[0].attributes = DIRENT_DIRECTORY;
     entries[0].first_cluster_low = free_cluster & 0xFFFF;
@@ -673,7 +660,7 @@ int fat_create_directory(const char *path) {
     entries[0].last_modification_time = fat_time;
     entries[0].creation_date = fat_date;
     entries[0].creation_time = fat_time;
-    dirent_ref_t parent = fat_get_dirent_ref(dirname);
+    fat_dirent_ref_t parent = fat_get_dirent_ref(dirname);
     memcpy(entries[1].name, "..         ", 11);
     entries[1].attributes = DIRENT_DIRECTORY;
     entries[1].first_cluster_low = parent.dirent.first_cluster_low;
@@ -695,7 +682,7 @@ int fat_write_to_file(const char *path, const uint8_t *buffer, size_t offset, si
     if (read_only) {
         return -EROFS; // Filesystem is read-only
     }
-    dirent_ref_t dirent_ref = fat_get_dirent_ref(path);
+    fat_dirent_ref_t dirent_ref = fat_get_dirent_ref(path);
     if (!dirent_ref.found) {
         return -ENOENT; // File not found
     }
@@ -778,7 +765,7 @@ int fat_write_to_file(const char *path, const uint8_t *buffer, size_t offset, si
     // Write back updated dirent
     uint8_t sector_buffer[512];
     read_sectors_relative(active_disk, active_partition, dirent_ref.position[0], sector_buffer, 1);
-    memcpy(&sector_buffer[dirent_ref.position[1]], &dirent_ref.dirent, sizeof(dirent_t));
+    memcpy(&sector_buffer[dirent_ref.position[1]], &dirent_ref.dirent, sizeof(fat_dirent_t));
     write_sectors_relative(active_disk, active_partition, dirent_ref.position[0], sector_buffer, 1);
     return bytes_written;
 }
@@ -795,11 +782,12 @@ int fat_rename(const char *old_path, const char *new_path) {
     old_path = old_npath;
     new_path = new_npath;
 
-    dirent_ref_t old_dirent_ref = fat_get_dirent_ref(old_path);
+    fat_dirent_ref_t old_dirent_ref = fat_get_dirent_ref(old_path);
     if (!old_dirent_ref.found) {
         return -ENOENT; // Old file not found
     }
-    if (fat_exists(new_path)) {
+    stat_t st;
+    if (fat_stat(new_path, &st) == 0) {
         int res = fat_delete(new_path);
         if (res < 0) {
             return res; // Failed to delete existing file at new path
@@ -812,7 +800,7 @@ int fat_rename(const char *old_path, const char *new_path) {
     separate_dirname_filename(new_path, new_dirname, new_filename);
     readable_to_8d3(new_filename);
     // Update dirent with new name
-    dirent_t updated_dirent = old_dirent_ref.dirent;
+    fat_dirent_t updated_dirent = old_dirent_ref.dirent;
     memcpy(updated_dirent.name, new_filename, 11);
     int res = fat_add_dirent(new_dirname, updated_dirent);
     if (res != 0) {
@@ -828,8 +816,26 @@ int fat_rename(const char *old_path, const char *new_path) {
     return 0;
 }
 
+int fat_stat(const char *path, stat_t *out) {
+    if (!out) return -EINVAL;
+    fat_dirent_ref_t dirent_ref = fat_get_dirent_ref(path);
+    if (!dirent_ref.found) {
+        return -ENOENT; // File not found
+    }
+    out->type = dirent_ref.dirent.attributes & DIRENT_DIRECTORY ? DT_DIR : DT_FILE;
+    out->size = dirent_ref.dirent.file_size;
+    uint16_t fat_cdate = dirent_ref.dirent.creation_date;
+    uint16_t fat_ctime = dirent_ref.dirent.creation_time;
+    out->ctime = fat_timestamp_to_unix(fat_cdate, fat_ctime);
+    out->btime = out->ctime;
+    uint16_t fat_mdate = dirent_ref.dirent.last_modification_date;
+    uint16_t fat_mtime = dirent_ref.dirent.last_modification_time;
+    out->mtime = fat_timestamp_to_unix(fat_mdate, fat_mtime);
+    return 0;
+}
+
 int fat_get_creation_time(const char *path, uint64_t *timestamp) {
-    dirent_ref_t dirent_ref = fat_get_dirent_ref(path);
+    fat_dirent_ref_t dirent_ref = fat_get_dirent_ref(path);
     if (!dirent_ref.found) {
         *timestamp = 0;
         return -ENOENT; // File not found
@@ -841,7 +847,7 @@ int fat_get_creation_time(const char *path, uint64_t *timestamp) {
 }
 
 int fat_get_last_modification_time(const char *path, uint64_t *timestamp) {
-    dirent_ref_t dirent_ref = fat_get_dirent_ref(path);
+    fat_dirent_ref_t dirent_ref = fat_get_dirent_ref(path);
     if (!dirent_ref.found) {
         *timestamp = 0;
         return -ENOENT; // File not found
@@ -859,9 +865,6 @@ void fat_register() {
     fat_fs.check = is_fat_partition;
     fat_fs.select = fat_init;
     fat_fs.set_read_only = fat_set_read_only;
-    fat_fs.exists = fat_exists;
-    fat_fs.is_directory = fat_is_directory;
-    fat_fs.get_file_size = fat_get_file_size;
     fat_fs.read = fat_read;
     fat_fs.write = fat_write_to_file;
     fat_fs.list = fat_list;
@@ -869,8 +872,7 @@ void fat_register() {
     fat_fs.create_directory = fat_create_directory;
     fat_fs.remove = fat_delete;
     fat_fs.rename = fat_rename;
-    fat_fs.get_creation_time = fat_get_creation_time;
-    fat_fs.get_last_modification_time = fat_get_last_modification_time;
+    fat_fs.stat = fat_stat;
     fat_fs.case_sensitive = 0;
 
     register_filesystem(fat_fs);
