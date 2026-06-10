@@ -92,7 +92,7 @@ bpb_t fat_get_bpb();
 fsinfo_t fat_get_fsinfo();
 void normalize_fat_path(const char* input_path, char* output_path);
 fat_dirent_ref_t fat_get_dirent_ref(const char* path);
-int fat_list(const char* path, char element[13], uint64_t element_index);
+int fat_readdir(const char* path, int index, dirent_t* out);
 int fat_read(const char* path, uint8_t* buffer, size_t offset, size_t size);
 int fat_delete(const char* path);
 int fat_add_dirent(const char* path, fat_dirent_t dirent);

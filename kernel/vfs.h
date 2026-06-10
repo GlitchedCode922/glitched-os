@@ -32,7 +32,7 @@ typedef struct {
     void (*select)(uint8_t drive, uint8_t partition);
     void (*set_read_only)(uint8_t read_only); // Set the filesystem to read-only mode
 
-    int (*list)(const char *path, char *element, uint64_t element_index); // List directory contents
+    int (*readdir)(const char *path, int index, dirent_t* out); // List directory contents
     int (*read)(const char *path, uint8_t *buffer, size_t offset, size_t size); // Read from a file
     int (*write)(const char *path, const uint8_t *buffer, size_t offset, size_t size); // Write to a file
     int (*remove)(const char *path); // Delete a file or directory
@@ -58,7 +58,7 @@ int mount_filesystem(const char *path, const char *type, int drive, int partitio
 int mount_root_filesystem(const char *type, int drive, int partition, int flags);
 int unmount_filesystem(const char *path);
 int unmount_all_filesystems();
-int list_directory(const char *path, char *element, uint64_t element_index);
+int readdir(const char *path, int index, dirent_t* out);
 int stat(const char* path, stat_t* out);
 int read_file(const char *path, uint8_t *buffer, size_t offset, size_t size);
 int write_file(const char *path, const uint8_t *buffer, size_t offset, size_t size);

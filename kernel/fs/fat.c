@@ -352,7 +352,7 @@ fat_dirent_ref_t fat_get_dirent_ref(const char *path) {
     return dirent_ref;
 }
 
-int fat_list(const char *path, char element[13], uint64_t element_index) {
+int fat_readdir(const char *path, int index, dirent_t* out) {
     // List the directory entries in the given path
     char npath[512];
     normalize_fat_path(path, npath);
@@ -365,7 +365,6 @@ int fat_list(const char *path, char element[13], uint64_t element_index) {
     // Traverse to the target directory
     fat_dirent_ref_t dirent_ref = fat_get_dirent_ref(path);
     if (!dirent_ref.found || !(dirent_ref.dirent.attributes & DIRENT_DIRECTORY)) {
-        element[0] = '\0'; // Directory not found
         return -ENOENT;
     }
 
@@ -386,13 +385,14 @@ int fat_list(const char *path, char element[13], uint64_t element_index) {
                 continue; // Deleted or volume label entry
             }
 
-            if (current_index == element_index) {
+            if (current_index == index) {
                 // Found the requested element
                 char name[13];
                 memcpy(name, dirent->name, 12);
                 f8d3_to_readable(name);
                 name[12] = '\0'; // Null-terminate
-                memcpy(element, name, 13);
+                memcpy(out->name, name, 13);
+                out->type = dirent->attributes & DIRENT_DIRECTORY ? DT_DIR : DT_FILE;
                 return 0;
             }
             current_index++;
@@ -400,7 +400,6 @@ int fat_list(const char *path, char element[13], uint64_t element_index) {
         }
         cluster = next_cluster(cluster);
     }
-    element[0] = '\0';
     return 1; // End of list
 }
 
@@ -867,7 +866,7 @@ void fat_register() {
     fat_fs.set_read_only = fat_set_read_only;
     fat_fs.read = fat_read;
     fat_fs.write = fat_write_to_file;
-    fat_fs.list = fat_list;
+    fat_fs.readdir = fat_readdir;
     fat_fs.create_file = fat_create_file;
     fat_fs.create_directory = fat_create_directory;
     fat_fs.remove = fat_delete;

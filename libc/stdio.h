@@ -34,7 +34,7 @@ void puts(const char* str);
 void putchar(char c);
 char* readline(char* buffer, size_t size);
 
-int list_directory(const char *path, char *element, uint64_t element_index);
+int readdir(const char *path, int index, dirent_t* out);
 int stat(const char* path, stat_t* out);
 int remove_file(const char* path);
 int create_file(const char* path);

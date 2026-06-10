@@ -338,7 +338,7 @@ int unmount_all_filesystems() {
     return 0; // Success
 }
 
-int list_directory(const char *path, char *element, uint64_t element_index) {
+int readdir(const char *path, int index, dirent_t* out) {
     char remaining_path[MAX_PATH];
     mountpoint_t* mount = find_mountpoint(path, remaining_path);
     if (!mount) {
@@ -347,10 +347,10 @@ int list_directory(const char *path, char *element, uint64_t element_index) {
     filesystem_t* fs = &filesystems[mount->type];
     fs->select(mount->drive, mount->partition);
     fs->set_read_only(mount->flags & FLAG_READ_ONLY);
-    if (!fs->list) {
+    if (!fs->readdir) {
         return -ENOSYS; // List operation not supported by this filesystem
     }
-    return fs->list(remaining_path, element, element_index);
+    return fs->readdir(remaining_path, index, out);
 }
 
 int read_file(const char *path, uint8_t *buffer, size_t offset, size_t size) {

@@ -185,8 +185,8 @@ void printf(const char *fmt, ...){
     va_end(args);
 }
 
-int list_directory(const char *path, char *element, uint64_t element_index) {
-    int res = syscall(SYSCALL_LIST_DIR, (uint64_t)path, (uint64_t)element, element_index, 0, 0, 0);
+int readdir(const char *path, int index, dirent_t *out) {
+    int res = syscall(SYSCALL_READDIR, (uint64_t)path, index, (uint64_t)out, 0, 0, 0);
     if (res < 0) {
         errno = -res;
         return -1;

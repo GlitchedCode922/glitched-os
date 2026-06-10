@@ -72,8 +72,8 @@ void syscall(iframe_t* iframe) {
     case SYSCALL_GET_PPID:
         // Not implemented, will come with process management
         break;
-    case SYSCALL_LIST_DIR:
-        ret = list_directory((const char*)arg1, (char*)arg2, arg3);
+    case SYSCALL_READDIR:
+        ret = readdir((const char*)arg1, arg2, (dirent_t*)arg3);
         break;
     case SYSCALL_STAT:
         ret = stat((const char*)arg1, (stat_t*)arg2);

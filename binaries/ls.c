@@ -8,16 +8,18 @@ int main(int argc, char** argv) {
         path = argv[1];
     }
 
-    char buffer[13] = {0};
+    dirent_t dirent;
     int i = 0;
-    do {
-        int ret = list_directory(path, buffer, i);
+    while (1) {
+        int ret = readdir(path, i, &dirent);
         if (ret < 0) {
-            perror("list failed");
+            perror("readdir failed");
             return 1;
+        } else if (ret == 1) {
+            return 0;
         }
-        if (*buffer) printf("%s\n", buffer);
+        printf("%s\n", dirent.name);
         i++;
-    } while (*buffer);
+    }
     return 0;
 }
