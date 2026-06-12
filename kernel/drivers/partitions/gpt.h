@@ -1,4 +1,5 @@
 #pragma once
+#include "../partitions.h"
 #include <stdint.h>
 
 typedef struct {
@@ -28,7 +29,4 @@ typedef struct {
 } gpt_entry_t;
 
 int has_gpt(uint8_t disk);
-int64_t gpt_get_partition_start(uint8_t disk, uint8_t partition);
-int64_t gpt_get_partition_size(uint8_t disk, uint8_t partition);
-int gpt_read_sectors_relative(uint8_t disk, uint8_t partition, uint64_t lba, uint8_t *buffer, uint16_t count);
-int gpt_write_sectors_relative(uint8_t disk, uint8_t partition, uint64_t lba, uint8_t *buffer, uint16_t count);
+int gpt_get_partition(uint8_t disk, uint8_t partition, partition_t* out);
