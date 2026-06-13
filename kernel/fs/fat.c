@@ -860,7 +860,7 @@ int fat_get_last_modification_time(const char *path, uint64_t *timestamp) {
 void fat_register() {
     filesystem_t fat_fs;
     memset(&fat_fs, 0, sizeof(filesystem_t));
-    memcpy(fat_fs.name, "FAT", 6);
+    memcpy(fat_fs.name, "FAT", 4);
     fat_fs.check = is_fat_partition;
     fat_fs.select = fat_init;
     fat_fs.set_read_only = fat_set_read_only;

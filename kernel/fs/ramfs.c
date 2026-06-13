@@ -1,0 +1,329 @@
+#include "ramfs.h"
+#include "../memory/mman.h"
+#include "../error.h"
+
+static ramfs_dirent_t* root;
+static int read_only = 0;
+
+int strcmp(const char *s1, const char *s2) {
+    while (*s1 && *s2 && (*s1 == *s2)) {
+        s1++;
+        s2++;
+    }
+    return *(unsigned char *)s1 - *(unsigned char *)s2;
+}
+
+static int ramfs_get_dirent(const char* path, ramfs_dirent_t** out) {
+    while (*path == '/') path++;
+    ramfs_dirent_t* current = root;
+    while (*path) {
+        char subdir[256];
+        int count = 0;
+        while (*path != '/' && *path && count < 256) {
+            subdir[count++] = *path++;
+        }
+        if (count == 0) {
+            if (*path == '/') path++;  // Consume slash
+            continue;
+        }
+        subdir[count] = '\0';
+        if (current->type != DT_DIR) return -ENOENT;
+        current = current->child;
+        int found = 0;
+        while (current) {
+            if (strcmp(subdir, current->name) == 0) {
+                // Found
+                found = 1;
+                break;
+            }
+            current = current->next;
+        }
+        if (!found) return -ENOENT;
+        count = 0;
+    }
+    *out = current;
+    return 0;
+}
+
+int ramfs_readdir(const char* path, int index, dirent_t *out) {
+    ramfs_dirent_t* dirent;
+    int res = ramfs_get_dirent(path, &dirent);
+    if (res < 0) return res;
+    if (dirent->type != DT_DIR) return -ENOTDIR;
+    dirent = dirent->child;
+    int i = 0;
+    while (dirent) {
+        if (i == index) {
+            memcpy(out->name, dirent->name, 256);
+            out->type = dirent->type;
+            return 0;
+        }
+        dirent = dirent->next;
+        i++;
+    }
+    return 1;
+}
+
+int ramfs_read(const char *path, uint8_t *buffer, size_t offset, size_t size) {
+    ramfs_dirent_t* dirent;
+    int res = ramfs_get_dirent(path, &dirent);
+    if (res < 0) return res;
+    if (dirent->type == DT_DIR) return -EISDIR;
+    ramfs_data_t* current = dirent->first_block;
+    if (offset >= dirent->file_size) return 0;
+    if (offset + size > dirent->file_size) size = dirent->file_size - offset;
+    size_t blocks_skipped = offset / RAMFS_BLOCK_SIZE;
+    for (size_t i = 0; i < blocks_skipped; i++) current = current->next;
+    size_t bytes_read = 0;
+    int block_offset = offset % RAMFS_BLOCK_SIZE;
+    while (bytes_read < size && current) {
+        int to_read = RAMFS_BLOCK_SIZE - block_offset;
+        if (to_read > size - bytes_read) to_read = size - bytes_read;
+        memcpy(buffer + bytes_read, current->data + block_offset, to_read);
+        block_offset = 0;
+        bytes_read += to_read;
+        current = current->next;
+    }
+    return bytes_read;
+}
+
+int ramfs_delete(const char *path) {
+    if (read_only) return -EROFS;
+    ramfs_dirent_t* dirent;
+    int res = ramfs_get_dirent(path, &dirent);
+    if (res < 0) return res;
+    if (dirent->previous) {
+        dirent->previous->next = dirent->next;
+    }
+    if (dirent->parent->child == dirent) {
+        dirent->parent->child = dirent->next;
+    }
+    if (dirent->next) {
+        dirent->next->previous = dirent->previous;
+    }
+    int data_pointer_count = dirent->file_size / RAMFS_BLOCK_SIZE + 1;
+    ramfs_data_t* data_pointers[data_pointer_count];
+    memset(data_pointers, 0, sizeof(data_pointers));
+    data_pointers[0] = dirent->first_block;
+    for (int i = 1; i < data_pointer_count; i++) {
+        if (data_pointers[i - 1] == NULL) break;
+        data_pointers[i] = data_pointers[i - 1]->next;
+    }
+    for (int i = data_pointer_count - 1; i >= 0; i--) {
+        kfree(data_pointers[i]);
+    }
+    kfree(dirent);
+    return 0;
+}
+
+static size_t strlen(const char *s) {
+    size_t len = 0;
+    while (s[len] != '\0') {
+        len++;
+    }
+    return len;
+}
+
+static int ramfs_add_dirent(const char* path, ramfs_dirent_t* dirent) {
+    if (read_only) return -EROFS;
+    ramfs_dirent_t* parent_dir;
+    int res = ramfs_get_dirent(path, &parent_dir);
+    if (res < 0) return res;
+    if (parent_dir->type != DT_DIR) return -ENOTDIR;
+    dirent->parent = parent_dir;
+    dirent->next = parent_dir->child;
+    parent_dir->child = dirent;
+    if (dirent->next) dirent->next->previous = dirent;
+    dirent->previous = NULL;
+    dirent->child = NULL;
+    return 0;
+}
+
+int ramfs_create_file(const char *path) {
+    if (read_only) return -EROFS;
+    size_t len = strlen(path);
+    while (len > 0 && path[len - 1] == '/') {
+        len--;
+    }
+    size_t slash = len;
+    while (slash > 0 && path[slash - 1] != '/') {
+        slash--;
+    }
+    char dirname[256];
+    char filename[256];
+    if (slash == 0) {
+        dirname[0] = '\0';
+    } else {
+        size_t dlen = slash - 1;
+        memcpy(dirname, path, dlen);
+        dirname[dlen] = '\0';
+    }
+    size_t flen = len - slash;
+    memcpy(filename, path + slash, flen);
+    filename[flen] = '\0';
+
+    ramfs_dirent_t* dirent = kmalloc(sizeof(ramfs_dirent_t));
+    memcpy(dirent->name, filename, 255);
+    dirent->name[255] = 0;
+    dirent->type = DT_FILE;
+
+    return ramfs_add_dirent(dirname, dirent);
+}
+
+int ramfs_create_directory(const char *path) {
+    if (read_only) return -EROFS;
+    size_t len = strlen(path);
+    while (len > 0 && path[len - 1] == '/') {
+        len--;
+    }
+    size_t slash = len;
+    while (slash > 0 && path[slash - 1] != '/') {
+        slash--;
+    }
+    char dirname[256];
+    char filename[256];
+    if (slash == 0) {
+        dirname[0] = '\0';
+    } else {
+        size_t dlen = slash - 1;
+        memcpy(dirname, path, dlen);
+        dirname[dlen] = '\0';
+    }
+    size_t flen = len - slash;
+    memcpy(filename, path + slash, flen);
+    filename[flen] = '\0';
+
+    ramfs_dirent_t* dirent = kmalloc(sizeof(ramfs_dirent_t));
+    memcpy(dirent->name, filename, 255);
+    dirent->name[255] = 0;
+    dirent->type = DT_DIR;
+
+    return ramfs_add_dirent(dirname, dirent);
+}
+
+int ramfs_write(const char *path, const uint8_t *buffer, size_t offset, size_t size) {
+    if (read_only) return -EROFS;
+    ramfs_dirent_t* dirent;
+    int res = ramfs_get_dirent(path, &dirent);
+    if (res < 0) return res;
+    if (dirent->type == DT_DIR) return -EISDIR;
+    if (!dirent->first_block) {
+        dirent->first_block = kmalloc(sizeof(ramfs_data_t));
+        dirent->first_block->next = NULL;
+    }
+    ramfs_data_t* current = dirent->first_block;
+    size_t blocks_skipped = offset / RAMFS_BLOCK_SIZE;
+    for (size_t i = 0; i < blocks_skipped; i++) {
+        if (!current->next) {
+            current->next = kmalloc(sizeof(ramfs_data_t));
+            current->next->next = NULL;
+        }
+        current = current->next;
+    }
+    size_t bytes_written = 0;
+    int block_offset = offset % RAMFS_BLOCK_SIZE;
+    while (bytes_written < size) {
+        int to_write = RAMFS_BLOCK_SIZE - block_offset;
+        if (to_write > size - bytes_written) to_write = size - bytes_written;
+        memcpy(current->data + block_offset, buffer, to_write);
+        bytes_written += to_write;
+        buffer += to_write;
+        block_offset = 0;
+        if (!current->next) {
+            current->next = kmalloc(sizeof(ramfs_data_t));
+            current->next->next = NULL;
+        }
+        current = current->next;
+    }
+    if (dirent->file_size < offset + size) dirent->file_size = offset + size;
+    return bytes_written;
+}
+
+int ramfs_rename(const char *old_path, const char *new_path) {
+    if (read_only) return -EROFS;
+    ramfs_dirent_t* dirent;
+    int res = ramfs_get_dirent(old_path, &dirent);
+    if (res < 0) return res;
+
+    if (dirent->previous) {
+        dirent->previous->next = dirent->next;
+    }
+    if (dirent->parent->child == dirent) {
+        dirent->parent->child = dirent->next;
+    }
+    if (dirent->next) {
+        dirent->next->previous = dirent->previous;
+    }
+
+    size_t len = strlen(new_path);
+    while (len > 0 && new_path[len - 1] == '/') {
+        len--;
+    }
+    size_t slash = len;
+    while (slash > 0 && new_path[slash - 1] != '/') {
+        slash--;
+    }
+    char dirname[256];
+    if (slash == 0) {
+        dirname[0] = '\0';
+    } else {
+        size_t dlen = slash - 1;
+        memcpy(dirname, new_path, dlen);
+        dirname[dlen] = '\0';
+    }
+    size_t flen = len - slash;
+    memcpy(dirent->name, new_path + slash, flen);
+    dirent->name[flen] = '\0';
+
+    return ramfs_add_dirent(dirname, dirent);
+}
+
+int ramfs_stat(const char *path, stat_t *out) {
+    ramfs_dirent_t* dirent;
+    int res = ramfs_get_dirent(path, &dirent);
+    if (res < 0) return res;
+
+    memset(out, 0, sizeof(stat_t));
+    out->type = dirent->type;
+    out->size = dirent->file_size;
+    // Timestamps will be added with RTC
+    return 0;
+}
+
+// Fake selection functions
+
+int ramfs_check(uint8_t drive, uint8_t partition) {
+    return 1;
+}
+
+void ramfs_select(uint8_t drive, uint8_t partition) {
+}
+
+void ramfs_set_read_only(uint8_t p_readonly) {
+    read_only = p_readonly;
+}
+
+void ramfs_register() {
+    root = kmalloc(sizeof(ramfs_dirent_t));
+    root->type = DT_DIR;
+
+    filesystem_t ramfs = {0};
+
+    memcpy(ramfs.name, "ramfs", 6);
+    ramfs.case_sensitive = 0;
+
+    ramfs.check = ramfs_check;
+    ramfs.select = ramfs_select;
+    ramfs.set_read_only = ramfs_set_read_only;
+
+    ramfs.readdir = ramfs_readdir;
+    ramfs.read = ramfs_read;
+    ramfs.remove = ramfs_delete;
+    ramfs.create_file = ramfs_create_file;
+    ramfs.create_directory = ramfs_create_directory;
+    ramfs.write = ramfs_write;
+    ramfs.rename = ramfs_rename;
+    ramfs.stat = ramfs_stat;
+
+    register_filesystem(ramfs);
+}

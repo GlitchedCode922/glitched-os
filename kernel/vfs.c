@@ -1,4 +1,5 @@
 #include "vfs.h"
+#include "fs/ramfs.h"
 #include "memory/mman.h"
 #include "usermode/scheduler.h"
 #include "error.h"
@@ -463,6 +464,7 @@ int stat(const char *path, stat_t *out) {
 
 void register_intree_filesystems() {
     fat_register();
+    ramfs_register();
 }
 
 void getcwd(char* buffer, size_t len) {
