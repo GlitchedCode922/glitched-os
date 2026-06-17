@@ -68,6 +68,15 @@ typedef struct __attribute__((packed)) {
     uint32_t position[2];
 } fat_dirent_ref_t;
 
+typedef struct {
+    block_device_t backing;
+    bpb_t bpb;
+    fsinfo_t fsinfo;
+    uint8_t read_only;
+    uint32_t fat_size;
+    uint32_t last_free;
+} fat_data_t;
+
 #define DIRENT_READ_ONLY 0x01
 #define DIRENT_HIDDEN 0x02
 #define DIRENT_SYSTEM 0x04

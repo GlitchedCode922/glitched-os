@@ -1,4 +1,5 @@
 #include "vfs.h"
+#include "drivers/block.h"
 #include "fs/ramfs.h"
 #include "memory/mman.h"
 #include "usermode/scheduler.h"
@@ -217,7 +218,7 @@ static mountpoint_t* find_mountpoint(const char *path, char *remaining_path) {
     return current; // Return the best match found
 }
 
-int mount_filesystem(const char *path, const char *type, int drive, int partition, int flags) {
+int mount_filesystem(const char *path, const char *type, int major, int minor, int flags) {
     if (filesystem_count == 0) {
         return -ENOENT; // No filesystems registered
     }
@@ -234,7 +235,8 @@ int mount_filesystem(const char *path, const char *type, int drive, int partitio
         return -EINVAL; // Filesystem type not found
     }
 
-    if (!filesystems[fs_index].check(drive, partition)) {
+    block_device_t dev = {.major_number = major, .minor_number = minor};
+    if (filesystems[fs_index].requires_backing && !filesystems[fs_index].check(dev)) {
         return -EINVAL; // Filesystem check failed
     }
 
@@ -249,9 +251,7 @@ int mount_filesystem(const char *path, const char *type, int drive, int partitio
     }
 
     mountpoint_t* new_mount = (mountpoint_t*)kmalloc(sizeof(mountpoint_t));
-    new_mount->drive = drive;
-    new_mount->partition = partition;
-    new_mount->flags = flags;
+    new_mount->fs_data = filesystems[fs_index].mount(dev, flags);
     new_mount->type = fs_index;
     strncpy(new_mount->mount_point, remaining_path, sizeof(new_mount->mount_point) - 1);
     new_mount->mount_point[sizeof(new_mount->mount_point) - 1] = '\0';
@@ -265,7 +265,7 @@ int mount_filesystem(const char *path, const char *type, int drive, int partitio
     return 0; // Success
 }
 
-int mount_root_filesystem(const char *type, int drive, int partition, int flags) {
+int mount_root_filesystem(const char *type, int major, int minor, int flags) {
     if (filesystem_count == 0) {
         return -ENOENT; // No filesystems registered
     }
@@ -282,14 +282,13 @@ int mount_root_filesystem(const char *type, int drive, int partition, int flags)
         return -EINVAL; // Filesystem type not found
     }
 
-    if (!filesystems[fs_index].check(drive, partition)) {
+    block_device_t dev = {.major_number = major, .minor_number = minor};
+    if (filesystems[fs_index].requires_backing && !filesystems[fs_index].check(dev)) {
         return -EINVAL; // Filesystem check failed
     }
 
     root = (mountpoint_t*)kmalloc(sizeof(mountpoint_t));
-    root->drive = drive;
-    root->partition = partition;
-    root->flags = flags;
+    root->fs_data = filesystems[fs_index].mount(dev, flags);
     root->type = fs_index;
     strcpy(root->mount_point, "/");
     root->parent = NULL;
@@ -316,6 +315,7 @@ int unmount_filesystem(const char *path) {
             sibling->next = mount->next;
         }
     }
+    kfree(mount->fs_data);
     kfree(mount);
     return 0; // Success
 }
@@ -333,6 +333,7 @@ int unmount_all_filesystems() {
                 child = next_child;
             }
         }
+        kfree(m->fs_data);
         kfree(m);
         m = next;
     }
@@ -346,8 +347,7 @@ int readdir(const char *path, int index, dirent_t* out) {
         return -ENOENT; // Mount point not found
     }
     filesystem_t* fs = &filesystems[mount->type];
-    fs->select(mount->drive, mount->partition);
-    fs->set_read_only(mount->flags & FLAG_READ_ONLY);
+    fs->select(mount->fs_data);
     if (!fs->readdir) {
         return -ENOSYS; // List operation not supported by this filesystem
     }
@@ -361,8 +361,7 @@ int read_file(const char *path, uint8_t *buffer, size_t offset, size_t size) {
         return -ENOENT; // Mount point not found
     }
     filesystem_t* fs = &filesystems[mount->type];
-    fs->select(mount->drive, mount->partition);
-    fs->set_read_only(mount->flags & FLAG_READ_ONLY);
+    fs->select(mount->fs_data);
     if (!fs->read) {
         return -EINVAL; // Read operation not supported by this filesystem
     }
@@ -376,8 +375,7 @@ int write_file(const char *path, const uint8_t *buffer, size_t offset, size_t si
         return -ENOENT; // Mount point not found
     }
     filesystem_t* fs = &filesystems[mount->type];
-    fs->select(mount->drive, mount->partition);
-    fs->set_read_only(mount->flags & FLAG_READ_ONLY);
+    fs->select(mount->fs_data);
     if (!fs->write) {
         return -ENOSYS; // Write operation not supported by this filesystem
     }
@@ -391,8 +389,7 @@ int remove_file(const char *path) {
         return -ENOENT; // Mount point not found
     }
     filesystem_t* fs = &filesystems[mount->type];
-    fs->select(mount->drive, mount->partition);
-    fs->set_read_only(mount->flags & FLAG_READ_ONLY);
+    fs->select(mount->fs_data);
     if (!fs->remove) {
         return -ENOSYS; // Remove operation not supported by this filesystem
     }
@@ -408,8 +405,7 @@ int rename_file(const char *old_path, const char *new_path) {
         return -ENOENT; // Cannot rename across different filesystems
     }
     filesystem_t* old_fs = &filesystems[old_mount->type];
-    old_fs->select(old_mount->drive, old_mount->partition);
-    old_fs->set_read_only(old_mount->flags & FLAG_READ_ONLY);
+    old_fs->select(old_mount->fs_data);
     if (!old_fs->rename) {
         return -ENOSYS; // Rename operation not supported by this filesystem
     }
@@ -423,8 +419,7 @@ int create_file(const char *path) {
         return -ENOENT; // Mount point not found
     }
     filesystem_t* fs = &filesystems[mount->type];
-    fs->select(mount->drive, mount->partition);
-    fs->set_read_only(mount->flags & FLAG_READ_ONLY);
+    fs->select(mount->fs_data);
     if (!fs->create_file) {
         return -ENOSYS; // Create_file operation not supported by this filesystem
     }
@@ -438,8 +433,7 @@ int create_directory(const char *path) {
         return -ENOENT; // Mount point not found
     }
     filesystem_t* fs = &filesystems[mount->type];
-    fs->select(mount->drive, mount->partition);
-    fs->set_read_only(mount->flags & FLAG_READ_ONLY);
+    fs->select(mount->fs_data);
     if (!fs->create_directory) {
         return -ENOSYS; // Create_directory operation not supported by this filesystem
     }
@@ -454,8 +448,7 @@ int stat(const char *path, stat_t *out) {
         return -ENOENT; // Mount point not found
     }
     filesystem_t* fs = &filesystems[mount->type];
-    fs->select(mount->drive, mount->partition);
-    fs->set_read_only(mount->flags & FLAG_READ_ONLY);
+    fs->select(mount->fs_data);
     if (!fs->stat) {
         return -ENOSYS;
     }

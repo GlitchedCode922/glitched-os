@@ -2,6 +2,7 @@
 #include "fd.h"
 #include "break.h"
 #include "../drivers/block.h"
+#include "../drivers/block/ata.h"
 #include "../vfs.h"
 #include "../drivers/timer.h"
 #include "../console.h"
@@ -209,7 +210,7 @@ void syscall(iframe_t* iframe) {
         ret = tcsetattr(arg1, (termios_t*)arg2);
         break;
     case SYSCALL_DRIVE_LOAD_EJECT:
-        ret = load_eject(arg1, arg2);
+        ret = ata_load_eject(arg1, arg2);
         break;
     case SYSCALL_SETFONT:
         setfont((font_t*)arg1);

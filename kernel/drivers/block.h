@@ -2,25 +2,22 @@
 #include <stdint.h>
 
 typedef struct {
-    int (*read)(uint8_t disk, uint64_t lba, uint8_t *buffer, uint16_t count);
-    int (*write)(uint8_t disk, uint64_t lba, uint8_t *buffer, uint16_t count);
-    int64_t (*get_size)(uint8_t disk);
-    int (*get_smart_data)(uint8_t disk, uint8_t *buffer);
-    void (*standby)(uint8_t disk);
-    int (*load_eject)(uint8_t disk, uint8_t load);
+    int present;
+    int (*read_sectors)(int minor_number, uint64_t lba, uint8_t *buffer, uint64_t count);
+    int (*write_sectors)(int minor_number, uint64_t lba, const uint8_t *buffer, uint64_t count);
+    int64_t (*get_blockdev_size)(int minor_number);
+    int64_t (*get_sector_size)(int minor_number);
 } block_driver_t;
 
 typedef struct {
-    uint8_t driver_index;
-    uint8_t disk_index;
+    int major_number;
+    int minor_number;
+    int is_partition;
 } block_device_t;
 
-int read_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t count);
-int write_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t count);
-int64_t get_drive_size(uint8_t drive);
-int get_smart_data(uint8_t drive, uint8_t *buffer);
-int standby(uint8_t drive);
-int load_eject(uint8_t drive, uint8_t load);
-int get_disk_index(uint8_t driver, uint8_t disk);
+int read_sectors(block_device_t device, uint64_t lba, uint8_t *buffer, uint64_t count);
+int write_sectors(block_device_t device, uint64_t lba, const uint8_t *buffer, uint64_t count);
+int64_t get_blockdev_size(block_device_t device);
+int64_t get_sector_size(block_device_t device);
 int register_block_driver(block_driver_t *driver);
 int register_block_device(block_device_t *device);

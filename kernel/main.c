@@ -4,6 +4,7 @@
 #include "memory/mman.h"
 #include "memory/paging.h"
 #include "drivers/block/ata.h"
+#include "drivers/partitions.h"
 #include "vfs.h"
 #include "gdt.h"
 #include "idt.h"
@@ -149,6 +150,7 @@ void kernel_main() {
     framebuffer = framebuffer_request.response->framebuffers[0];
     initialize_console();
     serial_init();
+    partition_init();
     ata_register();
     register_intree_filesystems();
     free_region(0x0, 0x100000000);

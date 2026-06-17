@@ -1,60 +1,40 @@
 #include "block.h"
 #include <stdint.h>
 #include "../error.h"
+#include "partitions.h"
 
-block_driver_t block_drivers[8] = {0};
-block_device_t block_devices[32] = {0};
+block_driver_t block_drivers[128] = {0};
 int block_driver_count = 0;
 int block_device_count = 0;
 
-int read_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t count) {
-    if (block_devices[drive].driver_index == 0) return -ENOSYS;
-    return block_drivers[block_devices[drive].driver_index].read(block_devices[drive].disk_index, lba, buffer, count);
+int read_sectors(block_device_t device, uint64_t lba, uint8_t *buffer, uint64_t count) {
+    if (device.major_number == 0 || !block_drivers[device.major_number].present) return -ENOSYS;
+    return block_drivers[device.major_number].read_sectors(device.minor_number, lba, buffer, count);
 }
 
-int write_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t count) {
-    if (block_devices[drive].driver_index == 0) return -ENOSYS;
-    return block_drivers[block_devices[drive].driver_index].write(block_devices[drive].disk_index, lba, buffer, count);
+int write_sectors(block_device_t device, uint64_t lba, const uint8_t *buffer, uint64_t count) {
+    if (device.major_number == 0 || !block_drivers[device.major_number].present) return -ENOSYS;
+    return block_drivers[device.major_number].write_sectors(device.minor_number, lba, buffer, count);
 }
 
-int64_t get_drive_size(uint8_t drive) {
-    if (block_devices[drive].driver_index == 0) return -ENOSYS;
-    return block_drivers[block_devices[drive].driver_index].get_size(block_devices[drive].disk_index);
+int64_t get_device_size(block_device_t device) {
+    if (device.major_number == 0 || !block_drivers[device.major_number].present) return -ENOSYS;
+    return block_drivers[device.major_number].get_blockdev_size(device.minor_number);
 }
 
-int get_smart_data(uint8_t drive, uint8_t *buffer) {
-    if (block_devices[drive].driver_index == 0) return -ENOSYS;
-    return block_drivers[block_devices[drive].driver_index].get_smart_data(block_devices[drive].disk_index, buffer);
-}
-
-int standby(uint8_t drive) {
-    if (block_devices[drive].driver_index == 0) return -ENOSYS;
-    block_drivers[block_devices[drive].driver_index].standby(block_devices[drive].disk_index);
-    return 0;
-}
-
-int load_eject(uint8_t drive, uint8_t load) {
-    if (block_devices[drive].driver_index == 0) return -ENOSYS;
-    return block_drivers[block_devices[drive].driver_index].load_eject(block_devices[drive].disk_index, load);
-}
-
-int get_disk_index(uint8_t driver, uint8_t disk) {
-    for (int i = 0; i < block_device_count; i++) {
-        if (block_devices[i].driver_index == driver && block_devices[i].disk_index == disk) {
-            return i;
-        }
-    }
-    return -ENODEV; // Device not found
+int64_t get_sector_size(block_device_t device) {
+    if (device.major_number == 0 || !block_drivers[device.major_number].present) return -ENOSYS;
+    return block_drivers[device.major_number].get_sector_size(device.minor_number);
 }
 
 int register_block_driver(block_driver_t *driver) {
-    if (block_driver_count >= 7) return -ENOSPC; // Ensure we don't exceed the array bounds
+    if (block_driver_count >= 127) return -ENOSPC; // Ensure we don't exceed the array bounds
+    driver->present = 1;
     block_drivers[++block_driver_count] = *driver;
     return block_driver_count;
 }
 
 int register_block_device(block_device_t *device) {
-    if (block_device_count >= 32) return -ENOSPC; // Ensure we don't exceed the array bounds
-    block_devices[block_device_count++] = *device;
-    return block_device_count - 1;
+    if (!device->is_partition) detect_partitions(*device);
+    return 0; // Temporarily no-op
 }

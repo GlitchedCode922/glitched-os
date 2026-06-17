@@ -1,4 +1,5 @@
 #pragma once
+#include "drivers/block.h"
 #include <stdint.h>
 #include <stddef.h>
 
@@ -27,10 +28,11 @@ typedef struct {
 typedef struct {
     char name[32];          // Name of the filesystem
     int case_sensitive;     // Whether the filesystem is case-sensitive
+    int requires_backing;
 
-    int (*check)(uint8_t drive, uint8_t partition);  // Function to check if the filesystem is valid
-    void (*select)(uint8_t drive, uint8_t partition);
-    void (*set_read_only)(uint8_t read_only); // Set the filesystem to read-only mode
+    int (*check)(block_device_t device);
+    void* (*mount)(block_device_t device, int flags);
+    void (*select)(void* data);
 
     int (*readdir)(const char *path, int index, dirent_t* out); // List directory contents
     int (*read)(const char *path, uint8_t *buffer, size_t offset, size_t size); // Read from a file
@@ -43,11 +45,9 @@ typedef struct {
 } filesystem_t;
 
 typedef struct mountpoint {
-    int drive;                   // Drive number
-    int partition;               // Partition number
-    int flags;                   // Flags for mounting (e.g., read-only)
     char mount_point[MAX_PATH];  // Relative mount point path
     int type;                    // Filesystem type
+    void* fs_data;
     struct mountpoint* parent;   // Pointer to the parent mount point
     struct mountpoint* next;     // Pointer to the next mount point
     struct mountpoint* children; // Pointer to the first child mount point (for nested mounts)

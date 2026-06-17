@@ -2,8 +2,7 @@
 #include "../memory/mman.h"
 #include "../error.h"
 
-static ramfs_dirent_t* root;
-static int read_only = 0;
+static ramfs_mount_t* mount;
 
 int strcmp(const char *s1, const char *s2) {
     while (*s1 && *s2 && (*s1 == *s2)) {
@@ -15,7 +14,7 @@ int strcmp(const char *s1, const char *s2) {
 
 static int ramfs_get_dirent(const char* path, ramfs_dirent_t** out) {
     while (*path == '/') path++;
-    ramfs_dirent_t* current = root;
+    ramfs_dirent_t* current = &mount->root;
     while (*path) {
         char subdir[256];
         int count = 0;
@@ -88,7 +87,7 @@ int ramfs_read(const char *path, uint8_t *buffer, size_t offset, size_t size) {
 }
 
 int ramfs_delete(const char *path) {
-    if (read_only) return -EROFS;
+    if (mount->read_only) return -EROFS;
     ramfs_dirent_t* dirent;
     int res = ramfs_get_dirent(path, &dirent);
     if (res < 0) return res;
@@ -125,7 +124,7 @@ static size_t strlen(const char *s) {
 }
 
 static int ramfs_add_dirent(const char* path, ramfs_dirent_t* dirent) {
-    if (read_only) return -EROFS;
+    if (mount->read_only) return -EROFS;
     ramfs_dirent_t* parent_dir;
     int res = ramfs_get_dirent(path, &parent_dir);
     if (res < 0) return res;
@@ -140,7 +139,7 @@ static int ramfs_add_dirent(const char* path, ramfs_dirent_t* dirent) {
 }
 
 int ramfs_create_file(const char *path) {
-    if (read_only) return -EROFS;
+    if (mount->read_only) return -EROFS;
     size_t len = strlen(path);
     while (len > 0 && path[len - 1] == '/') {
         len--;
@@ -171,7 +170,7 @@ int ramfs_create_file(const char *path) {
 }
 
 int ramfs_create_directory(const char *path) {
-    if (read_only) return -EROFS;
+    if (mount->read_only) return -EROFS;
     size_t len = strlen(path);
     while (len > 0 && path[len - 1] == '/') {
         len--;
@@ -202,7 +201,7 @@ int ramfs_create_directory(const char *path) {
 }
 
 int ramfs_write(const char *path, const uint8_t *buffer, size_t offset, size_t size) {
-    if (read_only) return -EROFS;
+    if (mount->read_only) return -EROFS;
     ramfs_dirent_t* dirent;
     int res = ramfs_get_dirent(path, &dirent);
     if (res < 0) return res;
@@ -240,7 +239,7 @@ int ramfs_write(const char *path, const uint8_t *buffer, size_t offset, size_t s
 }
 
 int ramfs_rename(const char *old_path, const char *new_path) {
-    if (read_only) return -EROFS;
+    if (mount->read_only) return -EROFS;
     ramfs_dirent_t* dirent;
     int res = ramfs_get_dirent(old_path, &dirent);
     if (res < 0) return res;
@@ -290,31 +289,31 @@ int ramfs_stat(const char *path, stat_t *out) {
     return 0;
 }
 
-// Fake selection functions
-
-int ramfs_check(uint8_t drive, uint8_t partition) {
+int ramfs_check(block_device_t block) {
     return 1;
 }
 
-void ramfs_select(uint8_t drive, uint8_t partition) {
+void* ramfs_mount(block_device_t block, int flags) {
+    mount = kmalloc(sizeof(ramfs_mount_t));
+    mount->root.type = DT_DIR;
+    mount->read_only = flags & FLAG_READ_ONLY;
+    return mount;
 }
 
-void ramfs_set_read_only(uint8_t p_readonly) {
-    read_only = p_readonly;
+void ramfs_select(void* data) {
+    mount = data;
 }
 
 void ramfs_register() {
-    root = kmalloc(sizeof(ramfs_dirent_t));
-    root->type = DT_DIR;
-
     filesystem_t ramfs = {0};
 
     memcpy(ramfs.name, "ramfs", 6);
-    ramfs.case_sensitive = 0;
+    ramfs.case_sensitive = 1;
+    ramfs.requires_backing = 0;
 
     ramfs.check = ramfs_check;
+    ramfs.mount = ramfs_mount;
     ramfs.select = ramfs_select;
-    ramfs.set_read_only = ramfs_set_read_only;
 
     ramfs.readdir = ramfs_readdir;
     ramfs.read = ramfs_read;

@@ -1,19 +1,12 @@
 #include "fat.h"
-#include "../drivers/partitions.h"
 #include "../memory/mman.h"
 #include "../error.h"
 #include "../vfs.h"
+#include "../drivers/block.h"
 #include <stddef.h>
 #include <stdint.h>
 
-static uint8_t active_disk;
-static uint8_t active_partition;
-static bpb_t bpb;
-static fsinfo_t fsinfo;
-static uint8_t read_only = 0;
-static uint32_t fat_size = 0;
-static int initialized = 0;
-static uint32_t last_free = 0;
+static fat_data_t* data;
 
 static void get_wall_clock_time(uint32_t* year, uint32_t* month, uint32_t* day,
                         uint32_t* hour, uint32_t* minute, uint32_t* second) {
@@ -70,59 +63,51 @@ void fat_timestamp_to_wall_clock(uint16_t fat_date, uint16_t fat_time, int *year
     *sec = (fat_time & 0x1F) * 2; // bits 0-4, seconds are stored as half-seconds in FAT
 }
 
-void fat_init(uint8_t disk, uint8_t partition) {
-    if (initialized && active_disk == disk && active_partition == partition) {
-        return; // Already initialized
-    }
-    active_disk = disk;
-    active_partition = partition;
-    bpb = fat_get_bpb();
-    fsinfo = fat_get_fsinfo();
-    fat_size = (bpb.fat_size_16 != 0) ? bpb.fat_size_16 : bpb.fat_size_32;
-    uint32_t total_sectors = (bpb.total_sectors_16 != 0) ? bpb.total_sectors_16 : bpb.total_sectors_32;
-    uint32_t fat_sectors  = (bpb.fat_size_16 != 0) ? bpb.fat_size_16 : bpb.fat_size_32;
-    uint32_t data_sectors = total_sectors - (bpb.reserved_sectors + bpb.num_fats * fat_sectors);
-    uint32_t max_clusters = data_sectors / bpb.sectors_per_cluster;
-    last_free = fsinfo.next_free_cluster >= 2 && fsinfo.next_free_cluster < max_clusters ? fsinfo.next_free_cluster : 2;
-    initialized = 1;
-}
-
-int is_fat_partition(uint8_t disk, uint8_t partition) {
-    active_disk = disk;
-    active_partition = partition;
-    bpb_t local_bpb = fat_get_bpb();
+int fat_check(block_device_t device) {
+    bpb_t bpb;
+    read_sectors(device, 0, (uint8_t*)&bpb, 1);
     char f32_signature[8] = "FAT32   ";
-    return memcmp(local_bpb.file_system_type, f32_signature, 8) == 0;
+    return memcmp(bpb.file_system_type, f32_signature, 8) == 0;
 }
 
-void fat_select_partition(uint8_t disk, uint8_t partition) {
-    active_disk = disk;
-    active_partition = partition;
+void* fat_mount(block_device_t device, int flags) {
+    data = kmalloc(sizeof(fat_data_t));
+    data->backing = device;
+    data->bpb = fat_get_bpb();
+    data->fsinfo = fat_get_fsinfo();
+    data->fat_size = (data->bpb.fat_size_16 != 0) ? data->bpb.fat_size_16 : data->bpb.fat_size_32;
+    uint32_t total_sectors = (data->bpb.total_sectors_16 != 0) ? data->bpb.total_sectors_16 : data->bpb.total_sectors_32;
+    uint32_t fat_sectors  = (data->bpb.fat_size_16 != 0) ? data->bpb.fat_size_16 : data->bpb.fat_size_32;
+    uint32_t data_sectors = total_sectors - (data->bpb.reserved_sectors + data->bpb.num_fats * fat_sectors);
+    uint32_t max_clusters = data_sectors / data->bpb.sectors_per_cluster;
+    data->last_free = data->fsinfo.next_free_cluster >= 2 && data->fsinfo.next_free_cluster < max_clusters ? data->fsinfo.next_free_cluster : 2;
+    data->read_only = flags & FLAG_READ_ONLY;
+    return data;
 }
 
-void fat_set_read_only(uint8_t ro) {
-    read_only = ro;
+void fat_select(void* p_data) {
+    data = p_data;
 }
 
 bpb_t fat_get_bpb() {
     bpb_t bpb;
-    read_sectors_relative(active_disk, active_partition, 0, (uint8_t*)&bpb, 1);
+    read_sectors(data->backing, 0, (uint8_t*)&bpb, 1);
     return bpb;
 }
 
 fsinfo_t fat_get_fsinfo() {
     fsinfo_t fsinfo;
-    read_sectors_relative(active_disk, active_partition, bpb.fs_info, (uint8_t*)&fsinfo, 1);
+    read_sectors(data->backing, data->bpb.fs_info, (uint8_t*)&fsinfo, 1);
     return fsinfo;
 }
 
 uint32_t read_fat(uint32_t cluster) {
     uint32_t fat_offset = cluster * 4;
-    uint32_t fat_sector = bpb.reserved_sectors + (fat_offset / bpb.bytes_per_sector);
-    uint32_t ent_offset = fat_offset % bpb.bytes_per_sector;
+    uint32_t fat_sector = data->bpb.reserved_sectors + (fat_offset / data->bpb.bytes_per_sector);
+    uint32_t ent_offset = fat_offset % data->bpb.bytes_per_sector;
 
     uint8_t sector_buffer[512];
-    read_sectors_relative(active_disk, active_partition, fat_sector, sector_buffer, 1);
+    read_sectors(data->backing, fat_sector, sector_buffer, 1);
 
     return *(uint32_t*)&sector_buffer[ent_offset];
 }
@@ -130,43 +115,43 @@ uint32_t read_fat(uint32_t cluster) {
 void write_fat(uint32_t cluster, uint32_t content) {
     // Update all FAT copies
     uint32_t fat_offset = cluster * 4;
-    uint32_t fat_sector = bpb.reserved_sectors + (fat_offset / bpb.bytes_per_sector);
-    uint32_t ent_offset = fat_offset % bpb.bytes_per_sector;
+    uint32_t fat_sector = data->bpb.reserved_sectors + (fat_offset / data->bpb.bytes_per_sector);
+    uint32_t ent_offset = fat_offset % data->bpb.bytes_per_sector;
 
-    for (uint8_t i = 0; i < bpb.num_fats; i++) {
+    for (uint8_t i = 0; i < data->bpb.num_fats; i++) {
         uint8_t sector_buffer[512];
-        read_sectors_relative(active_disk, active_partition, (fat_sector + i * fat_size), sector_buffer, 1);
+        read_sectors(data->backing, (fat_sector + i * data->fat_size), sector_buffer, 1);
 
         uint32_t *entry = (uint32_t*)&sector_buffer[ent_offset];
         uint32_t old = *entry;
         uint32_t newval = (old & 0xF0000000) | (content & 0x0FFFFFFF);
         *entry = newval;
-        write_sectors_relative(active_disk, active_partition, (fat_sector + i * fat_size), sector_buffer, 1);
+        write_sectors(data->backing, (fat_sector + i * data->fat_size), sector_buffer, 1);
     }
 }
 
 uint64_t get_first_cluster_sector(uint32_t cluster) {
-    uint32_t first_data_sector = bpb.reserved_sectors + (bpb.num_fats * fat_size);
-    uint32_t first_sector_of_cluster = ((cluster - 2) * bpb.sectors_per_cluster) + first_data_sector;
+    uint32_t first_data_sector = data->bpb.reserved_sectors + (data->bpb.num_fats * data->fat_size);
+    uint32_t first_sector_of_cluster = ((cluster - 2) * data->bpb.sectors_per_cluster) + first_data_sector;
     return first_sector_of_cluster;
 }
 
 uint32_t fat_compute_free_cluster() {
-    uint32_t total_clusters = (((bpb.total_sectors_16 != 0) ? bpb.total_sectors_16 : bpb.total_sectors_32) - (bpb.reserved_sectors + (bpb.num_fats * fat_size))) / bpb.sectors_per_cluster;
-    uint32_t fat_offset = last_free * 4;
-    uint32_t fat_sector = bpb.reserved_sectors + (fat_offset / bpb.bytes_per_sector);
-    uint32_t ent_offset = fat_offset % bpb.bytes_per_sector;
+    uint32_t total_clusters = (((data->bpb.total_sectors_16 != 0) ? data->bpb.total_sectors_16 : data->bpb.total_sectors_32) - (data->bpb.reserved_sectors + (data->bpb.num_fats * data->fat_size))) / data->bpb.sectors_per_cluster;
+    uint32_t fat_offset = data->last_free * 4;
+    uint32_t fat_sector = data->bpb.reserved_sectors + (fat_offset / data->bpb.bytes_per_sector);
+    uint32_t ent_offset = fat_offset % data->bpb.bytes_per_sector;
 
     // Separate search into sectors to optimize for large FATs
-    for (uint32_t s = fat_sector; s < fat_size; s++) {
+    for (uint32_t s = fat_sector; s < data->fat_size; s++) {
         uint8_t sector_buffer[512];
-        read_sectors_relative(active_disk, active_partition, bpb.reserved_sectors + s, sector_buffer, 1);
-        for (uint32_t i = 0; i < bpb.bytes_per_sector / 4; i++) {
+        read_sectors(data->backing, data->bpb.reserved_sectors + s, sector_buffer, 1);
+        for (uint32_t i = 0; i < data->bpb.bytes_per_sector / 4; i++) {
             uint32_t entry = ((uint32_t*)sector_buffer)[i];
             if ((entry & 0x0FFFFFFF) == CLUSTER_FREE) {
-                uint32_t free_cluster = (s * (bpb.bytes_per_sector / 4)) + i;
+                uint32_t free_cluster = (s * (data->bpb.bytes_per_sector / 4)) + i;
                 if (free_cluster >= 2 && free_cluster < total_clusters + 2) {
-                    last_free = free_cluster;
+                    data->last_free = free_cluster;
                     return free_cluster;
                 }
             }
@@ -273,14 +258,14 @@ fat_dirent_ref_t fat_get_dirent_ref(const char *path) {
     // Find the dirent_ref for the given path
     fat_dirent_ref_t dirent_ref;
     dirent_ref.dirent.attributes = DIRENT_DIRECTORY; // Start assuming root is a directory
-    dirent_ref.dirent.first_cluster_low = bpb.root_cluster & 0xFFFF;
-    dirent_ref.dirent.first_cluster_high = (bpb.root_cluster >> 16) & 0xFFFF;
+    dirent_ref.dirent.first_cluster_low = data->bpb.root_cluster & 0xFFFF;
+    dirent_ref.dirent.first_cluster_high = (data->bpb.root_cluster >> 16) & 0xFFFF;
     char npath[512];
     normalize_fat_path(path, npath);
     path = npath; // Replace path with normalized for the rest of the function
     // Start from the root directory
     dirent_ref.found = 1;
-    dirent_ref.cluster = bpb.root_cluster;
+    dirent_ref.cluster = data->bpb.root_cluster;
     char* path_ptr = (char*)path;
     while (*path_ptr) {
         // Check if previous component is a directory
@@ -293,9 +278,9 @@ fat_dirent_ref_t fat_get_dirent_ref(const char *path) {
         }
         // Read the directory entries in the current cluster
         uint32_t cluster = dirent_ref.cluster;
-        uint32_t bytes_per_cluster = bpb.sectors_per_cluster * bpb.bytes_per_sector;
+        uint32_t bytes_per_cluster = data->bpb.sectors_per_cluster * data->bpb.bytes_per_sector;
         uint8_t cluster_buffer[bytes_per_cluster];
-        read_sectors_relative(active_disk, active_partition, get_first_cluster_sector(cluster), cluster_buffer, bpb.sectors_per_cluster);
+        read_sectors(data->backing, get_first_cluster_sector(cluster), cluster_buffer, data->bpb.sectors_per_cluster);
 
         // Search for the next component in the path
         char component[12]; // 8.3 format
@@ -316,7 +301,7 @@ fat_dirent_ref_t fat_get_dirent_ref(const char *path) {
                 cluster = next_cluster(cluster);
                 if (cluster >= CLUSTER_CHAIN_END) break; // End of cluster chain
 
-                read_sectors_relative(active_disk, active_partition, get_first_cluster_sector(cluster), cluster_buffer, bpb.sectors_per_cluster);
+                read_sectors(data->backing, get_first_cluster_sector(cluster), cluster_buffer, data->bpb.sectors_per_cluster);
                 offset = 0;
             }
             fat_dirent_t* dirent = (fat_dirent_t*)&cluster_buffer[offset];
@@ -359,7 +344,7 @@ int fat_readdir(const char *path, int index, dirent_t* out) {
     path = npath; // Replace path with normalized for the rest of the function
 
     // Start from the root directory
-    uint32_t cluster = bpb.root_cluster;
+    uint32_t cluster = data->bpb.root_cluster;
     char* path_ptr = (char*)path;
 
     // Traverse to the target directory
@@ -371,9 +356,9 @@ int fat_readdir(const char *path, int index, dirent_t* out) {
     cluster = dirent_ref.cluster;
     uint64_t current_index = 0;
     while (cluster < CLUSTER_CHAIN_END) {
-        uint32_t bytes_per_cluster = bpb.sectors_per_cluster * bpb.bytes_per_sector;
+        uint32_t bytes_per_cluster = data->bpb.sectors_per_cluster * data->bpb.bytes_per_sector;
         uint8_t cluster_buffer[bytes_per_cluster];
-        read_sectors_relative(active_disk, active_partition, get_first_cluster_sector(cluster), cluster_buffer, bpb.sectors_per_cluster);
+        read_sectors(data->backing, get_first_cluster_sector(cluster), cluster_buffer, data->bpb.sectors_per_cluster);
 
         // Iterate through directory entries
         uint32_t offset = 0;
@@ -413,7 +398,7 @@ int fat_read(const char *path, uint8_t *buffer, size_t offset, size_t size) {
     if (offset >= file_size) return 0; // Offset beyond file size
     if (offset + size > file_size) size = file_size - offset; // Adjust size to read
 
-    uint32_t cluster_size = bpb.sectors_per_cluster * bpb.bytes_per_sector;
+    uint32_t cluster_size = data->bpb.sectors_per_cluster * data->bpb.bytes_per_sector;
     uint32_t current_cluster = file_cluster;
     uint32_t cluster_offset = 0;
     size_t bytes_read = 0;
@@ -428,9 +413,9 @@ int fat_read(const char *path, uint8_t *buffer, size_t offset, size_t size) {
 
     // Read data
     while (bytes_read < size) {
-        uint32_t first_sector = ((current_cluster - 2) * bpb.sectors_per_cluster) + bpb.reserved_sectors + (bpb.num_fats * fat_size);
+        uint32_t first_sector = ((current_cluster - 2) * data->bpb.sectors_per_cluster) + data->bpb.reserved_sectors + (data->bpb.num_fats * data->fat_size);
         uint8_t cluster_buffer[cluster_size];
-        read_sectors_relative(active_disk, active_partition, first_sector, cluster_buffer, bpb.sectors_per_cluster);
+        read_sectors(data->backing, first_sector, cluster_buffer, data->bpb.sectors_per_cluster);
 
         while (cluster_offset < cluster_size && bytes_read < size) {
             buffer[bytes_read++] = cluster_buffer[cluster_offset++];
@@ -447,7 +432,7 @@ int fat_read(const char *path, uint8_t *buffer, size_t offset, size_t size) {
 }
 
 int fat_delete(const char* path) {
-    if (read_only) {
+    if (data->read_only) {
         return -EROFS; // Filesystem is read-only
     }
     // Normalize path
@@ -461,10 +446,10 @@ int fat_delete(const char* path) {
     }
     // Read the sector containing the dirent
     uint8_t sector_buffer[512];
-    read_sectors_relative(active_disk, active_partition, dirent_ref.position[0], sector_buffer, 1);
+    read_sectors(data->backing, dirent_ref.position[0], sector_buffer, 1);
     // Set first byte of name to 0xE5
     sector_buffer[dirent_ref.position[1]] = DIRENT_DELETED;
-    write_sectors_relative(active_disk, active_partition, dirent_ref.position[0], sector_buffer, 1);
+    write_sectors(data->backing, dirent_ref.position[0], sector_buffer, 1);
     // Free clusters used by the file
     uint32_t cluster = ((uint32_t)dirent_ref.dirent.first_cluster_high << 16) | dirent_ref.dirent.first_cluster_low;
     while (cluster < CLUSTER_CHAIN_END) {
@@ -477,7 +462,7 @@ int fat_delete(const char* path) {
 }
 
 int fat_add_dirent(const char *path, fat_dirent_t dirent) {
-    if (read_only) {
+    if (data->read_only) {
         return -EROFS; // Filesystem is read-only
     }
     // Add a dirent at the specified path
@@ -495,10 +480,10 @@ int fat_add_dirent(const char *path, fat_dirent_t dirent) {
     // Find end of dirents in parent directory
     uint32_t cluster = parent_dirent_ref.cluster;
     while (1) {
-        uint32_t bytes_per_cluster = bpb.sectors_per_cluster * bpb.bytes_per_sector;
+        uint32_t bytes_per_cluster = data->bpb.sectors_per_cluster * data->bpb.bytes_per_sector;
         uint8_t cluster_buffer[bytes_per_cluster];
         uint32_t first_sector = get_first_cluster_sector(cluster);
-        read_sectors_relative(active_disk, active_partition, first_sector, cluster_buffer, bpb.sectors_per_cluster);
+        read_sectors(data->backing, first_sector, cluster_buffer, data->bpb.sectors_per_cluster);
 
         // Search for free entry
         uint32_t offset = 0;
@@ -508,7 +493,7 @@ int fat_add_dirent(const char *path, fat_dirent_t dirent) {
                 // Found free entry
                 memcpy(current_dirent, &dirent, sizeof(fat_dirent_t));
                 // Write back the cluster
-                write_sectors_relative(active_disk, active_partition, first_sector, cluster_buffer, bpb.sectors_per_cluster);
+                write_sectors(data->backing, first_sector, cluster_buffer, data->bpb.sectors_per_cluster);
                 return 0; // Success
             }
             offset += sizeof(fat_dirent_t);
@@ -526,9 +511,9 @@ int fat_add_dirent(const char *path, fat_dirent_t dirent) {
             write_fat(free_cluster, CLUSTER_CHAIN_END);
             // Clear new cluster
             uint32_t new_first_sector = get_first_cluster_sector(free_cluster);
-            uint8_t zero_buffer[bpb.sectors_per_cluster * bpb.bytes_per_sector];
+            uint8_t zero_buffer[data->bpb.sectors_per_cluster * data->bpb.bytes_per_sector];
             memset(zero_buffer, 0, sizeof(zero_buffer));
-            write_sectors_relative(active_disk, active_partition, new_first_sector, zero_buffer, bpb.sectors_per_cluster);
+            write_sectors(data->backing, new_first_sector, zero_buffer, data->bpb.sectors_per_cluster);
             next = free_cluster;
         }
         cluster = next;
@@ -564,7 +549,7 @@ int fat_create_file(const char *path) {
     char npath[512];
     normalize_fat_path(path, npath);
     path = npath; // Replace path with normalized for the rest of the function
-    if (read_only) {
+    if (data->read_only) {
         return -EROFS; // Filesystem is read-only
     }
     stat_t st;
@@ -601,7 +586,7 @@ int fat_create_directory(const char *path) {
     char npath[512];
     normalize_fat_path(path, npath);
     path = npath; // Replace path with normalized for the rest of the function
-    if (read_only) {
+    if (data->read_only) {
         return -EROFS; // Filesystem is read-only
     }
     stat_t st;
@@ -630,9 +615,9 @@ int fat_create_directory(const char *path) {
     write_fat(free_cluster, CLUSTER_CHAIN_END);
     // Clear new cluster
     uint32_t new_first_sector = get_first_cluster_sector(free_cluster);
-    uint8_t zero_buffer[bpb.sectors_per_cluster * bpb.bytes_per_sector];
+    uint8_t zero_buffer[data->bpb.sectors_per_cluster * data->bpb.bytes_per_sector];
     memset(zero_buffer, 0, sizeof(zero_buffer));
-    write_sectors_relative(active_disk, active_partition, new_first_sector, zero_buffer, bpb.sectors_per_cluster);
+    write_sectors(data->backing, new_first_sector, zero_buffer, data->bpb.sectors_per_cluster);
     dirent.first_cluster_low  = free_cluster & 0xFFFF;
     dirent.first_cluster_high = free_cluster >> 16;
 
@@ -670,7 +655,7 @@ int fat_create_directory(const char *path) {
     entries[1].creation_time = fat_time;
     entries[2].name[0] = DIRENT_END; // End entry
     uint32_t first_sector = get_first_cluster_sector(free_cluster);
-    res = write_sectors_relative(active_disk, active_partition, first_sector, sector_buffer, 1);
+    res = write_sectors(data->backing, first_sector, sector_buffer, 1);
     if (res < 0) {
         return res; // Failed to add '.' or '..' entries
     }
@@ -678,7 +663,7 @@ int fat_create_directory(const char *path) {
 }
 
 int fat_write_to_file(const char *path, const uint8_t *buffer, size_t offset, size_t size) {
-    if (read_only) {
+    if (data->read_only) {
         return -EROFS; // Filesystem is read-only
     }
     fat_dirent_ref_t dirent_ref = fat_get_dirent_ref(path);
@@ -687,7 +672,7 @@ int fat_write_to_file(const char *path, const uint8_t *buffer, size_t offset, si
     }
     uint32_t file_size = dirent_ref.dirent.file_size;
 
-    uint32_t cluster_size = bpb.sectors_per_cluster * bpb.bytes_per_sector;
+    uint32_t cluster_size = data->bpb.sectors_per_cluster * data->bpb.bytes_per_sector;
     uint32_t current_cluster = dirent_ref.cluster;
     uint32_t cluster_offset = 0;
     size_t bytes_written = 0;
@@ -733,7 +718,7 @@ int fat_write_to_file(const char *path, const uint8_t *buffer, size_t offset, si
         }
         uint32_t first_sector = get_first_cluster_sector(current_cluster);
         uint8_t cluster_buffer[cluster_size];
-        int res = read_sectors_relative(active_disk, active_partition, first_sector, cluster_buffer, bpb.sectors_per_cluster);
+        int res = read_sectors(data->backing, first_sector, cluster_buffer, data->bpb.sectors_per_cluster);
         if (res < 0) {
             return res; // Failed to read cluster
         }
@@ -743,7 +728,7 @@ int fat_write_to_file(const char *path, const uint8_t *buffer, size_t offset, si
         }
 
         // Write back the modified cluster
-        write_sectors_relative(active_disk, active_partition, first_sector, cluster_buffer, bpb.sectors_per_cluster);
+        write_sectors(data->backing, first_sector, cluster_buffer, data->bpb.sectors_per_cluster);
 
         if (bytes_written < size) {
             current_cluster = next_cluster(current_cluster);
@@ -763,14 +748,14 @@ int fat_write_to_file(const char *path, const uint8_t *buffer, size_t offset, si
     dirent_ref.dirent.last_modification_time = fat_time;
     // Write back updated dirent
     uint8_t sector_buffer[512];
-    read_sectors_relative(active_disk, active_partition, dirent_ref.position[0], sector_buffer, 1);
+    read_sectors(data->backing, dirent_ref.position[0], sector_buffer, 1);
     memcpy(&sector_buffer[dirent_ref.position[1]], &dirent_ref.dirent, sizeof(fat_dirent_t));
-    write_sectors_relative(active_disk, active_partition, dirent_ref.position[0], sector_buffer, 1);
+    write_sectors(data->backing, dirent_ref.position[0], sector_buffer, 1);
     return bytes_written;
 }
 
 int fat_rename(const char *old_path, const char *new_path) {
-    if (read_only) {
+    if (data->read_only) {
         return -EROFS; // Filesystem is read-only
     }
 
@@ -808,10 +793,10 @@ int fat_rename(const char *old_path, const char *new_path) {
     // Delete old dirent
     // Read the sector containing the dirent
     uint8_t sector_buffer[512];
-    read_sectors_relative(active_disk, active_partition, old_dirent_ref.position[0], sector_buffer, 1);
+    read_sectors(data->backing, old_dirent_ref.position[0], sector_buffer, 1);
     // Set first byte of name to 0xE5
     sector_buffer[old_dirent_ref.position[1]] = DIRENT_DELETED;
-    write_sectors_relative(active_disk, active_partition, old_dirent_ref.position[0], sector_buffer, 1);
+    write_sectors(data->backing, old_dirent_ref.position[0], sector_buffer, 1);
     return 0;
 }
 
@@ -861,9 +846,9 @@ void fat_register() {
     filesystem_t fat_fs;
     memset(&fat_fs, 0, sizeof(filesystem_t));
     memcpy(fat_fs.name, "FAT", 4);
-    fat_fs.check = is_fat_partition;
-    fat_fs.select = fat_init;
-    fat_fs.set_read_only = fat_set_read_only;
+    fat_fs.check = fat_check;
+    fat_fs.select = fat_select;
+    fat_fs.mount = fat_mount;
     fat_fs.read = fat_read;
     fat_fs.write = fat_write_to_file;
     fat_fs.readdir = fat_readdir;
@@ -873,6 +858,7 @@ void fat_register() {
     fat_fs.rename = fat_rename;
     fat_fs.stat = fat_stat;
     fat_fs.case_sensitive = 0;
+    fat_fs.requires_backing = 1;
 
     register_filesystem(fat_fs);
 }

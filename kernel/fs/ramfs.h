@@ -18,6 +18,11 @@ typedef struct ramfs_dirent {
     struct ramfs_dirent* child;
 } ramfs_dirent_t;
 
+typedef struct {
+    ramfs_dirent_t root;
+    int read_only;
+} ramfs_mount_t;
+
 #define RAMFS_BLOCK_SIZE (4096 - sizeof(uintptr_t))
 
 int ramfs_readdir(const char* path, int index, dirent_t* out);

@@ -69,7 +69,7 @@ void select_drive(uint16_t bus_port, uint16_t disk) {
     }
 }
 
-int ata_read_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t count) {
+int ata_read_sectors(int drive, uint64_t lba, uint8_t *buffer, uint64_t count) {
     // Select the drive
     if (devices[drive].exists == 0) return -ENODEV;
 
@@ -192,7 +192,7 @@ int ata_read_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t coun
     return 0;
 }
 
-int ata_write_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t count) {
+int ata_write_sectors(int drive, uint64_t lba, const uint8_t *buffer, uint64_t count) {
     // Select the drive
     if (devices[drive].exists == 0) return -ENODEV;
 
@@ -318,7 +318,7 @@ int ata_write_sectors(uint8_t drive, uint64_t lba, uint8_t *buffer, uint16_t cou
     return 0;
 }
 
-int ata_get_smart_data(uint8_t drive, uint8_t* buffer) {
+int ata_get_smart_data(int drive, uint8_t* buffer) {
     if (devices[drive].exists == 0) return -ENODEV;
 
     // Check if the drive is an ATAPI device
@@ -327,7 +327,7 @@ int ata_get_smart_data(uint8_t drive, uint8_t* buffer) {
     }
 
     uint16_t bus_port = (drive / 2 == 0 ? PRIMARY_BUS : SECONDARY_BUS);
-    uint8_t drive_select = (drive % 2) << 4;
+    int drive_select = (drive % 2) << 4;
 
     select_drive(bus_port, drive_select);
 
@@ -359,17 +359,18 @@ int ata_supports_lba48(int drive) {
     return (devices[drive].identify[83] & 0x0400) == 0; // Check bit 10 of word 83 in IDENTIFY data
 }
 
-int64_t ata_get_drive_size(uint8_t drive) {
+int64_t ata_get_drive_size(int drive) {
     if (devices[drive].exists == 0) return -ENODEV;
 
     // Check if the drive is an ATAPI device
     if (devices[drive].type == 1) {
         uint64_t capacity;
-        int res = atapi_get_disk_size(drive, &capacity, NULL);
+        uint64_t block_size;
+        int res = atapi_get_disk_size(drive, &capacity, &block_size);
         if (res < 0) {
             return res; // Error getting disk size
         }
-        return capacity;
+        return capacity * block_size;
     }
 
     int64_t size = 0;
@@ -378,10 +379,25 @@ int64_t ata_get_drive_size(uint8_t drive) {
     } else {
         size = ((uint32_t)devices[drive].identify[61] << 16) | (uint32_t)(devices[drive].identify[60]);
     }
+    size *= 512;
     return size;
 }
 
-void ata_standby(uint8_t drive) {
+int64_t ata_get_sector_size(int drive) {
+    if (devices[drive].exists == 0) return -ENODEV;
+    if (devices[drive].type == 1) {
+        uint64_t capacity;
+        uint64_t block_size;
+        int res = atapi_get_disk_size(drive, &capacity, &block_size);
+        if (res < 0) {
+            return res; // Error getting disk size
+        }
+        return block_size;
+    }
+    return 512;
+}
+
+void ata_standby(int drive) {
     if (devices[drive].exists == 0) return;
 
     // Check if the drive is an ATAPI device
@@ -397,7 +413,7 @@ void ata_standby(uint8_t drive) {
     outb(bus_port + 0x07, 0xE2);
 }
 
-int ata_load_eject(uint8_t drive, uint8_t load) {
+int ata_load_eject(int drive, uint8_t load) {
     if (devices[drive].exists == 0) return -ENODEV;
 
     // Check if the drive is an ATAPI device
@@ -412,12 +428,10 @@ int ata_load_eject(uint8_t drive, uint8_t load) {
 void ata_register() {
     // Register ATA driver with the block subsystem
     block_driver_t ata_driver = {
-        .read = ata_read_sectors,
-        .write = ata_write_sectors,
-        .get_size = ata_get_drive_size,
-        .get_smart_data = ata_get_smart_data,
-        .standby = ata_standby,
-        .load_eject = ata_load_eject,
+        .read_sectors = ata_read_sectors,
+        .write_sectors = ata_write_sectors,
+        .get_blockdev_size = ata_get_drive_size,
+        .get_sector_size = ata_get_sector_size,
     };
 
     int driver_idx = register_block_driver(&ata_driver);
@@ -433,15 +447,16 @@ void ata_register() {
     for (int i = 0; i < 4; i++) {
         if (devices[i].exists) {
             block_device_t device = {
-                .driver_index = driver_idx, // ATA driver index
-                .disk_index = i             // Disk index
+                .major_number = driver_idx, // ATA driver index
+                .minor_number = i,          // Disk index
+                .is_partition = 0,
             };
             register_block_device(&device);
         }
     }
 }
 
-int is_atapi_device(uint8_t drive) {
+int is_atapi_device(int drive) {
     if (devices[drive].exists == 0) return -ENODEV;
     return devices[drive].type == 1; // Check if the device is an ATAPI device
 }
