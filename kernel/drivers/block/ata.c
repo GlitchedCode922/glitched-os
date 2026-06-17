@@ -79,7 +79,7 @@ int ata_read_sectors(int drive, uint64_t lba, uint8_t *buffer, uint64_t count) {
     }
 
     // Check if sectors to read exceed the disk capacity
-    uint64_t disk_size = ata_get_drive_size(drive);
+    uint64_t disk_size = ata_get_drive_size(drive) / ata_get_sector_size(drive);
     if (lba + count > disk_size) return -EINVAL;
 
     // Verify that count != 0
@@ -202,7 +202,7 @@ int ata_write_sectors(int drive, uint64_t lba, const uint8_t *buffer, uint64_t c
     }
 
     // Check if sectors to write exceed the disk capacity
-    uint64_t disk_size = ata_get_drive_size(drive);
+    uint64_t disk_size = ata_get_drive_size(drive) / ata_get_sector_size(drive);
     if (lba + count > disk_size) return -EINVAL;
 
     // Verify that count != 0
