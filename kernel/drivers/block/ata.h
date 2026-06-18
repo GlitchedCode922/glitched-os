@@ -20,6 +20,7 @@ int ata_read_sectors(int drive, uint64_t lba, uint8_t *buffer, uint64_t count);
 int ata_write_sectors(int drive, uint64_t lba, const uint8_t *buffer, uint64_t count);
 int ata_get_smart_data(int drive, uint8_t *buffer);
 int64_t ata_get_drive_size(int drive);
+int64_t ata_get_sector_size(int drive);
 void ata_standby(int drive);
 int ata_load_eject(int drive, uint8_t load);
 int ata_supports_lba48(int drive);
