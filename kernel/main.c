@@ -147,12 +147,12 @@ void kernel_main() {
     idt_init();
     scheduler_init();
     syscall_init();
+    register_intree_filesystems();
     framebuffer = framebuffer_request.response->framebuffers[0];
     initialize_console();
     serial_init();
     partition_init();
     ata_register();
-    register_intree_filesystems();
     free_region(0x0, 0x100000000);
     register_rtl8139_driver();
     enumerate_pci();

@@ -6,10 +6,13 @@
 #define FLAG_READ_ONLY 0x01
 #define MAX_PATH 2048
 
+typedef uint64_t dev_t;
+
 enum {
     DT_UNKNOWN = 0,
     DT_FILE = 1,
     DT_DIR = 2,
+    DT_BLOCK = 3,
 };
 
 typedef struct {
@@ -23,6 +26,7 @@ typedef struct {
     uint64_t mtime;
     uint64_t btime;
     uint32_t type;
+    dev_t rdev;
 } __attribute__((packed)) stat_t;
 
 typedef struct {
@@ -42,6 +46,7 @@ typedef struct {
     int (*create_file)(const char *path); // Create a new file
     int (*create_directory)(const char *path); // Create a new directory
     int (*stat)(const char *path, stat_t *out);
+    int (*mknod)(const char* path, uint32_t type, dev_t dev);
 } filesystem_t;
 
 typedef struct mountpoint {
@@ -69,3 +74,7 @@ int rename_file(const char *old_path, const char *new_path);
 void register_intree_filesystems();
 void getcwd(char* buffer, size_t len);
 int chdir(char* path);
+int mknod(const char* path, uint32_t type, dev_t dev);
+dev_t makedev(uint32_t major, uint32_t minor);
+uint32_t major(dev_t device);
+uint32_t minor(dev_t device);

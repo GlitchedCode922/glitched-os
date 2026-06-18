@@ -1,6 +1,7 @@
 #include "ramfs.h"
 #include "../memory/mman.h"
 #include "../error.h"
+#include <stdint.h>
 
 static ramfs_mount_t* mount;
 
@@ -68,6 +69,13 @@ int ramfs_read(const char *path, uint8_t *buffer, size_t offset, size_t size) {
     int res = ramfs_get_dirent(path, &dirent);
     if (res < 0) return res;
     if (dirent->type == DT_DIR) return -EISDIR;
+    if (dirent->type == DT_BLOCK) {
+        block_device_t dev = {
+            .major_number = major(dirent->device),
+            .minor_number = minor(dirent->device),
+        };
+        return block_read(dev, offset, buffer, size);
+    }
     ramfs_data_t* current = dirent->first_block;
     if (offset >= dirent->file_size) return 0;
     if (offset + size > dirent->file_size) size = dirent->file_size - offset;
@@ -138,6 +146,39 @@ static int ramfs_add_dirent(const char* path, ramfs_dirent_t* dirent) {
     return 0;
 }
 
+int ramfs_mknod(const char *path, uint32_t type, dev_t dev) {
+    if (mount->read_only) return -EROFS;
+    if (type != DT_BLOCK) return -EINVAL;
+    size_t len = strlen(path);
+    while (len > 0 && path[len - 1] == '/') {
+        len--;
+    }
+    size_t slash = len;
+    while (slash > 0 && path[slash - 1] != '/') {
+        slash--;
+    }
+    char dirname[256];
+    char filename[256];
+    if (slash == 0) {
+        dirname[0] = '\0';
+    } else {
+        size_t dlen = slash - 1;
+        memcpy(dirname, path, dlen);
+        dirname[dlen] = '\0';
+    }
+    size_t flen = len - slash;
+    memcpy(filename, path + slash, flen);
+    filename[flen] = '\0';
+
+    ramfs_dirent_t* dirent = kmalloc(sizeof(ramfs_dirent_t));
+    memcpy(dirent->name, filename, 255);
+    dirent->name[255] = 0;
+    dirent->type = type;
+    dirent->device = dev;
+
+    return ramfs_add_dirent(dirname, dirent);
+}
+
 int ramfs_create_file(const char *path) {
     if (mount->read_only) return -EROFS;
     size_t len = strlen(path);
@@ -206,6 +247,13 @@ int ramfs_write(const char *path, const uint8_t *buffer, size_t offset, size_t s
     int res = ramfs_get_dirent(path, &dirent);
     if (res < 0) return res;
     if (dirent->type == DT_DIR) return -EISDIR;
+    if (dirent->type == DT_BLOCK) {
+        block_device_t dev = {
+            .major_number = major(dirent->device),
+            .minor_number = minor(dirent->device),
+        };
+        return block_write(dev, offset, buffer, size);
+    }
     if (!dirent->first_block) {
         dirent->first_block = kmalloc(sizeof(ramfs_data_t));
         dirent->first_block->next = NULL;
@@ -285,6 +333,7 @@ int ramfs_stat(const char *path, stat_t *out) {
     memset(out, 0, sizeof(stat_t));
     out->type = dirent->type;
     out->size = dirent->file_size;
+    out->rdev = dirent->device;
     // Timestamps will be added with RTC
     return 0;
 }
@@ -318,6 +367,7 @@ void ramfs_register() {
     ramfs.readdir = ramfs_readdir;
     ramfs.read = ramfs_read;
     ramfs.remove = ramfs_delete;
+    ramfs.mknod = ramfs_mknod;
     ramfs.create_file = ramfs_create_file;
     ramfs.create_directory = ramfs_create_directory;
     ramfs.write = ramfs_write;

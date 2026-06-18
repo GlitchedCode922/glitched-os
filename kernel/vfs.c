@@ -1,10 +1,11 @@
 #include "vfs.h"
 #include "drivers/block.h"
+#include "fs/fat.h"
 #include "fs/ramfs.h"
+#include "fs/devfs.h"
 #include "memory/mman.h"
 #include "usermode/scheduler.h"
 #include "error.h"
-#include "fs/fat.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -455,9 +456,24 @@ int stat(const char *path, stat_t *out) {
     return fs->stat(remaining_path, out);
 }
 
+int mknod(const char *path, uint32_t type, dev_t dev) {
+    char remaining_path[MAX_PATH];
+    mountpoint_t* mount = find_mountpoint(path, remaining_path);
+    if (!mount) {
+        return -ENOENT; // Mount point not found
+    }
+    filesystem_t* fs = &filesystems[mount->type];
+    fs->select(mount->fs_data);
+    if (!fs->mknod) {
+        return -ENOSYS; // mknod() not supported by this filesystem
+    }
+    return fs->mknod(remaining_path, type, dev);
+}
+
 void register_intree_filesystems() {
     fat_register();
     ramfs_register();
+    devfs_register();
 }
 
 void getcwd(char* buffer, size_t len) {
@@ -480,4 +496,16 @@ int chdir(char* path) {
     }
     strncpy(current_task->wd, resolved_path, MAX_PATH - 1);
     return 0; // Success
+}
+
+dev_t makedev(uint32_t major, uint32_t minor) {
+    return (uint64_t)major << 32 | minor;
+}
+
+uint32_t major(dev_t device) {
+    return (uint32_t)(device >> 32);
+}
+
+uint32_t minor(dev_t device) {
+    return (uint32_t)(device & 0xffffffff);
 }

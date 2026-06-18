@@ -8,6 +8,49 @@ partition_t partitions[256] = {0};
 int partition_count = 0;
 int partition_driver_index = 0;
 
+static size_t strlen(const char *s) {
+    size_t len = 0;
+    while (s[len] != '\0') {
+        len++;
+    }
+    return len;
+}
+
+static char* strncpy(char *dest, const char *src, size_t n) {
+    char* orig_dest = dest;
+    int s = 0;
+    while (s < n && src[s] != 0) {
+        dest[s] = src[s];
+        s++;
+    }
+    if (s < n) dest[s] = '\0';
+    return dest;
+}
+
+static int digits_u64(uint64_t v) {
+    int d = 1;
+    while (v >= 10) {
+        v /= 10;
+        d++;
+    }
+    return d;
+}
+
+static void itoa(uint64_t value, char* buffer) {
+    int len = digits_u64(value);
+    buffer[len] = '\0';
+
+    if (value == 0) {
+        buffer[0] = '0';
+        return;
+    }
+
+    while (len--) {
+        buffer[len] = '0' + (value % 10);
+        value /= 10;
+    }
+}
+
 int has_mbr(block_device_t device) {
     uint8_t buffer[1024];
     int res = read_sectors(device, 0, buffer, 2);
@@ -40,6 +83,12 @@ int mbr_detect_partitions(block_device_t device) {
         output_device.is_partition = 1;
         output_device.major_number = partition_driver_index;
         output_device.minor_number = partition_count - 1;
+        output_device.name = kmalloc(256);
+        strncpy(output_device.name, device.name, 244);
+        if (output_device.name[strlen(output_device.name)] >= '0' &&
+        output_device.name[strlen(output_device.name)] <= '9')
+        output_device.name[strlen(output_device.name)] = 'p';
+        itoa(i + 1, &output_device.name[strlen(output_device.name)]);
         register_block_device(&output_device);
     }
     return found;
@@ -106,6 +155,12 @@ int gpt_detect_partitions(block_device_t device) {
             output_device.is_partition = 1;
             output_device.major_number = partition_driver_index;
             output_device.minor_number = partition_count - 1;
+            output_device.name = kmalloc(256);
+            strncpy(output_device.name, device.name, 244);
+            if (output_device.name[strlen(output_device.name)] >= '0' &&
+            output_device.name[strlen(output_device.name)] <= '9')
+            output_device.name[strlen(output_device.name)] = 'p';
+            itoa(found + 1, &output_device.name[strlen(output_device.name)]);
             register_block_device(&output_device);
             found++;
         }
