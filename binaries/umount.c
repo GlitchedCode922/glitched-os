@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
-#include <syscall.h>
+#include <unistd.h>
 #include <string.h>
 
 int main(int argc, char *argv[]) {
@@ -9,18 +9,18 @@ int main(int argc, char *argv[]) {
         printf("       %s all\n", argv[0]);
         return 1;
     }
-    
+
     const char *mountpoint = argv[1];
 
     if (strcmp(mountpoint, "all") == 0) {
-        int result = syscall(SYSCALL_UNMOUNT_ALL, 0, 0, 0, 0, 0, 0);
+        int result = umount_all();
         if (result < 0) {
             perror("umount failed");
             return 1;
         }
         return 0;
     }
-    int result = syscall(SYSCALL_UNMOUNT, (uint64_t)mountpoint, 0, 0, 0, 0, 0);
+    int result = umount(mountpoint);
     if (result < 0) {
         perror("umount failed");
         return 1;

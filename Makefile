@@ -117,7 +117,7 @@ build/disk.img: build/kernel $(BINARY_TARGETS) limine.conf
 	mformat -i build/disk.img.incomplete@@8388608 -F ::
 
 	mmd -i build/disk.img.incomplete@@4194304 ::/EFI ::/EFI/BOOT
-	mmd -i build/disk.img.incomplete@@8388608 ::/boot ::/boot/limine ::/bin
+	mmd -i build/disk.img.incomplete@@8388608 ::/boot ::/boot/limine ::/bin ::/dev
 
 	mcopy -i build/disk.img.incomplete@@4194304 thirdparty/limine/BOOTX64.EFI ::/EFI/BOOT/BOOTX64.EFI
 

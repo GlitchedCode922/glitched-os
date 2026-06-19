@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
-#include <syscall.h>
+#include <unistd.h>
 
 int atoi(const char *str) {
     int result = 0;
@@ -37,7 +37,7 @@ int main(int argc, char *argv[]) {
         flags = atoi(argv[4]);
     }
 
-    int result = syscall(SYSCALL_MOUNT, (uint64_t)source, (uint64_t)target, (uint64_t)filesystem_type, flags, 0, 0);
+    int result = mount(source, target, filesystem_type, flags);
     if (result < 0) {
         perror("Mount failed");
         return 1;
