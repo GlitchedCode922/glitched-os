@@ -19,3 +19,4 @@
 #define ESPIPE 29
 #define ENOTTY 25
 #define EBUSY 16
+#define ENOTBLK 15

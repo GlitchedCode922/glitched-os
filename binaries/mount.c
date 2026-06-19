@@ -24,21 +24,20 @@ int atoi(const char *str) {
 }
 
 int main(int argc, char *argv[]) {
-    if (argc < 5) {
-        printf("Usage: %s <disk> <partition> <mountpoint> <filesystem_type> [flags]\n", argv[0]);
+    if (argc < 4) {
+        printf("Usage: %s <source> <target> <filesystem_type> [flags]\n", argv[0]);
         return 1;
     }
 
-    int disk = atoi(argv[1]);
-    int partition = atoi(argv[2]);
-    const char *mountpoint = argv[3];
-    const char *filesystem_type = argv[4];
+    const char* source = argv[1];
+    const char* target = argv[2];
+    const char* filesystem_type = argv[3];
     int flags = 0;
-    if (argc >= 6) {
-        flags = atoi(argv[5]);
+    if (argc >= 5) {
+        flags = atoi(argv[4]);
     }
 
-    int result = syscall(SYSCALL_MOUNT, (uint64_t)mountpoint, (uint64_t)filesystem_type, disk, partition, flags, 0);
+    int result = syscall(SYSCALL_MOUNT, (uint64_t)source, (uint64_t)target, (uint64_t)filesystem_type, flags, 0, 0);
     if (result < 0) {
         perror("Mount failed");
         return 1;

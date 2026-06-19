@@ -62,10 +62,9 @@ extern volatile struct limine_framebuffer* framebuffer;
 volatile struct limine_framebuffer* framebuffer;
 
 void parse_kernel_cmdline() {
-    uint8_t root_disk = 0;
-    uint8_t root_partition = 0;
     uint8_t root_readonly = 0;
-    char init_binary_path[64] = "/bin/init";
+    char rootfs_device[256] = "";
+    char init_binary_path[MAX_PATH] = "/bin/init";
     if (cmdline_request.response && cmdline_request.response->cmdline) {
         char* cmdline = cmdline_request.response->cmdline;
         while (*cmdline) {
@@ -87,35 +86,13 @@ void parse_kernel_cmdline() {
 
             if (cmdline[0] == 'r' && cmdline[1] == 'o' && cmdline[2] == 'o' && cmdline[3] == 't' && cmdline[4] == '=') {
                 cmdline += 5;
-
-                while (*cmdline == ' ') cmdline++;
-
-                if (*cmdline != '(') {
-                    panic("Invalid root= parameter format, expected root=(disk,partition)");
+                int i = 0;
+                while (*cmdline != ' ' && *cmdline != '\0' && i < sizeof(rootfs_device) - 1) {
+                    rootfs_device[i++] = *cmdline++;
                 }
-
-                cmdline++;
-
-                // Parse root=(disk,partition)
-                while ((*cmdline) >= '0' && *cmdline <= '9') {
-                    root_disk = root_disk * 10 + (*cmdline - '0');
-                    cmdline++;
-                }
-
-                while (*cmdline == ',' || *cmdline == ' ') cmdline++;
-
-                // Read the second number
-                while (*cmdline >= '0' && *cmdline <= '9') {
-                    root_partition = root_partition * 10 + (*cmdline - '0');
-                    cmdline++;
-                }
-
-                while (*cmdline == ' ') cmdline++;
-                cmdline++; // Skip the closing ')'
-
+                rootfs_device[i] = '\0';
                 continue;
             }
-
 
             if (cmdline[0] == 'i' && cmdline[1] == 'n' && cmdline[2] == 'i' && cmdline[3] == 't' && cmdline[4] == '=') {
                 cmdline += 5;
@@ -131,7 +108,9 @@ void parse_kernel_cmdline() {
             panic("Unknown kernel command line argument here: %s", cmdline);
         }
     }
-    mount_root_filesystem("FAT", root_disk, root_partition, root_readonly);
+    if (rootfs_device[0] == '\0') panic("Root filesystem not specified");
+    int res = mount_root_filesystem(rootfs_device, "FAT", 0);
+    if (res < 0) panic("Mounting rootfs failed, error code: %d", res);
     run_init(init_binary_path);
 }
 

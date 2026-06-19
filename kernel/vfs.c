@@ -219,7 +219,7 @@ static mountpoint_t* find_mountpoint(const char *path, char *remaining_path) {
     return current; // Return the best match found
 }
 
-int mount_filesystem(const char *path, const char *type, int major, int minor, int flags) {
+int mount_filesystem(const char* source, const char* target, const char* type, int flags) {
     if (filesystem_count == 0) {
         return -ENOENT; // No filesystems registered
     }
@@ -236,13 +236,21 @@ int mount_filesystem(const char *path, const char *type, int major, int minor, i
         return -EINVAL; // Filesystem type not found
     }
 
-    block_device_t dev = {.major_number = major, .minor_number = minor};
-    if (filesystems[fs_index].requires_backing && !filesystems[fs_index].check(dev)) {
-        return -EINVAL; // Filesystem check failed
+    block_device_t dev = {0};
+    if (filesystems[fs_index].requires_backing) {
+        stat_t st; 
+        int res = stat(source, &st);
+        if (res < 0) return res;
+        if (st.type != DT_BLOCK) return -ENOTBLK;
+        dev = (block_device_t){
+            .major_number = major(st.rdev),
+            .minor_number = minor(st.rdev),
+        };
+        if (filesystems[fs_index].check(dev) <= 0) return -EINVAL; // Filesystem check failed
     }
 
     char remaining_path[MAX_PATH];
-    mountpoint_t* parent = find_mountpoint(path, remaining_path);
+    mountpoint_t* parent = find_mountpoint(target, remaining_path);
     if (!parent) {
         return -ENOENT; // Parent mount point not found
     }
@@ -266,7 +274,7 @@ int mount_filesystem(const char *path, const char *type, int major, int minor, i
     return 0; // Success
 }
 
-int mount_root_filesystem(const char *type, int major, int minor, int flags) {
+int mount_root_filesystem(const char* device, const char* type, int flags) {
     if (filesystem_count == 0) {
         return -ENOENT; // No filesystems registered
     }
@@ -283,9 +291,17 @@ int mount_root_filesystem(const char *type, int major, int minor, int flags) {
         return -EINVAL; // Filesystem type not found
     }
 
-    block_device_t dev = {.major_number = major, .minor_number = minor};
-    if (filesystems[fs_index].requires_backing && !filesystems[fs_index].check(dev)) {
-        return -EINVAL; // Filesystem check failed
+    block_device_t dev = {0};
+    if (filesystems[fs_index].requires_backing) {
+        stat_t st; 
+        int res = devfs_stat(device, &st);
+        if (res < 0) return res;
+        if (st.type != DT_BLOCK) return -ENOTBLK;
+        dev = (block_device_t){
+            .major_number = major(st.rdev),
+            .minor_number = minor(st.rdev),
+        };
+        if (filesystems[fs_index].check(dev) <= 0) return -EINVAL; // Filesystem check failed
     }
 
     root = (mountpoint_t*)kmalloc(sizeof(mountpoint_t));

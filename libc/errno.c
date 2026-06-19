@@ -24,6 +24,7 @@ char* strerror(int errnum) {
         case ESPIPE: return "Illegal seek";
         case ENOTTY: return "Not a typewriter";
         case EBUSY: return "Device or resource busy";
+        case ENOTBLK: return "Not a block device";
         default: return "Unknown error";
     }
 }

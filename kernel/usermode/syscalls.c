@@ -152,7 +152,7 @@ void syscall(iframe_t* iframe) {
         ret = configure_network_interface_static(arg1, arg2, arg3, arg4);
         break;
     case SYSCALL_MOUNT:
-        ret = mount_filesystem((const char*)arg1, (const char*)arg2, arg3, arg4, arg5);
+        ret = mount_filesystem((const char*)arg1, (const char*)arg2, (const char*)arg3, arg4);
         break;
     case SYSCALL_UNMOUNT:
         ret = unmount_filesystem((const char*)arg1);
