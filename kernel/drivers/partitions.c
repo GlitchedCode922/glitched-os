@@ -70,7 +70,7 @@ int mbr_detect_partitions(block_device_t device) {
 
     int found = 0;
     for (int i = 0; i < 4; i++) {
-        mbr_partition_entry_t* part = (void*)(buffer + 446 + i * 16); 
+        mbr_partition_entry_t* part = (void*)(buffer + 446 + i * 16);
         if (part->partition_type == 0x00) continue; // Empty
         if (part->partition_type == 0x05 || part->partition_type == 0x0F) continue; // Extended partition
         found++;
@@ -85,8 +85,8 @@ int mbr_detect_partitions(block_device_t device) {
         output_device.minor_number = partition_count - 1;
         output_device.name = kmalloc(256);
         strncpy(output_device.name, device.name, 244);
-        if (output_device.name[strlen(output_device.name)] >= '0' &&
-        output_device.name[strlen(output_device.name)] <= '9')
+        if (output_device.name[strlen(output_device.name) - 1] >= '0' &&
+        output_device.name[strlen(output_device.name) - 1] <= '9')
         output_device.name[strlen(output_device.name)] = 'p';
         itoa(i + 1, &output_device.name[strlen(output_device.name)]);
         register_block_device(&output_device);
@@ -157,8 +157,8 @@ int gpt_detect_partitions(block_device_t device) {
             output_device.minor_number = partition_count - 1;
             output_device.name = kmalloc(256);
             strncpy(output_device.name, device.name, 244);
-            if (output_device.name[strlen(output_device.name)] >= '0' &&
-            output_device.name[strlen(output_device.name)] <= '9')
+            if (output_device.name[strlen(output_device.name) - 1] >= '0' &&
+            output_device.name[strlen(output_device.name) - 1] <= '9')
             output_device.name[strlen(output_device.name)] = 'p';
             itoa(found + 1, &output_device.name[strlen(output_device.name)]);
             register_block_device(&output_device);
