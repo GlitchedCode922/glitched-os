@@ -7,7 +7,8 @@
 #include <stddef.h>
 
 static ata_device_t devices[4] = {0};
-static char* device_names[4] = {"sda", "sdb", "sdc", "sdd"};
+static char* ata_dev_names[4] = {"sda", "sdb", "sdc", "sdd"};
+static char* atapi_dev_names[4] = {"sr0", "sr1", "sr2", "sr3"};
 
 void scan_for_devices() {
     devices[0] = detect_device(PRIMARY_BUS, 0xA0);
@@ -445,12 +446,21 @@ void ata_register() {
     // Scan for ATA devices
     scan_for_devices();
 
+    int ata_devices = 0;
+    int atapi_devices = 0;
+
     for (int i = 0; i < 4; i++) {
         if (devices[i].exists) {
+            char* name;
+            if (devices[i].type == 1) {
+                name = atapi_dev_names[atapi_devices++];
+            } else if (devices[i].type == 0) {
+                name = ata_dev_names[ata_devices++];
+            }
             block_device_t device = {
                 .major_number = driver_idx, // ATA driver index
                 .minor_number = i,          // Disk index
-                .name = device_names[i],
+                .name = name,
                 .is_partition = 0,
             };
             register_block_device(&device);
