@@ -218,6 +218,9 @@ void syscall(iframe_t* iframe) {
     case SYSCALL_RENAME_FILE:
         ret = rename_file((const char*)arg1, (const char*)arg2);
         break;
+    case SYSCALL_MKNOD:
+        ret = mknod((const char*)arg1, arg2, arg3);
+        break;
     default:
         // Invalid syscall, return an error code
         ret = -ENOSYS;

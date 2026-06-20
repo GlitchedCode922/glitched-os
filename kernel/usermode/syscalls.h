@@ -57,6 +57,7 @@
 #define SYSCALL_TCSETATTR 58
 #define SYSCALL_DRIVE_LOAD_EJECT 59
 #define SYSCALL_SETFONT 60
+#define SYSCALL_MKNOD 61
 
 void syscall_init();
 void syscall(iframe_t* iframe);
