@@ -294,35 +294,7 @@ void puts(const char *str) {
 void kprintf(const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
-    while (*fmt) {
-        if (*fmt == '%') {
-            fmt++;
-            if (*fmt == 's') {
-                const char *s = va_arg(args, const char *);
-                puts(s);
-            } else if (*fmt == 'c') {
-                char c = (char)va_arg(args, int);
-                putchar(c);
-            } else if (*fmt == 'd') {
-                int64_t i = va_arg(args, int64_t);
-                kprintf_dec_signed(i);
-            } else if (*fmt == 'u') {
-                uint64_t i = va_arg(args, uint64_t);
-                kprintf_dec(i);
-            } else if (*fmt == 'x') {
-                uint64_t x = va_arg(args, uint64_t);
-                kprintf_hex(x);
-            } else if (*fmt == 'p') {
-                void *p = va_arg(args, void *);
-                kprintf_hex((uint64_t)p);
-            } else if (*fmt == '%') {
-                putchar('%');
-            }
-        } else {
-            putchar(*fmt);
-        }
-        fmt++;
-    }
+    kvprintf(fmt, args);
     va_end(args);
 }
 
@@ -340,6 +312,9 @@ void kvprintf(const char *fmt, va_list args){
                 uint64_t i = va_arg(args, uint64_t);
                 kprintf_dec(i);
             } else if (*fmt == 'd') {
+                int64_t i = va_arg(args, int);
+                kprintf_dec_signed(i);
+            } else if (*fmt == 'l') {
                 int64_t i = va_arg(args, int64_t);
                 kprintf_dec_signed(i);
             } else if (*fmt == 'x') {

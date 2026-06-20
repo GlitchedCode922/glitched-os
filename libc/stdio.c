@@ -160,6 +160,9 @@ void vprintf(const char *fmt, va_list args){
                 uint64_t i = va_arg(args, uint64_t);
                 printf_dec(i);
             } else if (*fmt == 'd') {
+                int i = va_arg(args, int);
+                printf_dec_signed(i);
+            } else if (*fmt == 'l') {
                 int64_t i = va_arg(args, int64_t);
                 printf_dec_signed(i);
             } else if (*fmt == 'x') {
