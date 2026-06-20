@@ -5,6 +5,7 @@
 #include "memory/paging.h"
 #include "drivers/block/ata.h"
 #include "drivers/partitions.h"
+#include "drivers/nulldev.h"
 #include "vfs.h"
 #include "gdt.h"
 #include "idt.h"
@@ -134,6 +135,7 @@ void kernel_main() {
     ata_register();
     free_region(0x0, 0x100000000);
     register_rtl8139_driver();
+    register_null_devices();
     enumerate_pci();
     init_fpu();
 
