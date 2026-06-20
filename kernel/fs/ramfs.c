@@ -1,5 +1,7 @@
 #include "ramfs.h"
 #include "../memory/mman.h"
+#include "../drivers/block.h"
+#include "../drivers/chrdev.h"
 #include "../error.h"
 #include <stdint.h>
 
@@ -76,6 +78,13 @@ int ramfs_read(const char *path, uint8_t *buffer, size_t offset, size_t size) {
         };
         return block_read(dev, offset, buffer, size);
     }
+    if (dirent->type == DT_CHAR) {
+        char_device_t dev = {
+            .major_number = major(dirent->device),
+            .minor_number = minor(dirent->device),
+        };
+        return char_read(dev, offset, buffer, size);
+    }
     ramfs_data_t* current = dirent->first_block;
     if (offset >= dirent->file_size) return 0;
     if (offset + size > dirent->file_size) size = dirent->file_size - offset;
@@ -148,7 +157,7 @@ static int ramfs_add_dirent(const char* path, ramfs_dirent_t* dirent) {
 
 int ramfs_mknod(const char *path, uint32_t type, dev_t dev) {
     if (mount->read_only) return -EROFS;
-    if (type != DT_BLOCK) return -EINVAL;
+    if (type != DT_BLOCK && type != DT_CHAR) return -EINVAL;
     size_t len = strlen(path);
     while (len > 0 && path[len - 1] == '/') {
         len--;
@@ -253,6 +262,13 @@ int ramfs_write(const char *path, const uint8_t *buffer, size_t offset, size_t s
             .minor_number = minor(dirent->device),
         };
         return block_write(dev, offset, buffer, size);
+    }
+    if (dirent->type == DT_CHAR) {
+        char_device_t dev = {
+            .major_number = major(dirent->device),
+            .minor_number = minor(dirent->device),
+        };
+        return char_write(dev, offset, buffer, size);
     }
     if (!dirent->first_block) {
         dirent->first_block = kmalloc(sizeof(ramfs_data_t));

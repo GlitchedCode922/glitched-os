@@ -7,7 +7,6 @@
 
 block_driver_t block_drivers[128] = {0};
 int block_driver_count = 0;
-int block_device_count = 0;
 
 int read_sectors(block_device_t device, uint64_t lba, uint8_t *buffer, uint64_t count) {
     if (device.major_number == 0 || !block_drivers[device.major_number].present) return -ENOSYS;
