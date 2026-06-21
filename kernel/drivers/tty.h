@@ -14,6 +14,8 @@
 #define ECHOE 0x4
 #define ECHOCTL 0x8
 
+#define MAX_TTYS 256
+
 typedef struct termios {
     uint64_t c_iflag;
     uint64_t c_oflag;
@@ -22,17 +24,19 @@ typedef struct termios {
 
 typedef struct tty {
     termios_t termios;
-    int port;
-    size_t (*echo)(struct tty* tty, const char* buffer, size_t len);
-    size_t (*write)(struct tty* tty, const char* buffer, size_t len);
+    void* data;
+    int (*echo)(void* data, const uint8_t* buffer, uint64_t len);
+    int (*write)(void* data, const uint8_t* buffer, uint64_t len);
     char read_buffer[4096];
     int read_head;
     int write_head;
     char line_buffer[1024];
     int line_index;
+    char* name;
 } tty_t;
 
-void tty_char_recv(tty_t* tty, char c);
-size_t tty_read(tty_t* tty, char* buffer, size_t len, int block);
-size_t tty_read_poll(tty_t* tty, char* buffer, size_t len, int block);
-size_t tty_write(tty_t* tty, const char* buffer, size_t len);
+void tty_char_recv(int tty_id, char c);
+int tty_read(int tty_id, uint64_t offset, uint8_t* buffer, uint64_t len);
+int tty_write(int tty_id, uint64_t offset, const uint8_t* buffer, uint64_t len);
+void tty_init();
+int register_tty(tty_t* tty);

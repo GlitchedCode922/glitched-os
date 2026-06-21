@@ -3,7 +3,7 @@
 
 int main() {
     mount(NULL, "/dev", "devfs", 0);
-    int console_fd = open_console(0);
+    int console_fd = open_file("/dev/tty1", 0);
     dup2(console_fd, STDIN_FILENO);
     dup2(console_fd, STDOUT_FILENO);
     dup2(console_fd, STDERR_FILENO);

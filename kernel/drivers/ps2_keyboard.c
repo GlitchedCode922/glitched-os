@@ -6,8 +6,6 @@
 #define KEY_RELEASE 0x80
 #define EXTENDED_KEY 0xE0
 
-tty_t keyboard_tty = {.echo = console_echo, .write = console_write, .termios = {.c_lflag = ICANON | ECHO | ECHOE}};
-
 char scancode_map[128] = {
     0,27,'1','2','3','4','5','6','7','8','9','0','-','=','\x7f','\t',
     'q','w','e','r','t','y','u','i','o','p','[',']','\n',0,
@@ -52,27 +50,27 @@ void ps2_interrupt_handler_internal(uint8_t scancode) {
 
     /* Arrow keys */
     if (extended && scancode == 0x48) {
-        tty_char_recv(&keyboard_tty, '\033');
-        tty_char_recv(&keyboard_tty, '[');
-        tty_char_recv(&keyboard_tty, 'A');
+        tty_char_recv(console_tty_id, '\033');
+        tty_char_recv(console_tty_id, '[');
+        tty_char_recv(console_tty_id, 'A');
         return;
     }
     if (extended && scancode == 0x50) {
-        tty_char_recv(&keyboard_tty, '\033');
-        tty_char_recv(&keyboard_tty, '[');
-        tty_char_recv(&keyboard_tty, 'B');
+        tty_char_recv(console_tty_id, '\033');
+        tty_char_recv(console_tty_id, '[');
+        tty_char_recv(console_tty_id, 'B');
         return;
     }
     if (extended && scancode == 0x4B) {
-        tty_char_recv(&keyboard_tty, '\033');
-        tty_char_recv(&keyboard_tty, '[');
-        tty_char_recv(&keyboard_tty, 'D');
+        tty_char_recv(console_tty_id, '\033');
+        tty_char_recv(console_tty_id, '[');
+        tty_char_recv(console_tty_id, 'D');
         return;
     }
     if (extended && scancode == 0x4D) {
-        tty_char_recv(&keyboard_tty, '\033');
-        tty_char_recv(&keyboard_tty, '[');
-        tty_char_recv(&keyboard_tty, 'C');
+        tty_char_recv(console_tty_id, '\033');
+        tty_char_recv(console_tty_id, '[');
+        tty_char_recv(console_tty_id, 'C');
         return;
     }
 
@@ -85,7 +83,7 @@ void ps2_interrupt_handler_internal(uint8_t scancode) {
         else key &= 0x1F;
     }
 
-    tty_char_recv(&keyboard_tty, key);
+    tty_char_recv(console_tty_id, key);
 }
 
 void ps2_interrupt_handler(uint8_t scancode) {

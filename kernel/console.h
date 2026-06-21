@@ -2,13 +2,15 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdarg.h>
-#include "limine.h"
 #include "drivers/tty.h"
 
 #define COLOR(r, g, b) ((uint8_t[]){(r), (g), (b)})
 
 extern uint32_t width;
 extern uint32_t height;
+
+extern tty_t console_tty;
+extern int console_tty_id;
 
 typedef struct {
     enum {
@@ -51,5 +53,5 @@ void setfg_color(uint8_t color[3]);
 void set_cursor_position(uint16_t x, uint16_t y);
 void get_cursor_position(uint16_t *x, uint16_t *y);
 void scroll();
-size_t console_echo(tty_t* tty, const char* buffer, size_t len);
-size_t console_write(tty_t* tty, const char* buffer, size_t len);
+int console_echo(void* data, const uint8_t* buffer, uint64_t len);
+int console_write(void* data, const uint8_t* buffer, uint64_t len);

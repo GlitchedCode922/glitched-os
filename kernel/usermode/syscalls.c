@@ -1,7 +1,6 @@
 #include "syscalls.h"
 #include "fd.h"
 #include "break.h"
-#include "../drivers/block.h"
 #include "../drivers/block/ata.h"
 #include "../vfs.h"
 #include "../drivers/timer.h"
@@ -164,9 +163,6 @@ void syscall(iframe_t* iframe) {
     case SYSCALL_OPEN_FILE:
         ret = open_file((const char*)arg1, (uint16_t)arg2);
         break;
-    case SYSCALL_OPEN_CONSOLE:
-        ret = open_console((uint16_t)arg1);
-        break;
     case SYSCALL_OPEN_FRAMEBUFFER:
         ret = open_framebuffer((uint16_t)arg1);
         break;
@@ -188,9 +184,6 @@ void syscall(iframe_t* iframe) {
     case SYSCALL_DUP2:
         ret = dup2((int)arg1, (int)arg2);
         break;
-    case SYSCALL_OPEN_SERIAL:
-        ret = open_serial(arg1, arg2);
-        break;
     case SYSCALL_YIELD:
         run_next(iframe);
         break;
@@ -199,15 +192,6 @@ void syscall(iframe_t* iframe) {
         break;
     case SYSCALL_SPAWN:
         ret = spawn((char*)arg1, (char**)arg2, iframe);
-        break;
-    case SYSCALL_ISATTY:
-        ret = isatty(arg1);
-        break;
-    case SYSCALL_TCGETATTR:
-        ret = tcgetattr(arg1, (termios_t*)arg2);
-        break;
-    case SYSCALL_TCSETATTR:
-        ret = tcsetattr(arg1, (termios_t*)arg2);
         break;
     case SYSCALL_DRIVE_LOAD_EJECT:
         ret = ata_load_eject(arg1, arg2);

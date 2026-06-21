@@ -129,6 +129,7 @@ void kernel_main() {
     syscall_init();
     register_intree_filesystems();
     framebuffer = framebuffer_request.response->framebuffers[0];
+    tty_init();
     initialize_console();
     serial_init();
     partition_init();

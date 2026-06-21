@@ -12,6 +12,8 @@ const uint8_t interrupt_numbers[] = {4, 3, 4, 3};
 uint8_t enabled[] = {0, 0, 0, 0};
 
 tty_t serial_ttys[4] = {{0}};
+int serial_tty_ids[4] = {0};
+char* serial_tty_names[4] = {"ttyS0", "ttyS1", "ttyS2", "ttyS3"};
 
 void serial_init() {
     for (int i = 0; i < 4; i++) {
@@ -47,18 +49,15 @@ void serial_init() {
 next:
         continue;
     }
-    serial_ttys[0].port = 1;
-    serial_ttys[1].port = 2;
-    serial_ttys[2].port = 3;
-    serial_ttys[3].port = 4;
-    serial_ttys[0].echo = serial_write;
-    serial_ttys[1].echo = serial_write;
-    serial_ttys[2].echo = serial_write;
-    serial_ttys[3].echo = serial_write;
-    serial_ttys[0].write = serial_write;
-    serial_ttys[1].write = serial_write;
-    serial_ttys[2].write = serial_write;
-    serial_ttys[3].write = serial_write;
+    for (int i = 0; i < 4; i++) {
+        serial_ttys[i].data = (void*)(uintptr_t)(i + 1);
+        serial_ttys[i].echo = serial_write;
+        serial_ttys[i].write = serial_write;
+        serial_ttys[i].name = serial_tty_names[i];
+        if (enabled[i]) {
+            serial_tty_ids[i] = register_tty(serial_ttys + i);
+        }
+    }
 }
 
 void serial_interrupt_handler(uint8_t irq) {
@@ -67,7 +66,7 @@ void serial_interrupt_handler(uint8_t irq) {
             uint16_t port = serial_ports[i];
             while (inb(port + 5) & 1) { // While data is available
                 uint8_t byte = inb(port);
-                tty_char_recv(serial_ttys + i, byte);
+                tty_char_recv(serial_tty_ids[i], byte);
             }
             break;
         }
@@ -91,9 +90,9 @@ int serial_putc(int port, uint8_t data) {
     return 1;
 }
 
-size_t serial_write(tty_t* tty, const char *buffer, size_t size) {
+int serial_write(void* data, const uint8_t* buffer, uint64_t size) {
     for (size_t i = 0; i < size; i++) {
-        if (serial_putc(tty->port, buffer[i]) < 0) {
+        if (serial_putc((int)(int64_t)data, buffer[i]) < 0) {
             return i;
         }
     }

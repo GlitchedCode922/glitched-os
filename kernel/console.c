@@ -1,7 +1,9 @@
 #include "console.h"
 #include "drivers/ps2_keyboard.h"
+#include "drivers/tty.h"
 #include "memory/mman.h"
 #include "default_font.h"
+#include "limine.h"
 #include <stdint.h>
 #include <stdarg.h>
 #include <stddef.h>
@@ -49,6 +51,9 @@ uint8_t ansi_palette[16][3] = {
     {0x55, 0xFF, 0xFF}, // bright cyan
     {0xFF, 0xFF, 0xFF}  // white
 };
+
+tty_t console_tty = {.echo = console_echo, .write = console_write, .termios = {.c_lflag = ICANON | ECHO | ECHOE}, .name = "tty1"};
+int console_tty_id;
 
 void scroll() {
     if (!framebuffer) return;
@@ -136,6 +141,8 @@ void initialize_console() {
 
     clear_screen();
     set_cursor_position(0, 0);
+
+    console_tty_id = register_tty(&console_tty);
 }
 
 void setfont(font_t* font) {
@@ -401,14 +408,14 @@ void get_cursor_position(uint16_t *x, uint16_t *y) {
     if (y) *y = cursor_y;
 }
 
-size_t console_echo(tty_t *tty, const char *buffer, size_t len) {
+int console_echo(void *data, const uint8_t *buffer, uint64_t len) {
     for (int i = 0; i < len; i++) {
         putchar(buffer[i]);
     }
     return len;
 }
 
-size_t console_write(tty_t* tty, const char* buffer, size_t len) {
+int console_write(void* data, const uint8_t* buffer, uint64_t len) {
     for (int i = 0; i < len; i++) {
         if (ansi_parser.state == TEXT) {
             if (buffer[i] == '\033') {
