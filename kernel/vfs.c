@@ -486,6 +486,20 @@ int mknod(const char *path, uint32_t type, dev_t dev) {
     return fs->mknod(remaining_path, type, dev);
 }
 
+int ioctl(const char* path, uint64_t request, uint64_t arg) {
+    char remaining_path[MAX_PATH];
+    mountpoint_t* mount = find_mountpoint(path, remaining_path);
+    if (!mount) {
+        return -ENOENT; // Mount point not found
+    }
+    filesystem_t* fs = &filesystems[mount->type];
+    fs->select(mount->fs_data);
+    if (!fs->ioctl) {
+        return -ENOTTY; // ioctl() not supported by this filesystem
+    }
+    return fs->ioctl(remaining_path, request, arg);
+}
+
 void register_intree_filesystems() {
     fat_register();
     ramfs_register();

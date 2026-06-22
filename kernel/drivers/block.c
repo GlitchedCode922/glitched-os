@@ -9,26 +9,33 @@ block_driver_t block_drivers[128] = {0};
 int block_driver_count = 0;
 
 int read_sectors(block_device_t device, uint64_t lba, uint8_t *buffer, uint64_t count) {
-    if (device.major_number == 0 || !block_drivers[device.major_number].present) return -ENOSYS;
+    if (device.major_number == 0 || !block_drivers[device.major_number].present) return -ENODEV;
     return block_drivers[device.major_number].read_sectors(device.minor_number, lba, buffer, count);
 }
 
 int write_sectors(block_device_t device, uint64_t lba, const uint8_t *buffer, uint64_t count) {
-    if (device.major_number == 0 || !block_drivers[device.major_number].present) return -ENOSYS;
+    if (device.major_number == 0 || !block_drivers[device.major_number].present) return -ENODEV;
     return block_drivers[device.major_number].write_sectors(device.minor_number, lba, buffer, count);
 }
 
 int64_t get_device_size(block_device_t device) {
-    if (device.major_number == 0 || !block_drivers[device.major_number].present) return -ENOSYS;
+    if (device.major_number == 0 || !block_drivers[device.major_number].present) return -ENODEV;
     return block_drivers[device.major_number].get_blockdev_size(device.minor_number);
 }
 
 int64_t get_sector_size(block_device_t device) {
-    if (device.major_number == 0 || !block_drivers[device.major_number].present) return -ENOSYS;
+    if (device.major_number == 0 || !block_drivers[device.major_number].present) return -ENODEV;
     return block_drivers[device.major_number].get_sector_size(device.minor_number);
 }
 
+int block_ioctl(block_device_t device, uint64_t request, uint64_t arg) {
+    if (device.major_number == 0 || !block_drivers[device.major_number].present) return -ENODEV;
+    if (!block_drivers[device.major_number].ioctl) return -ENOTTY;
+    return block_drivers[device.major_number].ioctl(device.minor_number, request, arg);
+}
+
 int block_read(block_device_t dev, uint64_t offset, uint8_t *buffer, size_t size) {
+    if (dev.major_number == 0 || !block_drivers[dev.major_number].present) return -ENODEV;
     uint64_t sector_size = get_sector_size(dev);
 
     uint64_t start_sector = offset / sector_size;
@@ -59,6 +66,7 @@ int block_read(block_device_t dev, uint64_t offset, uint8_t *buffer, size_t size
 }
 
 int block_write(block_device_t dev, uint64_t offset, const uint8_t *buffer, size_t size) {
+    if (dev.major_number == 0 || !block_drivers[dev.major_number].present) return -ENODEV;
     uint64_t sector_size = get_sector_size(dev);
 
     uint64_t start_sector = offset / sector_size;

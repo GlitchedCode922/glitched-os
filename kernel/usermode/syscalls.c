@@ -193,8 +193,8 @@ void syscall(iframe_t* iframe) {
     case SYSCALL_SPAWN:
         ret = spawn((char*)arg1, (char**)arg2, iframe);
         break;
-    case SYSCALL_DRIVE_LOAD_EJECT:
-        ret = ata_load_eject(arg1, arg2);
+    case SYSCALL_IOCTL:
+        ret = ioctl((char*)arg1, arg2, arg3);
         break;
     case SYSCALL_SETFONT:
         setfont((font_t*)arg1);

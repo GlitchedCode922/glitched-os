@@ -3,6 +3,7 @@
 #include "../../io/ports.h"
 #include "../block.h"
 #include "../../error.h"
+#include "../../ioctl_list.h"
 #include <stdint.h>
 #include <stddef.h>
 
@@ -399,12 +400,12 @@ int64_t ata_get_sector_size(int drive) {
     return 512;
 }
 
-void ata_standby(int drive) {
-    if (devices[drive].exists == 0) return;
+int ata_standby(int drive) {
+    if (devices[drive].exists == 0) return -ENODEV;
 
     // Check if the drive is an ATAPI device
     if (devices[drive].type == 1) {
-        return;
+        return -ENOTTY;
     }
 
     uint16_t bus_port = (drive / 2 == 0 ? PRIMARY_BUS : SECONDARY_BUS);
@@ -413,6 +414,7 @@ void ata_standby(int drive) {
     while (inb(bus_port + 7) & 0x80);
 
     outb(bus_port + 0x07, 0xE2);
+    return 0;
 }
 
 int ata_load_eject(int drive, uint8_t load) {
@@ -424,7 +426,22 @@ int ata_load_eject(int drive, uint8_t load) {
         return 0;
     }
 
-    return -ENOSYS; // Cannot eject a hard disk
+    return -ENOTTY; // Cannot eject a hard disk
+}
+
+int ata_ioctl(int drive, uint64_t request, uint64_t arg) {
+    switch (request) {
+        case HDIO_GET_SMART:
+            return ata_get_smart_data(drive, (void*)arg);
+        case HDIO_STANDBY:
+            return ata_standby(drive);
+        case CDROM_LOAD:
+            return ata_load_eject(drive, 1);
+        case CDROM_EJECT:
+            return ata_load_eject(drive, 0);
+        default:
+            return -ENOTTY;
+    }
 }
 
 void ata_register() {
@@ -434,6 +451,7 @@ void ata_register() {
         .write_sectors = ata_write_sectors,
         .get_blockdev_size = ata_get_drive_size,
         .get_sector_size = ata_get_sector_size,
+        .ioctl = ata_ioctl,
     };
 
     int driver_idx = register_block_driver(&ata_driver);

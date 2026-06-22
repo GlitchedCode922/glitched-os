@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include "../error.h"
 #include "chrdev.h"
+#include "../ioctl_list.h"
 
 tty_t* ttys[MAX_TTYS];
 int tty_count = 0;
@@ -99,10 +100,30 @@ int tty_write(int tty_id, uint64_t offset, const uint8_t* buffer, uint64_t len) 
     }
 }
 
+int tty_ioctl(int tty_id, uint64_t request, uint64_t arg) {
+    if (tty_id < 0) return -EINVAL;
+    if (tty_id >= tty_count) return -EINVAL;
+    tty_t* tty = ttys[tty_id];
+    void* data_ptr = (void*)arg;
+    switch (request) {
+        case TCGETS:
+            if (!data_ptr) return -EINVAL;
+            *(termios_t*)data_ptr = tty->termios;
+            return 0;
+        case TCSETS:
+            if (!data_ptr) return -EINVAL;
+            tty->termios = *(termios_t*)data_ptr;
+            return 0;
+        default:
+            return -ENOTTY;
+    }
+}
+
 void tty_init() {
     char_driver_t tty_driver = {
         .read = tty_read,
         .write = tty_write,
+        .ioctl = tty_ioctl,
     };
     tty_driver_index = register_char_driver(&tty_driver);
     if (tty_driver_index < 0) tty_driver_index = 0;

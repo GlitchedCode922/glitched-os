@@ -38,5 +38,6 @@ typedef struct tty {
 void tty_char_recv(int tty_id, char c);
 int tty_read(int tty_id, uint64_t offset, uint8_t* buffer, uint64_t len);
 int tty_write(int tty_id, uint64_t offset, const uint8_t* buffer, uint64_t len);
+int tty_ioctl(int tty_id, uint64_t request, uint64_t arg);
 void tty_init();
 int register_tty(tty_t* tty);
