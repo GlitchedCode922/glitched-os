@@ -160,6 +160,18 @@ int write(int fd, const void *buffer, size_t size) {
     return -ENOSYS;
 }
 
+int fd_ioctl(int fd, uint64_t request, uint64_t arg) {
+    if (fd < 0 || fd >= MAX_FDS || current_task->fd_ptr_table[fd] == NULL) {
+        return -EBADF;
+    }
+    fd_entry_t* fd_entry = current_task->fd_ptr_table[fd];
+    if (fd_entry->type == FD_TYPE_FILE) {
+        return ioctl(fd_entry->path, request, arg);
+    } else {
+        return -ENOTTY;
+    }
+}
+
 int dup(int fd) {
     if (fd < 0 || fd >= MAX_FDS || current_task->fd_ptr_table[fd] == NULL) {
         return -EBADF;

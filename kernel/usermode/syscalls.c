@@ -1,7 +1,6 @@
 #include "syscalls.h"
 #include "fd.h"
 #include "break.h"
-#include "../drivers/block/ata.h"
 #include "../vfs.h"
 #include "../drivers/timer.h"
 #include "../console.h"
@@ -194,7 +193,7 @@ void syscall(iframe_t* iframe) {
         ret = spawn((char*)arg1, (char**)arg2, iframe);
         break;
     case SYSCALL_IOCTL:
-        ret = ioctl((char*)arg1, arg2, arg3);
+        ret = fd_ioctl(arg1, arg2, arg3);
         break;
     case SYSCALL_SETFONT:
         setfont((font_t*)arg1);
