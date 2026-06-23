@@ -125,10 +125,14 @@ int read(int fd, void *buffer, size_t size) {
     }
     fd_entry_t* fd_entry = current_task->fd_ptr_table[fd];
     if (fd_entry->type == FD_TYPE_FILE) {
-        int bytes_read = -EAGAIN;
-        do {
+        int bytes_read;
+        while (1) {
             bytes_read = read_file(fd_entry->path, buffer, fd_entry->offset, size);
-        } while (!(fd_entry->flags & FLAG_NONBLOCKING) && bytes_read == -EAGAIN);
+            if (fd_entry->flags & FLAG_NONBLOCKING || bytes_read != -EAGAIN) {
+                break;
+            }
+            yield_current();
+        }
         if (bytes_read > 0) fd_entry->offset += bytes_read;
         return bytes_read;
     } else if (fd_entry->type == FD_TYPE_FRAMEBUFFER) {
