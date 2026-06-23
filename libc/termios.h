@@ -18,6 +18,5 @@ typedef struct termios {
 #define ECHO 0x2
 #define ECHOE 0x3
 
-int isatty(int fd);
 int tcgetattr(int fd, struct termios* p_termios);
 int tcsetattr(int fd, struct termios* p_termios);
