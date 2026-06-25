@@ -20,17 +20,8 @@ int write(int path, const void* buffer, size_t size) {
     return res;
 }
 
-int open_file(const char* path, uint16_t flags) {
-    int res = syscall(SYSCALL_OPEN_FILE, (uint64_t)path, (uint64_t)flags, 0, 0, 0, 0);
-    if (res < 0) {
-        errno = -res;
-        return -1;
-    }
-    return res;
-}
-
-int open_framebuffer(uint16_t flags) {
-    int res = syscall(SYSCALL_OPEN_FRAMEBUFFER, (uint64_t)flags, 0, 0, 0, 0, 0);
+int open(const char* path, uint16_t flags) {
+    int res = syscall(SYSCALL_OPEN, (uint64_t)path, (uint64_t)flags, 0, 0, 0, 0);
     if (res < 0) {
         errno = -res;
         return -1;

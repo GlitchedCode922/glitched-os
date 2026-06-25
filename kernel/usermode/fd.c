@@ -16,7 +16,7 @@ static int strlen(const char* str) {
     return len;
 }
 
-int open_file(const char *path, uint16_t flags) {
+int open(const char *path, uint16_t flags) {
     stat_t st;
     int res = stat(path, &st);
     if (res < 0) {
@@ -29,36 +29,10 @@ int open_file(const char *path, uint16_t flags) {
     }
     int fd_index = -1;
     for (int i = 0; i < MAX_FDS; i++) {
-        if (current_task->fd_table[i].type == 0) {
-            current_task->fd_table[i].type = FD_TYPE_FILE;
+        if (current_task->fd_table[i].refcount == 0) {
             void* p = kmalloc(strlen(path) + 1);
             memcpy(p, path, strlen(path) + 1);
             current_task->fd_table[i].path = p;
-            current_task->fd_table[i].offset = 0;
-            current_task->fd_table[i].flags = flags;
-            current_task->fd_table[i].refcount = 1;
-            fd_index = i;
-            break;
-        }
-    }
-    if (fd_index == -1) {
-        return -EMFILE;
-    }
-    for (int i = 0; i < MAX_FDS; i++) {
-        if (current_task->fd_ptr_table[i] == NULL) {
-            current_task->fd_ptr_table[i] = current_task->fd_table + fd_index;
-            return i;
-        }
-    }
-    return -EMFILE;
-}
-
-int open_framebuffer(uint16_t flags) {
-    int fd_index = -1;
-    for (int i = 0; i < MAX_FDS; i++) {
-        if (current_task->fd_table[i].type == 0) {
-            current_task->fd_table[i].type = FD_TYPE_FRAMEBUFFER;
-            current_task->fd_table[i].path = NULL;
             current_task->fd_table[i].offset = 0;
             current_task->fd_table[i].flags = flags;
             current_task->fd_table[i].refcount = 1;
@@ -84,7 +58,6 @@ int close(int fd) {
     }
     fd_entry_t* fd_entry = current_task->fd_ptr_table[fd];
     if (--fd_entry->refcount == 0) {
-        fd_entry->type = 0;
         kfree(fd_entry->path);
         fd_entry->path = NULL;
         fd_entry->offset = 0;
@@ -98,9 +71,6 @@ int seek(int fd, int64_t offset, int type) {
         return -EBADF;
     }
     fd_entry_t* fd_entry = current_task->fd_ptr_table[fd];
-    if (fd_entry->type != FD_TYPE_FILE) {
-        return -ESPIPE;
-    }
     if (type == SEEK_START) {
         fd_entry->offset = offset;
     } else if (type == SEEK_CURRENT) {
@@ -124,25 +94,16 @@ int read(int fd, void *buffer, size_t size) {
         return -EBADF;
     }
     fd_entry_t* fd_entry = current_task->fd_ptr_table[fd];
-    if (fd_entry->type == FD_TYPE_FILE) {
-        int bytes_read;
-        while (1) {
-            bytes_read = read_file(fd_entry->path, buffer, fd_entry->offset, size);
-            if (fd_entry->flags & FLAG_NONBLOCKING || bytes_read != -EAGAIN) {
-                break;
-            }
-            yield_current();
+    int bytes_read;
+    while (1) {
+        bytes_read = read_file(fd_entry->path, buffer, fd_entry->offset, size);
+        if (fd_entry->flags & FLAG_NONBLOCKING || bytes_read != -EAGAIN) {
+            break;
         }
-        if (bytes_read > 0) fd_entry->offset += bytes_read;
-        return bytes_read;
-    } else if (fd_entry->type == FD_TYPE_FRAMEBUFFER) {
-        uint8_t* read_ptr = framebuffer->address + fd_entry->offset;
-        size_t to_copy = size < (framebuffer->pitch * framebuffer->height - fd_entry->offset) ? size : (framebuffer->pitch * framebuffer->height - fd_entry->offset);
-        memcpy(buffer, read_ptr, to_copy);
-        fd_entry->offset += to_copy;
-        return to_copy;
+        yield_current();
     }
-    return -ENOSYS;
+    if (bytes_read > 0) fd_entry->offset += bytes_read;
+    return bytes_read;
 }
 
 int write(int fd, const void *buffer, size_t size) {
@@ -150,18 +111,9 @@ int write(int fd, const void *buffer, size_t size) {
         return -EBADF;
     }
     fd_entry_t* fd_entry = current_task->fd_ptr_table[fd];
-    if (fd_entry->type == FD_TYPE_FILE) {
-        int bytes_written = write_file(fd_entry->path, buffer, fd_entry->offset, size);
-        if (bytes_written > 0) fd_entry->offset += bytes_written;
-        return bytes_written;
-    } else if (fd_entry->type == FD_TYPE_FRAMEBUFFER) {
-        uint8_t* write_ptr = framebuffer->address + fd_entry->offset;
-        size_t to_copy = size < (framebuffer->pitch * framebuffer->height - fd_entry->offset) ? size : (framebuffer->pitch * framebuffer->height - fd_entry->offset);
-        memcpy(write_ptr, buffer, to_copy);
-        fd_entry->offset += to_copy;
-        return to_copy;
-    }
-    return -ENOSYS;
+    int bytes_written = write_file(fd_entry->path, buffer, fd_entry->offset, size);
+    if (bytes_written > 0) fd_entry->offset += bytes_written;
+    return bytes_written;
 }
 
 int fd_ioctl(int fd, uint64_t request, uint64_t arg) {
@@ -169,11 +121,7 @@ int fd_ioctl(int fd, uint64_t request, uint64_t arg) {
         return -EBADF;
     }
     fd_entry_t* fd_entry = current_task->fd_ptr_table[fd];
-    if (fd_entry->type == FD_TYPE_FILE) {
-        return ioctl(fd_entry->path, request, arg);
-    } else {
-        return -ENOTTY;
-    }
+    return ioctl(fd_entry->path, request, arg);
 }
 
 int dup(int fd) {

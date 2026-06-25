@@ -8,12 +8,12 @@ int main(int argc, char** argv) {
         return 2;
     }
 
-    int fd_read = open_file(argv[1], 0);
+    int fd_read = open(argv[1], 0);
     if (fd_read < 0) {
         perror(argv[1]);
         return 1;
     }
-    int fd_write = open_file(argv[2], FLAG_CREATE);
+    int fd_write = open(argv[2], FLAG_CREATE);
     if (fd_write < 0) {
         perror(argv[2]);
         return 1;

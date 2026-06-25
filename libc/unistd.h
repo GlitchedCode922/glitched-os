@@ -10,13 +10,11 @@
 #define STDERR_FILENO 2
 
 #define FLAG_CREATE 0x01
-
 #define FLAG_NONBLOCKING 0x02
 
 int read(int fd, void* buffer, size_t size);
 int write(int fd, const void* buffer, size_t size);
-int open_file(const char* path, uint16_t flags);
-int open_framebuffer(uint16_t flags);
+int open(const char* path, uint16_t flags);
 int close(int fd);
 int seek(int fd, int64_t offset, int type);
 int dup(int fd);

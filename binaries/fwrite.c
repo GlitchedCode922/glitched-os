@@ -8,7 +8,7 @@ int main(int argc, char** argv) {
         return 2;
     }
 
-    int file_fd = open_file(argv[1], FLAG_CREATE);
+    int file_fd = open(argv[1], FLAG_CREATE);
     if (file_fd < 0) {
         perror(argv[1]);
         return 1;

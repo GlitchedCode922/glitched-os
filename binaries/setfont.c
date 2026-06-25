@@ -36,7 +36,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    int font_file = open_file(argv[1], 0);
+    int font_file = open(argv[1], 0);
     if (!font_file) {
         printf("Error: Could not open font file '%s'\n", argv[1]);
         return 1;

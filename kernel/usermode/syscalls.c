@@ -159,11 +159,8 @@ void syscall(iframe_t* iframe) {
         unmount_all_filesystems();
         ret = 0;
         break;
-    case SYSCALL_OPEN_FILE:
-        ret = open_file((const char*)arg1, (uint16_t)arg2);
-        break;
-    case SYSCALL_OPEN_FRAMEBUFFER:
-        ret = open_framebuffer((uint16_t)arg1);
+    case SYSCALL_OPEN:
+        ret = open((const char*)arg1, (uint16_t)arg2);
         break;
     case SYSCALL_CLOSE:
         ret = close((int)arg1);
