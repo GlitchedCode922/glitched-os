@@ -7,5 +7,6 @@
 #define HDIO_STANDBY 4
 #define CDROM_LOAD 5
 #define CDROM_EJECT 6
+#define FB_GET_INFO 7
 
 int ioctl(int fd, uint64_t request, ...);

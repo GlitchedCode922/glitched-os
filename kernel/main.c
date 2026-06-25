@@ -1,3 +1,4 @@
+#include "drivers/fbdev.h"
 #include "limine.h"
 #include "console.h"
 #include "panic.h"
@@ -129,6 +130,7 @@ void kernel_main() {
     syscall_init();
     register_intree_filesystems();
     framebuffer = framebuffer_request.response->framebuffers[0];
+    fbdev_init(&framebuffer_request);
     tty_init();
     initialize_console();
     serial_init();
