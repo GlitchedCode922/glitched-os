@@ -238,7 +238,7 @@ int mount_filesystem(const char* source, const char* target, const char* type, i
 
     block_device_t dev = {0};
     if (filesystems[fs_index].requires_backing) {
-        stat_t st; 
+        stat_t st;
         int res = stat(source, &st);
         if (res < 0) return res;
         if (st.type != DT_BLOCK) return -ENOTBLK;
@@ -293,7 +293,7 @@ int mount_root_filesystem(const char* device, const char* type, int flags) {
 
     block_device_t dev = {0};
     if (filesystems[fs_index].requires_backing) {
-        stat_t st; 
+        stat_t st;
         int res = devfs_stat(device, &st);
         if (res < 0) return res;
         if (st.type != DT_BLOCK) return -ENOTBLK;
@@ -368,7 +368,24 @@ int readdir(const char *path, int index, dirent_t* out) {
     if (!fs->readdir) {
         return -ENOSYS; // List operation not supported by this filesystem
     }
-    return fs->readdir(remaining_path, index, out);
+    stat_t st;
+    if (!fs->stat || fs->stat(remaining_path, &st) < 0) {
+        return -ENOENT; // No directory
+    } else if (st.type != DT_DIR) {
+        return -ENOTDIR;
+    }
+
+    if (index == 0) {
+        memcpy(out->name, ".", 2);
+        out->type = DT_DIR;
+        return 0;
+    } else if (index == 1) {
+        memcpy(out->name, "..", 3);
+        out->type = DT_DIR;
+        return 0;
+    } else {
+        return fs->readdir(remaining_path, index - 2, out);
+    }
 }
 
 int read_file(const char *path, uint8_t *buffer, size_t offset, size_t size) {

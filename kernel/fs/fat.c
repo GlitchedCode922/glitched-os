@@ -370,6 +370,12 @@ int fat_readdir(const char *path, int index, dirent_t* out) {
                 continue; // Deleted or volume label entry
             }
 
+            if (memcmp(dirent->name, ".          ", 11) == 0 ||
+                memcmp(dirent->name, "..         ", 11) == 0) {
+                offset += sizeof(fat_dirent_t);
+                continue; // Skip . and ..
+            }
+
             if (current_index == index) {
                 // Found the requested element
                 char name[13];
