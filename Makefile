@@ -134,3 +134,6 @@ build/disk.img: build/kernel $(BINARY_TARGETS) limine.conf
 
 clean:
 	rm -rf build
+
+run: disk-image
+	qemu-system-x86_64 -m 4G -monitor stdio -drive file=build/disk.img,format=raw $(QEMUFLAGS)
