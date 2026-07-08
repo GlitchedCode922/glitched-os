@@ -11,6 +11,5 @@ int devfs_write(const char *path, const uint8_t *buffer, size_t offset, size_t s
 int devfs_rename(const char* old_path, const char* new_path);
 int devfs_stat(const char* path, stat_t* out);
 int devfs_mknod(const char* path, uint32_t type, dev_t dev);
-int devfs_ioctl(const char* path, uint64_t request, uint64_t arg);
 
 void devfs_register();

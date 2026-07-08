@@ -43,12 +43,11 @@ typedef struct {
     int (*read)(const char *path, uint8_t *buffer, size_t offset, size_t size); // Read from a file
     int (*write)(const char *path, const uint8_t *buffer, size_t offset, size_t size); // Write to a file
     int (*remove)(const char *path); // Delete a file or directory
-    int (*rename)(const char *old_path, const char *new_path); // Rename a file or directory 
+    int (*rename)(const char *old_path, const char *new_path); // Rename a file or directory
     int (*create_file)(const char *path); // Create a new file
     int (*create_directory)(const char *path); // Create a new directory
     int (*stat)(const char *path, stat_t *out);
     int (*mknod)(const char* path, uint32_t type, dev_t dev);
-    int (*ioctl)(const char* path, uint64_t request, uint64_t arg);
 } filesystem_t;
 
 typedef struct mountpoint {

@@ -1,5 +1,6 @@
 #include "vfs.h"
 #include "drivers/block.h"
+#include "drivers/chrdev.h"
 #include "fs/fat.h"
 #include "fs/ramfs.h"
 #include "fs/devfs.h"
@@ -504,17 +505,28 @@ int mknod(const char *path, uint32_t type, dev_t dev) {
 }
 
 int ioctl(const char* path, uint64_t request, uint64_t arg) {
-    char remaining_path[MAX_PATH];
-    mountpoint_t* mount = find_mountpoint(path, remaining_path);
-    if (!mount) {
-        return -ENOENT; // Mount point not found
+    stat_t st;
+    int res = stat(path, &st);
+    if (res < 0) return res;
+
+    switch (st.type) {
+        case DT_BLOCK: {
+            block_device_t dev = {
+                .major_number = major(st.rdev),
+                .minor_number = minor(st.rdev),
+            };
+            return block_ioctl(dev, request, arg);
+        }
+        case DT_CHAR: {
+            char_device_t dev = {
+                .major_number = major(st.rdev),
+                .minor_number = minor(st.rdev),
+            };
+            return char_ioctl(dev, request, arg);
+        }
+        default:
+            return -ENOTTY;
     }
-    filesystem_t* fs = &filesystems[mount->type];
-    fs->select(mount->fs_data);
-    if (!fs->ioctl) {
-        return -ENOTTY; // ioctl() not supported by this filesystem
-    }
-    return fs->ioctl(remaining_path, request, arg);
 }
 
 void register_intree_filesystems() {

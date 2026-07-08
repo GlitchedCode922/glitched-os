@@ -354,31 +354,6 @@ int ramfs_stat(const char *path, stat_t *out) {
     return 0;
 }
 
-int ramfs_ioctl(const char *path, uint64_t request, uint64_t arg) {
-    ramfs_dirent_t* dirent;
-    int res = ramfs_get_dirent(path, &dirent);
-    if (res < 0) return res;
-
-    switch (dirent->type) {
-        case DT_BLOCK: {
-            block_device_t dev = {
-                .major_number = major(dirent->device),
-                .minor_number = minor(dirent->device),
-            };
-            return block_ioctl(dev, request, arg);
-        }
-        case DT_CHAR: {
-            char_device_t dev = {
-                .major_number = major(dirent->device),
-                .minor_number = minor(dirent->device),
-            };
-            return char_ioctl(dev, request, arg);
-        }
-        default:
-            return -ENOTTY;
-    }
-}
-
 int ramfs_check(block_device_t block) {
     return 1;
 }
@@ -414,7 +389,6 @@ void ramfs_register() {
     ramfs.write = ramfs_write;
     ramfs.rename = ramfs_rename;
     ramfs.stat = ramfs_stat;
-    ramfs.ioctl = ramfs_ioctl;
 
     register_filesystem(ramfs);
 }

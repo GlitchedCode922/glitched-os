@@ -49,11 +49,6 @@ int devfs_mknod(const char* path, uint32_t type, dev_t dev) {
     return ramfs_mknod(path, type, dev);
 }
 
-int devfs_ioctl(const char *path, uint64_t request, uint64_t arg) {
-    ramfs_select(ramfs_instance);
-    return ramfs_ioctl(path, request, arg);
-}
-
 int devfs_check(block_device_t block) {
     return 1;
 }
@@ -86,7 +81,6 @@ void devfs_register() {
     devfs.write = devfs_write;
     devfs.rename = devfs_rename;
     devfs.stat = devfs_stat;
-    devfs.ioctl = devfs_ioctl;
 
     register_filesystem(devfs);
 }
