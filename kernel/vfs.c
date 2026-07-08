@@ -2,6 +2,7 @@
 #include "drivers/block.h"
 #include "drivers/chrdev.h"
 #include "fs/fat.h"
+#include "fs/glfs.h"
 #include "fs/ramfs.h"
 #include "fs/devfs.h"
 #include "memory/mman.h"
@@ -531,6 +532,7 @@ int ioctl(const char* path, uint64_t request, uint64_t arg) {
 
 void register_intree_filesystems() {
     fat_register();
+    glfs_register();
     ramfs_register();
     devfs_register();
 }

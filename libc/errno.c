@@ -25,6 +25,7 @@ char* strerror(int errnum) {
         case ENOTTY: return "Not a typewriter";
         case EBUSY: return "Device or resource busy";
         case ENOTBLK: return "Not a block device";
+        case ENAMETOOLONG: return "Filename too long";
         default: return "Unknown error";
     }
 }

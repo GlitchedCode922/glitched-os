@@ -20,3 +20,4 @@
 #define ENOTTY 25
 #define EBUSY 16
 #define ENOTBLK 15
+#define ENAMETOOLONG 36
