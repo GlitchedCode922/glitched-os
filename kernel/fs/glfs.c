@@ -63,7 +63,11 @@ int glfs_block_alloc(uint64_t* block_number) {
             // Found a free block
             mount->block_bitmap[i / 8] |= (1 << (i % 8)); // Mark as used
             // Write the updated bitmap back to disk
-            write_sectors(mount->backing, (17  + (i / (GLFS_BLOCK_SIZE * 8))) * (GLFS_BLOCK_SIZE / 512), &mount->block_bitmap[(i / (GLFS_BLOCK_SIZE * 8)) * GLFS_BLOCK_SIZE], GLFS_BLOCK_SIZE / 512);
+            int res = write_sectors(mount->backing, (17  + (i / (GLFS_BLOCK_SIZE * 8))) * (GLFS_BLOCK_SIZE / 512), &mount->block_bitmap[(i / (GLFS_BLOCK_SIZE * 8)) * GLFS_BLOCK_SIZE], GLFS_BLOCK_SIZE / 512);
+            if (res < 0) {
+                mount->block_bitmap[i / 8] &= ~(1 << (i % 8));
+                return res;
+            }
             *block_number = i + 1; // Block numbers start at 1
             mount->superblock.next_free = *block_number + 1;
             uint8_t buffer[GLFS_BLOCK_SIZE];
@@ -79,7 +83,11 @@ int glfs_block_alloc(uint64_t* block_number) {
             // Found a free block
             mount->block_bitmap[i / 8] |= (1 << (i % 8)); // Mark as used
             // Write the updated bitmap back to disk
-            write_sectors(mount->backing, (17  + (i / (GLFS_BLOCK_SIZE * 8))) * (GLFS_BLOCK_SIZE / 512), &mount->block_bitmap[(i / (GLFS_BLOCK_SIZE * 8)) * GLFS_BLOCK_SIZE], GLFS_BLOCK_SIZE / 512);
+            int res = write_sectors(mount->backing, (17  + (i / (GLFS_BLOCK_SIZE * 8))) * (GLFS_BLOCK_SIZE / 512), &mount->block_bitmap[(i / (GLFS_BLOCK_SIZE * 8)) * GLFS_BLOCK_SIZE], GLFS_BLOCK_SIZE / 512);
+            if (res < 0) {
+                mount->block_bitmap[i / 8] &= ~(1 << (i % 8));
+                return res;
+            }
             *block_number = i + 1; // Block numbers start at 1
             mount->superblock.next_free = *block_number + 1;
             uint8_t buffer[GLFS_BLOCK_SIZE];
@@ -99,7 +107,11 @@ int glfs_block_free(uint64_t block_number) {
     uint64_t index = block_number - 1;
     mount->block_bitmap[index / 8] &= ~(1 << (index % 8)); // Mark as free
     // Write the updated bitmap back to disk
-    write_sectors(mount->backing, (17  + (index / (GLFS_BLOCK_SIZE * 8))) * (GLFS_BLOCK_SIZE / 512), &mount->block_bitmap[(index / (GLFS_BLOCK_SIZE * 8)) * GLFS_BLOCK_SIZE], GLFS_BLOCK_SIZE / 512);
+    int res = write_sectors(mount->backing, (17  + (index / (GLFS_BLOCK_SIZE * 8))) * (GLFS_BLOCK_SIZE / 512), &mount->block_bitmap[(index / (GLFS_BLOCK_SIZE * 8)) * GLFS_BLOCK_SIZE], GLFS_BLOCK_SIZE / 512);
+    if (res < 0) {
+        mount->block_bitmap[index / 8] |= (1 << (index % 8));
+        return res;
+    }
     if (block_number < mount->superblock.next_free) {
         mount->superblock.next_free = block_number;
         uint8_t buffer[GLFS_BLOCK_SIZE];
