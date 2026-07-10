@@ -380,11 +380,11 @@ int readdir(const char *path, int index, dirent_t* out) {
     if (index == 0) {
         memcpy(out->name, ".", 2);
         out->type = DT_DIR;
-        return 0;
+        return 1;
     } else if (index == 1) {
         memcpy(out->name, "..", 3);
         out->type = DT_DIR;
-        return 0;
+        return 1;
     } else {
         return fs->readdir(remaining_path, index - 2, out);
     }

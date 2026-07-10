@@ -15,11 +15,11 @@ int main(int argc, char** argv) {
         if (ret < 0) {
             perror("readdir failed");
             return 1;
-        } else if (ret == 1) {
+        } else if (ret == 0) {
             return 0;
         }
         printf("%s\n", dirent.name);
-        i++;
+        i += ret;
     }
     return 0;
 }

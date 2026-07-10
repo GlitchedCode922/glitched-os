@@ -58,12 +58,12 @@ int ramfs_readdir(const char* path, int index, dirent_t *out) {
         if (i == index) {
             memcpy(out->name, dirent->name, 256);
             out->type = dirent->type;
-            return 0;
+            return 1;
         }
         dirent = dirent->next;
         i++;
     }
-    return 1;
+    return 0;
 }
 
 int ramfs_read(const char *path, uint8_t *buffer, size_t offset, size_t size) {

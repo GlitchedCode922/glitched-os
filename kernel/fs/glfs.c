@@ -57,7 +57,6 @@ int glfs_glue_readdir(const char *path, int index, dirent_t *out) {
     glfs_readdir_entry_t output;
     int res = glfs_readdir(mount, path, index, &output);
     if (res < 0) return res;
-    res = !res;
     memcpy(out->name, output.name, GLFS_MAX_FILENAME_LENGTH);
     out->name[GLFS_MAX_FILENAME_LENGTH] = '\0';
     switch (output.type) {

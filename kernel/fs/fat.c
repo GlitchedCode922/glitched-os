@@ -384,14 +384,14 @@ int fat_readdir(const char *path, int index, dirent_t* out) {
                 name[12] = '\0'; // Null-terminate
                 memcpy(out->name, name, 13);
                 out->type = dirent->attributes & DIRENT_DIRECTORY ? DT_DIR : DT_FILE;
-                return 0;
+                return 1;
             }
             current_index++;
             offset += sizeof(fat_dirent_t);
         }
         cluster = next_cluster(cluster);
     }
-    return 1; // End of list
+    return 0; // End of list
 }
 
 int fat_read(const char *path, uint8_t *buffer, size_t offset, size_t size) {
