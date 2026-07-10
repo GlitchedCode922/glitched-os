@@ -9,7 +9,7 @@ override CFLAGS += -nostdlib -ffreestanding -fno-stack-protector -fno-stack-chec
 KERNEL_CFLAGS =
 LIBC_CFLAGS =
 BIN_CFLAGS =
-override KERNEL_CFLAGS += -mno-80387 -mno-mmx -mno-sse -mno-sse2 -mno-red-zone -mcmodel=kernel
+override KERNEL_CFLAGS += -mno-80387 -mno-mmx -mno-sse -mno-sse2 -mno-red-zone -mcmodel=kernel -Iglitchfs/libglfs/include
 LDFLAGS =
 KERNEL_LDFLAGS =
 BIN_LDFLAGS =
@@ -59,8 +59,11 @@ all: kernel libc binaries disk-image
 
 kernel: build/kernel
 
-build/kernel: $(KERNEL_OBJECTS)
+build/kernel: $(KERNEL_OBJECTS) glitchfs/build/libglfs.a
 	$(CC) $(LDFLAGS) $(KERNEL_LDFLAGS) $^ $(LDLIBS) -o $@
+
+glitchfs/build/libglfs.a:
+	$(MAKE) -C glitchfs build/libglfs.a CC="$(CC)" AR="$(AR)" CFLAGS="$(CFLAGS) $(KERNEL_CFLAGS)"
 
 build/obj/kernel/%.o: kernel/%.c
 	@mkdir -p $(dir $@)

@@ -1,90 +1,16 @@
 #pragma once
-#include <stdint.h>
-#include "../vfs.h"
 #include "../drivers/block.h"
+#include "../vfs.h"
+#include <stdint.h>
 
-#define GLFS_BLOCK_SIZE 4096 // Size of a block in bytes (4KiB)
-
-#define PACKED __attribute__((packed))
-
-typedef struct {
-    char signature[8]; // "GlitchFS"
-    uint64_t version; // File system version
-    uint64_t block_count; // Count of blocks in the file system
-    uint64_t bitmap_size; // Size of block bitmap in blocks
-    uint64_t root_inode; // Inode number of the root directory
-    uint64_t next_free; // Next free block number
-    uint8_t reserved[GLFS_BLOCK_SIZE - 6 * 8]; // Alignment padding
-} PACKED glfs_superblock_t;
-
-enum {
-    GLFS_REG = 1,
-    GLFS_DIR = 2,
-    GLFS_BLK = 3,
-    GLFS_CHR = 4,
-};
-
-typedef struct {
-    char signature[8]; // "GLFS_INO" xor inode number
-    uint32_t perms; // Unix permissions
-    uint32_t type; // File type
-    uint64_t size; // Size of the file in bytes
-    uint32_t uid; // User ID of the file owner
-    uint32_t gid; // Group ID of the file owner
-    uint64_t atime; // Last access time
-    uint64_t mtime; // Last modification time
-    uint64_t ctime; // Last status change time
-    uint64_t refcount; // Reference count (number of hard links)
-    uint64_t next_inode_block; // Block number of the next inode block
-    uint64_t rdev; // Device ID (for special files)
-    uint64_t reserved[5]; // For future use, and to pad struct to 128 bytes
-    uint64_t block_count; // Number of blocks allocated to the file
-    uint64_t blocks[(GLFS_BLOCK_SIZE - 128) / 8]; // Array of block pointers
-} PACKED glfs_inode_t;
-
-typedef struct {
-    uint64_t next_inode_block;
-    uint64_t skip_4;
-    uint64_t skip_16;
-    uint64_t skip_64;
-    uint64_t skip_256;
-    uint64_t skip_1024;
-    uint64_t blocks[GLFS_BLOCK_SIZE / 8 - 6]; // Array of block pointers
-} PACKED glfs_inode_continuation_t;
-
-#define GLFS_MAX_FILENAME_LENGTH (256 - 8) // Make dirents 256 bytes long
-typedef struct {
-    uint64_t inodeptr;
-    char name[GLFS_MAX_FILENAME_LENGTH];
-} PACKED glfs_dirent_t;
-
-#undef PACKED
-
-typedef struct {
-    glfs_superblock_t superblock;
-    uint8_t* block_bitmap;
-    block_device_t backing;
-    uint8_t read_only;
-} glfs_mount_t;
-
-typedef struct {
-    uint64_t inode;
-    uint64_t index;
-} glfs_dirent_ref_t;
-
-int glfs_readdir(const char* path, int index, dirent_t* out);
-int glfs_read(const char* path, uint8_t* buffer, uint64_t offset, uint64_t size);
-int glfs_delete(const char* path);
-int glfs_create_file(const char* path);
-int glfs_create_directory(const char* path);
-int glfs_write(const char *path, const uint8_t *buffer, uint64_t offset, uint64_t size);
-int glfs_rename(const char* old_path, const char* new_path);
-int glfs_stat(const char* path, stat_t* out);
-int glfs_mknod(const char* path, uint32_t type, dev_t dev);
-int glfs_ioctl(const char* path, uint64_t request, uint64_t arg);
-
-int glfs_check(block_device_t block);
-void* glfs_mount(block_device_t block, int flags);
-void glfs_select(void* data);
+int glfs_glue_readdir(const char* path, int index, dirent_t* out);
+int glfs_glue_read(const char* path, uint8_t* buffer, size_t offset, size_t size);
+int glfs_glue_delete(const char* path);
+int glfs_glue_create_file(const char* path);
+int glfs_glue_create_directory(const char* path);
+int glfs_glue_write(const char *path, const uint8_t *buffer, size_t offset, size_t size);
+int glfs_glue_rename(const char* old_path, const char* new_path);
+int glfs_glue_stat(const char* path, stat_t* out);
+int glfs_glue_mknod(const char* path, uint32_t type, dev_t dev);
 
 void glfs_register();

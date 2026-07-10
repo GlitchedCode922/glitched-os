@@ -1,0 +1,3 @@
+[submodule "glitchfs"]
+	path = glitchfs
+	url = https://github.com/GlitchedCode922/glitchfs
