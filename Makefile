@@ -49,7 +49,7 @@ BINARY_TARGETS = $(patsubst %, build/binaries/%,$(BINARIES))
 
 .DELETE_ON_ERROR:
 .SECONDARY:
-.PHONY: all clean kernel libc binaries disk-image
+.PHONY: all clean kernel libc binaries disk-image glitchfs
 
 all: kernel libc binaries disk-image
 
@@ -59,11 +59,12 @@ all: kernel libc binaries disk-image
 
 kernel: build/kernel
 
-build/kernel: $(KERNEL_OBJECTS) glitchfs/build/libglfs.a
+build/kernel: $(KERNEL_OBJECTS) glitchfs/build/target-libglfs.a
 	$(CC) $(LDFLAGS) $(KERNEL_LDFLAGS) $^ $(LDLIBS) -o $@
 
-glitchfs/build/libglfs.a:
-	$(MAKE) -C glitchfs build/libglfs.a CC="$(CC)" AR="$(AR)" CFLAGS="$(CFLAGS) $(KERNEL_CFLAGS)"
+glitchfs/build/target-libglfs.a: glitchfs
+glitchfs:
+	$(MAKE) -C glitchfs HOSTCC="$(HOSTCC)" CC="$(CC)" AR="$(AR)" CFLAGS="$(CFLAGS) $(KERNEL_CFLAGS)"
 
 build/obj/kernel/%.o: kernel/%.c
 	@mkdir -p $(dir $@)
@@ -104,15 +105,17 @@ build/binaries:
 
 disk-image: build/disk.img
 
-build/disk.img: build/kernel $(BINARY_TARGETS) limine.conf
+build/disk.img: build/kernel $(BINARY_TARGETS) limine.conf glitchfs
 	$(MAKE) -C thirdparty/limine CC=$(HOSTCC)
 	dd if=/dev/zero of=build/disk.img.incomplete bs=1M count=128
+	dd if=/dev/zero of=build/root.img.tmp bs=1M count=112
 
 	parted build/disk.img.incomplete --script \
 	mklabel gpt \
 	mkpart primary 1MiB 4MiB \
 	mkpart ESP fat32 4MiB 8MiB \
-	mkpart primary 8MiB 100% \
+	mkpart primary 8MiB 16MiB \
+	mkpart primary 16MiB 100% \
 	set 1 bios_grub on \
 	set 2 esp on
 
@@ -120,16 +123,26 @@ build/disk.img: build/kernel $(BINARY_TARGETS) limine.conf
 	mformat -i build/disk.img.incomplete@@8388608 -F ::
 
 	mmd -i build/disk.img.incomplete@@4194304 ::/EFI ::/EFI/BOOT
-	mmd -i build/disk.img.incomplete@@8388608 ::/boot ::/boot/limine ::/bin ::/dev ::/tmp
+	mmd -i build/disk.img.incomplete@@8388608 ::/limine
 
 	mcopy -i build/disk.img.incomplete@@4194304 thirdparty/limine/BOOTX64.EFI ::/EFI/BOOT/BOOTX64.EFI
 
-	mcopy -i build/disk.img.incomplete@@8388608 thirdparty/limine/limine-bios.sys ::/boot/limine/
-	mcopy -i build/disk.img.incomplete@@8388608 limine.conf ::/boot/limine
+	mcopy -i build/disk.img.incomplete@@8388608 thirdparty/limine/limine-bios.sys ::/limine/
+	mcopy -i build/disk.img.incomplete@@8388608 limine.conf ::/limine
 
-	mcopy -i build/disk.img.incomplete@@8388608 build/kernel ::/boot/kernel
-	mcopy -i build/disk.img.incomplete@@8388608 thirdparty/limine/LICENSE ::/boot/limine
-	mcopy -i build/disk.img.incomplete@@8388608 build/binaries/* ::/bin/
+	mcopy -i build/disk.img.incomplete@@8388608 build/kernel ::/kernel
+	mcopy -i build/disk.img.incomplete@@8388608 thirdparty/limine/LICENSE ::/limine
+
+	mkdir -p build/rootfs/bin
+	mkdir -p build/rootfs/boot
+	mkdir -p build/rootfs/dev
+	mkdir -p build/rootfs/tmp
+
+	cp build/binaries/* build/rootfs/bin
+	glitchfs/build/tools/glfs-pack build/rootfs build/root.img.tmp
+	dd if=build/root.img.tmp of=build/disk.img.incomplete bs=1M seek=16 count=112
+	sgdisk -e build/disk.img.incomplete >/dev/null 2>&1
+	rm -f build/root.img.tmp
 
 	thirdparty/limine/limine bios-install build/disk.img.incomplete 1
 
