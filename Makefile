@@ -108,14 +108,14 @@ disk-image: build/disk.img
 build/disk.img: build/kernel $(BINARY_TARGETS) limine.conf glitchfs
 	$(MAKE) -C thirdparty/limine CC=$(HOSTCC)
 	dd if=/dev/zero of=build/disk.img.incomplete bs=1M count=128
-	dd if=/dev/zero of=build/root.img.tmp bs=1M count=112
+	dd if=/dev/zero of=build/root.img.tmp bs=1M count=111
 
-	parted build/disk.img.incomplete --script \
+	parted build/disk.img.incomplete --script -- \
 	mklabel gpt \
 	mkpart primary 1MiB 4MiB \
 	mkpart ESP fat32 4MiB 8MiB \
 	mkpart primary 8MiB 16MiB \
-	mkpart primary 16MiB 100% \
+	mkpart primary 16MiB -1MiB \
 	set 1 bios_grub on \
 	set 2 esp on
 
@@ -140,8 +140,7 @@ build/disk.img: build/kernel $(BINARY_TARGETS) limine.conf glitchfs
 
 	cp build/binaries/* build/rootfs/bin
 	glitchfs/build/tools/glfs-pack build/rootfs build/root.img.tmp
-	dd if=build/root.img.tmp of=build/disk.img.incomplete bs=1M seek=16 count=112
-	sgdisk -e build/disk.img.incomplete >/dev/null 2>&1
+	dd if=build/root.img.tmp of=build/disk.img.incomplete bs=1M seek=16 count=111 conv=notrunc
 	rm -f build/root.img.tmp
 
 	thirdparty/limine/limine bios-install build/disk.img.incomplete 1
