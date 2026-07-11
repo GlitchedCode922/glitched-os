@@ -113,25 +113,21 @@ build/disk.img: build/kernel $(BINARY_TARGETS) limine.conf glitchfs
 	parted build/disk.img.incomplete --script -- \
 	mklabel gpt \
 	mkpart primary 1MiB 4MiB \
-	mkpart ESP fat32 4MiB 8MiB \
-	mkpart primary 8MiB 16MiB \
+	mkpart ESP fat32 4MiB 16MiB \
 	mkpart primary 16MiB -1MiB \
 	set 1 bios_grub on \
 	set 2 esp on
 
 	mformat -i build/disk.img.incomplete@@4194304 -F ::
-	mformat -i build/disk.img.incomplete@@8388608 -F ::
 
 	mmd -i build/disk.img.incomplete@@4194304 ::/EFI ::/EFI/BOOT
-	mmd -i build/disk.img.incomplete@@8388608 ::/limine
+	mmd -i build/disk.img.incomplete@@4194304 ::/limine
 
 	mcopy -i build/disk.img.incomplete@@4194304 thirdparty/limine/BOOTX64.EFI ::/EFI/BOOT/BOOTX64.EFI
-
-	mcopy -i build/disk.img.incomplete@@8388608 thirdparty/limine/limine-bios.sys ::/limine/
-	mcopy -i build/disk.img.incomplete@@8388608 limine.conf ::/limine
-
-	mcopy -i build/disk.img.incomplete@@8388608 build/kernel ::/kernel
-	mcopy -i build/disk.img.incomplete@@8388608 thirdparty/limine/LICENSE ::/limine
+	mcopy -i build/disk.img.incomplete@@4194304 thirdparty/limine/limine-bios.sys ::/limine/
+	mcopy -i build/disk.img.incomplete@@4194304 limine.conf ::/limine
+	mcopy -i build/disk.img.incomplete@@4194304 build/kernel ::/kernel
+	mcopy -i build/disk.img.incomplete@@4194304 thirdparty/limine/LICENSE ::/limine
 
 	mkdir -p build/rootfs/bin
 	mkdir -p build/rootfs/boot
