@@ -26,6 +26,7 @@ char* strerror(int errnum) {
         case EBUSY: return "Device or resource busy";
         case ENOTBLK: return "Not a block device";
         case ENAMETOOLONG: return "Filename too long";
+        case ENOTEMPTY: return "Directory not empty";
         default: return "Unknown error";
     }
 }

@@ -445,6 +445,11 @@ int remove_file(const char *path) {
     }
     filesystem_t* fs = &filesystems[mount->type];
     fs->select(mount->fs_data);
+    stat_t st;
+    dirent_t tmp;
+    int res = fs->stat(remaining_path, &st);
+    if (res < 0) return res;
+    if (st.type == DT_DIR && fs->readdir(remaining_path, 0, &tmp)) return -ENOTEMPTY;
     if (!fs->remove) {
         return -ENOSYS; // Remove operation not supported by this filesystem
     }
