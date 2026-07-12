@@ -17,7 +17,7 @@ static int strlen(const char* str) {
 }
 
 int open(const char *path, uint16_t flags) {
-    stat_t st;
+    stat_t st = {0};
     int res = stat(path, &st);
     if (res < 0) {
         if (flags & FLAG_CREATE) {
@@ -26,6 +26,8 @@ int open(const char *path, uint16_t flags) {
         } else {
             return res;
         }
+    } else if (st.type == DT_DIR) {
+        return -EISDIR;
     }
     int fd_index = -1;
     for (int i = 0; i < MAX_FDS; i++) {
