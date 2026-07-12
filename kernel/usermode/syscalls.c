@@ -201,6 +201,9 @@ void syscall(iframe_t* iframe) {
     case SYSCALL_MKNOD:
         ret = mknod((const char*)arg1, arg2, arg3);
         break;
+    case SYSCALL_TELL:
+        ret = tell(arg1);
+        break;
     default:
         // Invalid syscall, return an error code
         ret = -ENOSYS;

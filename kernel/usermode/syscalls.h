@@ -50,6 +50,7 @@
 #define SYSCALL_GETPPID 55
 #define SYSCALL_SETFONT 60
 #define SYSCALL_MKNOD 61
+#define SYSCALL_TELL 62
 
 void syscall_init();
 void syscall(iframe_t* iframe);

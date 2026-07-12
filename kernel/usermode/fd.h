@@ -23,6 +23,7 @@ int read(int fd, void* buffer, size_t size);
 int write(int fd, const void* buffer, size_t size);
 int fd_ioctl(int fd, uint64_t request, uint64_t arg);
 int seek(int fd, int64_t offset, int type);
+int tell(int fd);
 int open(const char* path, uint16_t flags);
 int close(int fd);
 int dup(int fd);

@@ -91,6 +91,14 @@ int seek(int fd, int64_t offset, int type) {
     return 0;
 }
 
+int tell(int fd) {
+    if (fd < 0 || fd >= MAX_FDS || current_task->fd_ptr_table[fd] == NULL) {
+        return -EBADF;
+    }
+    fd_entry_t* fd_entry = current_task->fd_ptr_table[fd];
+    return fd_entry->offset;
+}
+
 int read(int fd, void *buffer, size_t size) {
     if (fd < 0 || fd >= MAX_FDS || current_task->fd_ptr_table[fd] == NULL) {
         return -EBADF;
