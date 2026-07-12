@@ -111,7 +111,7 @@ void parse_kernel_cmdline() {
         }
     }
     if (rootfs_device[0] == '\0') panic("Root filesystem not specified");
-    int res = mount_root_filesystem(rootfs_device, "glfs", 0);
+    int res = mount_root_filesystem(rootfs_device, 0);
     if (res < 0) panic("Mounting rootfs failed, error code: %d", res);
     run_init(init_binary_path);
 }

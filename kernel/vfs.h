@@ -61,7 +61,7 @@ typedef struct mountpoint {
 
 int register_filesystem(filesystem_t fs);
 int mount_filesystem(const char* source, const char* target, const char* type, int flags);
-int mount_root_filesystem(const char* device, const char* type, int flags);
+int mount_root_filesystem(const char* device, int flags);
 int unmount_filesystem(const char *path);
 int unmount_all_filesystems();
 int readdir(const char *path, int index, dirent_t* out);
