@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <unistd.h>
 
 int main(int argc, char** argv) {
     char* path;
@@ -9,9 +10,13 @@ int main(int argc, char** argv) {
     }
 
     dirent_t dirent;
-    int i = 0;
+    int dirfd = open(path, O_DIRECTORY);
+    if (dirfd < 0) {
+        perror("open failed");
+        return 1;
+    }
     while (1) {
-        int ret = readdir(path, i, &dirent);
+        int ret = readdir(dirfd, &dirent);
         if (ret < 0) {
             perror("readdir failed");
             return 1;
@@ -19,7 +24,5 @@ int main(int argc, char** argv) {
             return 0;
         }
         printf("%s\n", dirent.name);
-        i += ret;
     }
-    return 0;
 }

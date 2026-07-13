@@ -61,7 +61,7 @@ int main(int argc, char** argv) {
         perror(argv[1]);
         return 1;
     }
-    int fd_write = open(dest_path, FLAG_CREATE);
+    int fd_write = open(dest_path, O_CREAT);
     if (fd_write < 0) {
         perror(dest_path);
         return 1;

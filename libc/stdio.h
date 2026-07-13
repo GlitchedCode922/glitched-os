@@ -3,30 +3,6 @@
 #include <stdint.h>
 #include <stdarg.h>
 
-#define FLAG_CREATE 0x01
-#define FLAG_NONBLOCKING 0x02
-
-enum {
-    DT_UNKNOWN = 0,
-    DT_FILE = 1,
-    DT_DIR = 2,
-    DT_BLOCK = 3,
-    DT_CHAR = 4,
-};
-
-typedef struct {
-    char name[256];
-    uint32_t type;
-} __attribute__((packed)) dirent_t;
-
-typedef struct {
-    uint64_t size;
-    uint64_t ctime;
-    uint64_t mtime;
-    uint64_t btime;
-    uint32_t type;
-} __attribute__((packed)) stat_t;
-
 void scanf(const char* format, ...);
 void sscanf(const char* str, const char* format, ...);
 void printf(const char* format, ...);
@@ -36,8 +12,6 @@ void puts(const char* str);
 void putchar(char c);
 char* readline(char* buffer, size_t size);
 
-int readdir(const char *path, int index, dirent_t* out);
-int stat(const char* path, stat_t* out);
 int remove_file(const char* path);
 int create_file(const char* path);
 int create_directory(const char* path);

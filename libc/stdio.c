@@ -188,8 +188,8 @@ void printf(const char *fmt, ...){
     va_end(args);
 }
 
-int readdir(const char *path, int index, dirent_t *out) {
-    int res = syscall(SYSCALL_READDIR, (uint64_t)path, index, (uint64_t)out, 0, 0, 0);
+int readdir(int fd, dirent_t *out) {
+    int res = syscall(SYSCALL_READDIR, fd, (uint64_t)out, 0, 0, 0, 0);
     if (res < 0) {
         errno = -res;
         return -1;

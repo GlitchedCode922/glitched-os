@@ -13,7 +13,7 @@ int main(int argc, char** argv) {
         perror(argv[1]);
         return 1;
     }
-    int fd_write = open(argv[2], FLAG_CREATE);
+    int fd_write = open(argv[2], O_CREAT);
     if (fd_write < 0) {
         perror(argv[2]);
         return 1;

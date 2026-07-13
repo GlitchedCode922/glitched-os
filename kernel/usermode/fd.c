@@ -20,21 +20,21 @@ int open(const char *path, uint16_t flags) {
     stat_t st = {0};
     int res = stat(path, &st);
     if (res < 0) {
-        if (flags & FLAG_CREATE) {
+        if (flags & O_CREAT) {
             res = create_file(path);
             if (res < 0) return res;
         } else {
             return res;
         }
-    } else if (st.type == DT_DIR) {
-        return -EISDIR;
     }
+    if (flags & O_DIRECTORY && st.type != DT_DIR) return -ENOTDIR;
     int fd_index = -1;
     for (int i = 0; i < MAX_FDS; i++) {
         if (current_task->fd_table[i].refcount == 0) {
             void* p = kmalloc(strlen(path) + 1);
             memcpy(p, path, strlen(path) + 1);
             current_task->fd_table[i].path = p;
+            current_task->fd_table[i].type = st.type == DT_DIR ? FD_TYPE_DIR : FD_TYPE_FILE;
             current_task->fd_table[i].offset = 0;
             current_task->fd_table[i].flags = flags;
             current_task->fd_table[i].refcount = 1;
@@ -104,10 +104,11 @@ int read(int fd, void *buffer, size_t size) {
         return -EBADF;
     }
     fd_entry_t* fd_entry = current_task->fd_ptr_table[fd];
+    if (fd_entry->type == FD_TYPE_DIR) return -EISDIR;
     int bytes_read;
     while (1) {
         bytes_read = read_file(fd_entry->path, buffer, fd_entry->offset, size);
-        if (fd_entry->flags & FLAG_NONBLOCKING || bytes_read != -EAGAIN) {
+        if (fd_entry->flags & O_NONBLOCK || bytes_read != -EAGAIN) {
             break;
         }
         yield_current();
@@ -121,9 +122,21 @@ int write(int fd, const void *buffer, size_t size) {
         return -EBADF;
     }
     fd_entry_t* fd_entry = current_task->fd_ptr_table[fd];
+    if (fd_entry->type == FD_TYPE_DIR) return -EISDIR;
     int bytes_written = write_file(fd_entry->path, buffer, fd_entry->offset, size);
     if (bytes_written > 0) fd_entry->offset += bytes_written;
     return bytes_written;
+}
+
+int fd_readdir(int fd, dirent_t* dirent) {
+    if (fd < 0 || fd >= MAX_FDS || current_task->fd_ptr_table[fd] == NULL) {
+        return -EBADF;
+    }
+    fd_entry_t* fd_entry = current_task->fd_ptr_table[fd];
+    if (fd_entry->type != FD_TYPE_DIR) return -ENOTDIR;
+    int res = readdir(fd_entry->path, fd_entry->offset, dirent);
+    if (res > 0) fd_entry->offset += res;
+    return res;
 }
 
 int fd_ioctl(int fd, uint64_t request, uint64_t arg) {
@@ -131,6 +144,7 @@ int fd_ioctl(int fd, uint64_t request, uint64_t arg) {
         return -EBADF;
     }
     fd_entry_t* fd_entry = current_task->fd_ptr_table[fd];
+    if (fd_entry->type == FD_TYPE_DIR) return -EISDIR;
     return ioctl(fd_entry->path, request, arg);
 }
 
