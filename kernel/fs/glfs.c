@@ -53,9 +53,21 @@ void glfs_glue_select(void* p_mount) {
     mount = p_mount;
 }
 
-int glfs_glue_readdir(const char *path, int index, dirent_t *out) {
+int glfs_glue_lookup(const char *path, uint64_t* inode) {
+    return glfs_lookup(mount, path, inode);
+}
+
+int glfs_glue_open(uint64_t inode) {
+    return glfs_open(mount, inode);
+}
+
+int glfs_glue_close(uint64_t inode) {
+    return glfs_close(mount, inode);
+}
+
+int glfs_glue_readdir(uint64_t inode, int index, dirent_t *out) {
     glfs_readdir_entry_t output;
-    int res = glfs_readdir(mount, path, index, &output);
+    int res = glfs_readdir(mount, inode, index, &output);
     if (res < 0) return res;
     memcpy(out->name, output.name, GLFS_MAX_FILENAME_LENGTH);
     out->name[GLFS_MAX_FILENAME_LENGTH] = '\0';
@@ -69,9 +81,9 @@ int glfs_glue_readdir(const char *path, int index, dirent_t *out) {
     return res;
 }
 
-int glfs_glue_stat(const char *path, stat_t *out) {
-    glfs_stat_t output;
-    int res = glfs_stat(mount, path, &output);
+int glfs_glue_stat(uint64_t inode, stat_t *out) {
+    glfs_attr_t output;
+    int res = glfs_getattr(mount, inode, &output);
     if (res < 0) return res;
     switch (output.type) {
         case GLFS_REG: out->type = DT_FILE; break;
@@ -88,11 +100,11 @@ int glfs_glue_stat(const char *path, stat_t *out) {
     return 0;
 }
 
-int glfs_glue_read(const char *path, uint8_t *buffer, size_t offset, size_t size) {
-    int res = glfs_read(mount, path, buffer, offset, size);
+int glfs_glue_read(uint64_t inode, uint8_t *buffer, size_t offset, size_t size) {
+    int res = glfs_read(mount, inode, buffer, offset, size);
     if (res == -ENODEV) {
-        glfs_stat_t st;
-        res = glfs_stat(mount, path, &st);
+        stat_t st;
+        res = glfs_glue_stat(inode, &st);
         if (res < 0) return res;
         if (st.type == GLFS_BLK) {
             block_device_t dev = {
@@ -112,11 +124,11 @@ int glfs_glue_read(const char *path, uint8_t *buffer, size_t offset, size_t size
     return res;
 }
 
-int glfs_glue_write(const char *path, const uint8_t *buffer, size_t offset, size_t size) {
-    int res = glfs_write(mount, path, buffer, offset, size);
+int glfs_glue_write(uint64_t inode, const uint8_t *buffer, size_t offset, size_t size) {
+    int res = glfs_write(mount, inode, buffer, offset, size);
     if (res == -ENODEV) {
-        glfs_stat_t st;
-        res = glfs_stat(mount, path, &st);
+        stat_t st;
+        res = glfs_glue_stat(inode, &st);
         if (res < 0) return res;
         if (st.type == GLFS_BLK) {
             block_device_t dev = {
@@ -172,6 +184,10 @@ void glfs_register() {
     glfs.check = glfs_glue_check;
     glfs.mount = glfs_glue_mount;
     glfs.select = glfs_glue_select;
+
+    glfs.lookup = glfs_glue_lookup;
+    glfs.open = glfs_glue_open;
+    glfs.close = glfs_glue_close;
 
     glfs.readdir = glfs_glue_readdir;
     glfs.stat = glfs_glue_stat;

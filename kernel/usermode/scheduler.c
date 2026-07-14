@@ -95,7 +95,10 @@ void run_init(char* path) {
         :: "r"(init_task.cr3)
     );
     change_pml4(init_task.cr3);
-    void* addr = load_elf(path, &init_task.initial_brk);
+    file_handle_t file;
+    int res = lookup(path, &file);
+    if (res < 0) panic("Failed to load init binary");
+    void* addr = load_elf(file, &init_task.initial_brk);
     if (!addr) {
         panic("Failed to load init binary: %s", path);
     }
@@ -231,14 +234,18 @@ int add_task(char* path, char** argv, task_t* parent, int pid, iframe_t* iframe)
         return -EISDIR;
     }
 
-    if (!is_compatible_binary(kpath)) {
+    file_handle_t file;
+    res = lookup(kpath, &file);
+    if (res < 0) return res;
+
+    if (!is_compatible_binary(file)) {
         // Restore old page table
         asm volatile("mov %0, %%cr3" :: "r"(current_task->cr3));
         change_pml4(current_task->cr3);
         return -ENOEXEC;
     }
 
-    void* entry = load_elf(kpath, &new_task->initial_brk);
+    void* entry = load_elf(file, &new_task->initial_brk);
     if (!entry) {
         // Restore old page table
         asm volatile("mov %0, %%cr3" :: "r"(current_task->cr3));

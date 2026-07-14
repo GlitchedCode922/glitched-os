@@ -63,4 +63,3 @@ int isatty(int fd);
 
 int mount(const char* source, const char* target, const char* type, int flags);
 int umount(const char *path);
-int umount_all();

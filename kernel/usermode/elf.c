@@ -20,9 +20,9 @@ int check_nx_support() {
     return (edx & (1 << 20)) != 0;
 }
 
-int is_elf(const char* path) {
+int is_elf(file_handle_t file) {
     Elf64_Ehdr ehdr;
-    read_file(path, (uint8_t*)&ehdr, 0, sizeof(ehdr));
+    read_file(file, (uint8_t*)&ehdr, 0, sizeof(ehdr));
 
     // Check ELF magic number
     if (ehdr.e_ident[0] != ELFMAG0 || ehdr.e_ident[1] != ELFMAG1 ||
@@ -33,11 +33,11 @@ int is_elf(const char* path) {
     return 1; // Valid ELF file
 }
 
-int is_compatible_binary(const char* path) {
-    if (!is_elf(path)) return 0; // Not an ELF file
+int is_compatible_binary(file_handle_t file) {
+    if (!is_elf(file)) return 0; // Not an ELF file
 
     Elf64_Ehdr ehdr;
-    read_file(path, (uint8_t*)&ehdr, 0, sizeof(ehdr));
+    read_file(file, (uint8_t*)&ehdr, 0, sizeof(ehdr));
 
     // Check ELF class
     if (ehdr.e_ident[EI_CLASS] != ELFCLASS64) {
@@ -57,18 +57,18 @@ int is_compatible_binary(const char* path) {
     return 1; // Compatible binary
 }
 
-void* load_elf(const char* path, void** brk) {
-    if (!is_compatible_binary(path)) return NULL; // Not a compatible ELF binary
+void* load_elf(file_handle_t file, void** brk) {
+    if (!is_compatible_binary(file)) return NULL; // Not a compatible ELF binary
 
     Elf64_Ehdr ehdr;
 
     // Read ELF header
-    read_file(path, (uint8_t*)&ehdr, 0, sizeof(Elf64_Ehdr));
+    read_file(file, (uint8_t*)&ehdr, 0, sizeof(Elf64_Ehdr));
 
     Elf64_Phdr phdrs[ehdr.e_phnum];
 
     // Read program headers
-    read_file(path, (uint8_t*)&phdrs, ehdr.e_phoff, ehdr.e_phnum * sizeof(Elf64_Phdr));
+    read_file(file, (uint8_t*)&phdrs, ehdr.e_phoff, ehdr.e_phnum * sizeof(Elf64_Phdr));
 
     void* break_addr = NULL;
     // Load segments into memory
@@ -86,7 +86,7 @@ void* load_elf(const char* path, void** brk) {
             }
 
             // Read the segment data from the file
-            read_file(path, (uint8_t*)segment_start, phdrs[i].p_offset, phdrs[i].p_filesz);
+            read_file(file, (uint8_t*)segment_start, phdrs[i].p_offset, phdrs[i].p_filesz);
 
             // Update break address
             uint64_t segment_end = phdrs[i].p_vaddr + phdrs[i].p_memsz;

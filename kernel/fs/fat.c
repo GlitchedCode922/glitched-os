@@ -256,7 +256,7 @@ uint32_t next_cluster(uint32_t current_cluster) {
 
 fat_dirent_ref_t fat_get_dirent_ref(const char *path) {
     // Find the dirent_ref for the given path
-    fat_dirent_ref_t dirent_ref;
+    fat_dirent_ref_t dirent_ref = {0};
     dirent_ref.dirent.attributes = DIRENT_DIRECTORY; // Start assuming root is a directory
     dirent_ref.dirent.first_cluster_low = data->bpb.root_cluster & 0xFFFF;
     dirent_ref.dirent.first_cluster_high = (data->bpb.root_cluster >> 16) & 0xFFFF;
@@ -337,23 +337,43 @@ fat_dirent_ref_t fat_get_dirent_ref(const char *path) {
     return dirent_ref;
 }
 
-int fat_readdir(const char *path, int index, dirent_t* out) {
-    // List the directory entries in the given path
-    char npath[512];
-    normalize_fat_path(path, npath);
-    path = npath; // Replace path with normalized for the rest of the function
+fat_dirent_t fat_read_dirent(uint64_t handle) {
+    if (handle == 0) { // Root
+        fat_dirent_t dirent;
+        dirent.name[0] = 'R';
+        dirent.name[1] = 'O';
+        dirent.name[2] = 'O';
+        dirent.name[3] = 'T';
+        dirent.attributes = DIRENT_DIRECTORY;
+        dirent.first_cluster_low = data->bpb.root_cluster & 0xFFFF;
+        dirent.first_cluster_high = (data->bpb.root_cluster >> 16) & 0xFFFF;
+        return dirent;
+    }
+    uint32_t sector;
+    uint32_t offset;
+    sector = (uint32_t)(handle >> 32);
+    offset = (uint32_t)(handle & 0xffffffff);
+    uint8_t sector_buffer[512];
+    read_sectors(data->backing, sector, sector_buffer, 1);
+    return *(fat_dirent_t*)(sector_buffer + offset);
+}
 
-    // Start from the root directory
-    uint32_t cluster = data->bpb.root_cluster;
-    char* path_ptr = (char*)path;
-
-    // Traverse to the target directory
+int fat_lookup(const char *path, uint64_t* handle) {
     fat_dirent_ref_t dirent_ref = fat_get_dirent_ref(path);
-    if (!dirent_ref.found || !(dirent_ref.dirent.attributes & DIRENT_DIRECTORY)) {
+    if (!dirent_ref.found) {
         return -ENOENT;
     }
+    *handle = (uint64_t)dirent_ref.position[0] << 32 | dirent_ref.position[1];
+    return 0;
+}
 
-    cluster = dirent_ref.cluster;
+int fat_readdir(uint64_t handle, int index, dirent_t* out) {
+    fat_dirent_t directory = fat_read_dirent(handle);
+    if ((uint8_t)directory.name[0] == DIRENT_DELETED ||
+        (uint8_t)directory.name[0] == 0x00)
+        return -ENOENT;
+
+    uint32_t cluster = ((uint32_t)directory.first_cluster_high << 16) | directory.first_cluster_low;
     uint64_t current_index = 0;
     while (cluster < CLUSTER_CHAIN_END) {
         uint32_t bytes_per_cluster = data->bpb.sectors_per_cluster * data->bpb.bytes_per_sector;
@@ -394,12 +414,14 @@ int fat_readdir(const char *path, int index, dirent_t* out) {
     return 0; // End of list
 }
 
-int fat_read(const char *path, uint8_t *buffer, size_t offset, size_t size) {
-    fat_dirent_ref_t dirent_ref = fat_get_dirent_ref(path);
-    if (!dirent_ref.found) return -ENOENT; // File not found
+int fat_read(uint64_t handle, uint8_t *buffer, size_t offset, size_t size) {
+    fat_dirent_t dirent = fat_read_dirent(handle);
+    if ((uint8_t)dirent.name[0] == DIRENT_DELETED ||
+        (uint8_t)dirent.name[0] == 0x00)
+        return -ENOENT;
 
-    uint32_t file_cluster = ((uint32_t)dirent_ref.dirent.first_cluster_high << 16) | dirent_ref.dirent.first_cluster_low;
-    uint32_t file_size = dirent_ref.dirent.file_size;
+    uint32_t file_cluster = ((uint32_t)dirent.first_cluster_high << 16) | dirent.first_cluster_low;
+    uint32_t file_size = dirent.file_size;
 
     if (offset >= file_size) return 0; // Offset beyond file size
     if (offset + size > file_size) size = file_size - offset; // Adjust size to read
@@ -558,8 +580,8 @@ int fat_create_file(const char *path) {
     if (data->read_only) {
         return -EROFS; // Filesystem is read-only
     }
-    stat_t st;
-    int res = fat_stat(path, &st);
+    uint64_t tmp;
+    int res = fat_lookup(path, &tmp);
     if (res == 0) {
         return -EEXIST; // File already exists
     }
@@ -595,8 +617,8 @@ int fat_create_directory(const char *path) {
     if (data->read_only) {
         return -EROFS; // Filesystem is read-only
     }
-    stat_t st;
-    int res = fat_stat(path, &st);
+    uint64_t tmp;
+    int res = fat_lookup(path, &tmp);
     if (res == 0) {
         return -EEXIST; // File already exists
     }
@@ -668,26 +690,27 @@ int fat_create_directory(const char *path) {
     return 0;
 }
 
-int fat_write_to_file(const char *path, const uint8_t *buffer, size_t offset, size_t size) {
+int fat_write_to_file(uint64_t handle, const uint8_t *buffer, size_t offset, size_t size) {
     if (data->read_only) {
         return -EROFS; // Filesystem is read-only
     }
-    fat_dirent_ref_t dirent_ref = fat_get_dirent_ref(path);
-    if (!dirent_ref.found) {
-        return -ENOENT; // File not found
-    }
-    uint32_t file_size = dirent_ref.dirent.file_size;
+    fat_dirent_t dirent = fat_read_dirent(handle);
+    if ((uint8_t)dirent.name[0] == DIRENT_DELETED ||
+        (uint8_t)dirent.name[0] == 0x00)
+        return -ENOENT;
+
+    uint32_t current_cluster = ((uint32_t)dirent.first_cluster_high << 16) | dirent.first_cluster_low;
+    uint32_t file_size = dirent.file_size;
 
     uint32_t cluster_size = data->bpb.sectors_per_cluster * data->bpb.bytes_per_sector;
-    uint32_t current_cluster = dirent_ref.cluster;
     uint32_t cluster_offset = 0;
     size_t bytes_written = 0;
 
     // Handle new files
-    if (dirent_ref.dirent.first_cluster_low == 0) {
+    if (dirent.first_cluster_low == 0) {
         uint32_t free_cluster = fat_compute_free_cluster();
-        dirent_ref.dirent.first_cluster_low = free_cluster & 0xFFFF;
-        dirent_ref.dirent.first_cluster_high = (free_cluster >> 16) & 0xFFFF;
+        dirent.first_cluster_low = free_cluster & 0xFFFF;
+        dirent.first_cluster_high = (free_cluster >> 16) & 0xFFFF;
         write_fat(free_cluster, CLUSTER_CHAIN_END);
         current_cluster = free_cluster;
     }
@@ -743,20 +766,20 @@ int fat_write_to_file(const char *path, const uint8_t *buffer, size_t offset, si
     }
     // Update file size if needed
     if (offset + size > file_size) {
-        dirent_ref.dirent.file_size = offset + size;
+        dirent.file_size = offset + size;
     }
     // Update last modification time
     uint32_t year, month, day, hour, minute, second;
     get_wall_clock_time(&year, &month, &day, &hour, &minute, &second);
     uint16_t fat_date, fat_time;
     wall_clock_to_fat_timestamp(year, month, day, hour, minute, second, &fat_date, &fat_time);
-    dirent_ref.dirent.last_modification_date = fat_date;
-    dirent_ref.dirent.last_modification_time = fat_time;
+    dirent.last_modification_date = fat_date;
+    dirent.last_modification_time = fat_time;
     // Write back updated dirent
     uint8_t sector_buffer[512];
-    read_sectors(data->backing, dirent_ref.position[0], sector_buffer, 1);
-    memcpy(&sector_buffer[dirent_ref.position[1]], &dirent_ref.dirent, sizeof(fat_dirent_t));
-    write_sectors(data->backing, dirent_ref.position[0], sector_buffer, 1);
+    read_sectors(data->backing, (uint32_t)(handle >> 32), sector_buffer, 1);
+    memcpy(&sector_buffer[(uint32_t)(handle & 0xFFFFFFFF)], &dirent, sizeof(fat_dirent_t));
+    write_sectors(data->backing, (uint32_t)(handle >> 32), sector_buffer, 1);
     return bytes_written;
 }
 
@@ -776,8 +799,8 @@ int fat_rename(const char *old_path, const char *new_path) {
     if (!old_dirent_ref.found) {
         return -ENOENT; // Old file not found
     }
-    stat_t st;
-    if (fat_stat(new_path, &st) == 0) {
+    uint64_t tmp;
+    if (fat_lookup(new_path, &tmp) == 0) {
         int res = fat_delete(new_path);
         if (res < 0) {
             return res; // Failed to delete existing file at new path
@@ -806,20 +829,20 @@ int fat_rename(const char *old_path, const char *new_path) {
     return 0;
 }
 
-int fat_stat(const char *path, stat_t *out) {
+int fat_stat(uint64_t handle, stat_t *out) {
     if (!out) return -EINVAL;
-    fat_dirent_ref_t dirent_ref = fat_get_dirent_ref(path);
-    if (!dirent_ref.found) {
-        return -ENOENT; // File not found
-    }
-    out->type = dirent_ref.dirent.attributes & DIRENT_DIRECTORY ? DT_DIR : DT_FILE;
-    out->size = dirent_ref.dirent.file_size;
-    uint16_t fat_cdate = dirent_ref.dirent.creation_date;
-    uint16_t fat_ctime = dirent_ref.dirent.creation_time;
+    fat_dirent_t dirent = fat_read_dirent(handle);
+    if ((uint8_t)dirent.name[0] == DIRENT_DELETED ||
+        (uint8_t)dirent.name[0] == 0x00)
+        return -ENOENT;
+    out->type = dirent.attributes & DIRENT_DIRECTORY ? DT_DIR : DT_FILE;
+    out->size = dirent.file_size;
+    uint16_t fat_cdate = dirent.creation_date;
+    uint16_t fat_ctime = dirent.creation_time;
     out->ctime = fat_timestamp_to_unix(fat_cdate, fat_ctime);
     out->btime = out->ctime;
-    uint16_t fat_mdate = dirent_ref.dirent.last_modification_date;
-    uint16_t fat_mtime = dirent_ref.dirent.last_modification_time;
+    uint16_t fat_mdate = dirent.last_modification_date;
+    uint16_t fat_mtime = dirent.last_modification_time;
     out->mtime = fat_timestamp_to_unix(fat_mdate, fat_mtime);
     return 0;
 }
@@ -855,6 +878,7 @@ void fat_register() {
     fat_fs.check = fat_check;
     fat_fs.select = fat_select;
     fat_fs.mount = fat_mount;
+    fat_fs.lookup = fat_lookup;
     fat_fs.read = fat_read;
     fat_fs.write = fat_write_to_file;
     fat_fs.readdir = fat_readdir;

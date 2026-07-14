@@ -20,12 +20,3 @@ int umount(const char* mountpoint) {
     }
     return 0;
 }
-
-int umount_all() {
-    int result = syscall(SYSCALL_UNMOUNT_ALL, 0, 0, 0, 0, 0, 0);
-    if (result < 0) {
-        errno = -result;
-        return -1;
-    }
-    return 0;
-}

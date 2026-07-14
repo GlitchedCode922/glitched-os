@@ -1,17 +1,33 @@
 #include "devfs.h"
 #include "ramfs.h"
 #include "../memory/mman.h"
+#include <stdint.h>
 
 static void* ramfs_instance;
 
-int devfs_readdir(const char* path, int index, dirent_t* out) {
+int devfs_lookup(const char* path, uint64_t* handle) {
     ramfs_select(ramfs_instance);
-    return ramfs_readdir(path, index, out);
+    return ramfs_lookup(path, handle);
 }
 
-int devfs_read(const char* path, uint8_t* buffer, size_t offset, size_t size) {
+int devfs_open(uint64_t handle) {
     ramfs_select(ramfs_instance);
-    return ramfs_read(path, buffer, offset, size);
+    return ramfs_open(handle);
+}
+
+int devfs_close(uint64_t handle) {
+    ramfs_select(ramfs_instance);
+    return ramfs_close(handle);
+}
+
+int devfs_readdir(uint64_t handle, int index, dirent_t* out) {
+    ramfs_select(ramfs_instance);
+    return ramfs_readdir(handle, index, out);
+}
+
+int devfs_read(uint64_t handle, uint8_t* buffer, size_t offset, size_t size) {
+    ramfs_select(ramfs_instance);
+    return ramfs_read(handle, buffer, offset, size);
 }
 
 int devfs_delete(const char* path) {
@@ -29,9 +45,9 @@ int devfs_create_directory(const char* path) {
     return ramfs_create_directory(path);
 }
 
-int devfs_write(const char *path, const uint8_t *buffer, size_t offset, size_t size) {
+int devfs_write(uint64_t handle, const uint8_t *buffer, size_t offset, size_t size) {
     ramfs_select(ramfs_instance);
-    return ramfs_write(path, buffer, offset, size);
+    return ramfs_write(handle, buffer, offset, size);
 }
 
 int devfs_rename(const char* old_path, const char* new_path) {
@@ -39,9 +55,9 @@ int devfs_rename(const char* old_path, const char* new_path) {
     return ramfs_rename(old_path, new_path);
 }
 
-int devfs_stat(const char* path, stat_t* out) {
+int devfs_stat(uint64_t handle, stat_t* out) {
     ramfs_select(ramfs_instance);
-    return ramfs_stat(path, out);
+    return ramfs_stat(handle, out);
 }
 
 int devfs_mknod(const char* path, uint32_t type, dev_t dev) {
@@ -71,6 +87,10 @@ void devfs_register() {
     devfs.check = devfs_check;
     devfs.mount = devfs_mount;
     devfs.select = devfs_select;
+
+    devfs.lookup = devfs_lookup;
+    devfs.open = devfs_open;
+    devfs.close = devfs_close;
 
     devfs.readdir = devfs_readdir;
     devfs.read = devfs_read;

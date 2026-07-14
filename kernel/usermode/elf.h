@@ -1,6 +1,6 @@
 #pragma once
-
 #include <stdint.h>
+#include "../vfs.h"
 
 // --- ELF Magic Number ---
 #define ELFMAG0 0x7f
@@ -87,6 +87,6 @@ typedef struct {
     uint64_t p_align;   // Segment alignment
 } Elf64_Phdr;
 
-int is_elf(const char *path);
-int is_compatible_binary(const char *path);
-void* load_elf(const char *path, void **brk);
+int is_elf(file_handle_t file);
+int is_compatible_binary(file_handle_t file);
+void* load_elf(file_handle_t file, void **brk);

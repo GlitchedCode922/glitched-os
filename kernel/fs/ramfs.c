@@ -47,14 +47,64 @@ static int ramfs_get_dirent(const char* path, ramfs_dirent_t** out) {
     return 0;
 }
 
-int ramfs_readdir(const char* path, int index, dirent_t *out) {
+int ramfs_free_dirent(ramfs_dirent_t* dirent) {
+    if (dirent->previous) {
+        dirent->previous->next = dirent->next;
+    }
+    if (dirent->parent->child == dirent) {
+        dirent->parent->child = dirent->next;
+    }
+    if (dirent->next) {
+        dirent->next->previous = dirent->previous;
+    }
+    int data_pointer_count = dirent->file_size / RAMFS_BLOCK_SIZE + 1;
+    ramfs_data_t* data_pointers[data_pointer_count];
+    memset(data_pointers, 0, sizeof(data_pointers));
+    data_pointers[0] = dirent->first_block;
+    for (int i = 1; i < data_pointer_count; i++) {
+        if (data_pointers[i - 1] == NULL) break;
+        data_pointers[i] = data_pointers[i - 1]->next;
+    }
+    for (int i = data_pointer_count - 1; i >= 0; i--) {
+        kfree(data_pointers[i]);
+    }
+    kfree(dirent);
+    return 0;
+}
+
+int ramfs_lookup(const char* path, uint64_t* handle) {
     ramfs_dirent_t* dirent;
     int res = ramfs_get_dirent(path, &dirent);
     if (res < 0) return res;
+    *handle = (uint64_t)dirent;
+    return 0;
+}
+
+int ramfs_open(uint64_t handle) {
+    ramfs_dirent_t* dirent = (ramfs_dirent_t*)handle;
+    dirent->open_count++;
+    return 0;
+}
+
+int ramfs_close(uint64_t handle) {
+    ramfs_dirent_t* dirent = (ramfs_dirent_t*)handle;
+    dirent->open_count--;
+    if (dirent->open_count == 0 && dirent->to_delete) {
+        return ramfs_free_dirent(dirent);
+    }
+    return 0;
+}
+
+int ramfs_readdir(uint64_t handle, int index, dirent_t *out) {
+    ramfs_dirent_t* dirent = (ramfs_dirent_t*)handle;
     if (dirent->type != DT_DIR) return -ENOTDIR;
     dirent = dirent->child;
     int i = 0;
     while (dirent) {
+        if (dirent->to_delete) {
+            dirent = dirent->next;
+            continue;
+        }
         if (i == index) {
             memcpy(out->name, dirent->name, 256);
             out->type = dirent->type;
@@ -66,10 +116,8 @@ int ramfs_readdir(const char* path, int index, dirent_t *out) {
     return 0;
 }
 
-int ramfs_read(const char *path, uint8_t *buffer, size_t offset, size_t size) {
-    ramfs_dirent_t* dirent;
-    int res = ramfs_get_dirent(path, &dirent);
-    if (res < 0) return res;
+int ramfs_read(uint64_t handle, uint8_t *buffer, size_t offset, size_t size) {
+    ramfs_dirent_t* dirent = (ramfs_dirent_t*)handle;
     if (dirent->type == DT_DIR) return -EISDIR;
     if (dirent->type == DT_BLOCK) {
         block_device_t dev = {
@@ -108,28 +156,9 @@ int ramfs_delete(const char *path) {
     ramfs_dirent_t* dirent;
     int res = ramfs_get_dirent(path, &dirent);
     if (res < 0) return res;
-    if (dirent->previous) {
-        dirent->previous->next = dirent->next;
-    }
-    if (dirent->parent->child == dirent) {
-        dirent->parent->child = dirent->next;
-    }
-    if (dirent->next) {
-        dirent->next->previous = dirent->previous;
-    }
-    int data_pointer_count = dirent->file_size / RAMFS_BLOCK_SIZE + 1;
-    ramfs_data_t* data_pointers[data_pointer_count];
-    memset(data_pointers, 0, sizeof(data_pointers));
-    data_pointers[0] = dirent->first_block;
-    for (int i = 1; i < data_pointer_count; i++) {
-        if (data_pointers[i - 1] == NULL) break;
-        data_pointers[i] = data_pointers[i - 1]->next;
-    }
-    for (int i = data_pointer_count - 1; i >= 0; i--) {
-        kfree(data_pointers[i]);
-    }
-    kfree(dirent);
-    return 0;
+    dirent->to_delete = 1;
+    if (dirent->open_count > 0) return 0;
+    return ramfs_free_dirent(dirent);
 }
 
 static size_t strlen(const char *s) {
@@ -250,11 +279,9 @@ int ramfs_create_directory(const char *path) {
     return ramfs_add_dirent(dirname, dirent);
 }
 
-int ramfs_write(const char *path, const uint8_t *buffer, size_t offset, size_t size) {
+int ramfs_write(uint64_t handle, const uint8_t *buffer, size_t offset, size_t size) {
     if (mount->read_only) return -EROFS;
-    ramfs_dirent_t* dirent;
-    int res = ramfs_get_dirent(path, &dirent);
-    if (res < 0) return res;
+    ramfs_dirent_t* dirent = (ramfs_dirent_t*)handle;
     if (dirent->type == DT_DIR) return -EISDIR;
     if (dirent->type == DT_BLOCK) {
         block_device_t dev = {
@@ -341,10 +368,8 @@ int ramfs_rename(const char *old_path, const char *new_path) {
     return ramfs_add_dirent(dirname, dirent);
 }
 
-int ramfs_stat(const char *path, stat_t *out) {
-    ramfs_dirent_t* dirent;
-    int res = ramfs_get_dirent(path, &dirent);
-    if (res < 0) return res;
+int ramfs_stat(uint64_t handle, stat_t *out) {
+    ramfs_dirent_t* dirent = (ramfs_dirent_t*)handle;
 
     memset(out, 0, sizeof(stat_t));
     out->type = dirent->type;
@@ -379,6 +404,10 @@ void ramfs_register() {
     ramfs.check = ramfs_check;
     ramfs.mount = ramfs_mount;
     ramfs.select = ramfs_select;
+
+    ramfs.lookup = ramfs_lookup;
+    ramfs.open = ramfs_open;
+    ramfs.close = ramfs_close;
 
     ramfs.readdir = ramfs_readdir;
     ramfs.read = ramfs_read;

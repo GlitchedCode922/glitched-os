@@ -19,7 +19,7 @@ enum {
 };
 
 typedef struct {
-    void* path;
+    file_handle_t file_handle;
     int type;
     size_t offset;
     int flags;
@@ -32,7 +32,7 @@ int fd_readdir(int fd, dirent_t* dirent);
 int fd_ioctl(int fd, uint64_t request, uint64_t arg);
 int seek(int fd, int64_t offset, int type);
 int tell(int fd);
-int open(const char* path, uint16_t flags);
-int close(int fd);
+int fd_open(const char* path, uint16_t flags);
+int fd_close(int fd);
 int dup(int fd);
 int dup2(int fd, int new_fd);
