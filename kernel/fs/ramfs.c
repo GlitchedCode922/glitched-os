@@ -390,6 +390,29 @@ void* ramfs_mount(block_device_t block, int flags) {
     return mount;
 }
 
+void ramfs_recursive_delete(ramfs_dirent_t* dirent) {
+    ramfs_dirent_t* current = dirent->child;
+    while (current) {
+        ramfs_dirent_t* next = current->next;
+        ramfs_recursive_delete(current);
+        current = next;
+    }
+    ramfs_free_dirent(dirent);
+}
+
+int ramfs_unmount(void* data) {
+    mount = data;
+    // Iterate over directory entries and delete them
+    ramfs_dirent_t* current = mount->root.child;
+    while (current) {
+        ramfs_dirent_t* next = current->next;
+        ramfs_recursive_delete(current);
+        current = next;
+    }
+    kfree(mount);
+    return 0;
+}
+
 void ramfs_select(void* data) {
     mount = data;
 }
@@ -403,6 +426,7 @@ void ramfs_register() {
 
     ramfs.check = ramfs_check;
     ramfs.mount = ramfs_mount;
+    ramfs.unmount = ramfs_unmount;
     ramfs.select = ramfs_select;
 
     ramfs.lookup = ramfs_lookup;

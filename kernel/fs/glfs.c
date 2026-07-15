@@ -49,6 +49,10 @@ void* glfs_glue_mount(block_device_t dev, int flags) {
     return mount;
 }
 
+int glfs_glue_unmount(void* p_mount) {
+    return glfs_unmount(p_mount);
+} 
+
 void glfs_glue_select(void* p_mount) {
     mount = p_mount;
 }
@@ -187,6 +191,7 @@ void glfs_register() {
 
     glfs.check = glfs_glue_check;
     glfs.mount = glfs_glue_mount;
+    glfs.unmount = glfs_glue_unmount;
     glfs.select = glfs_glue_select;
 
     glfs.lookup = glfs_glue_lookup;

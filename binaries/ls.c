@@ -18,9 +18,11 @@ int main(int argc, char** argv) {
     while (1) {
         int ret = readdir(dirfd, &dirent);
         if (ret < 0) {
+            close(dirfd);
             perror("readdir failed");
             return 1;
         } else if (ret == 0) {
+            close(dirfd);
             return 0;
         }
         printf("%s\n", dirent.name);

@@ -37,6 +37,7 @@ typedef struct {
 
     int (*check)(block_device_t device);
     void* (*mount)(block_device_t device, int flags);
+    int (*unmount)(void* data);
     void (*select)(void* data);
 
     int (*lookup)(const char* path, uint64_t* handle);

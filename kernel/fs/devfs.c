@@ -73,6 +73,10 @@ void* devfs_mount(block_device_t block, int flags) {
     return NULL;
 }
 
+int devfs_unmount(void* data) {
+    return 0;
+}
+
 void devfs_select(void* data) {
 }
 
@@ -86,6 +90,7 @@ void devfs_register() {
 
     devfs.check = devfs_check;
     devfs.mount = devfs_mount;
+    devfs.unmount = devfs_unmount;
     devfs.select = devfs_select;
 
     devfs.lookup = devfs_lookup;

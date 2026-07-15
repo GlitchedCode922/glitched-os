@@ -44,6 +44,7 @@ int ramfs_mknod(const char* path, uint32_t type, dev_t dev);
 
 int ramfs_check(block_device_t block);
 void* ramfs_mount(block_device_t block, int flags);
+int ramfs_unmount(void* data);
 void ramfs_select(void* data);
 
 void ramfs_register();

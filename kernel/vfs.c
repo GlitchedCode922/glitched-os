@@ -356,7 +356,13 @@ int unmount_filesystem(const char *path) {
             sibling->next = mount->next;
         }
     }
-    kfree(mount->fs_data);
+    filesystem_t* fs = &filesystems[mount->type];
+    if (fs->unmount) {
+        int res = fs->unmount(mount->fs_data);
+        if (res < 0) return res;
+    } else {
+        kfree(mount->fs_data);
+    }
     kfree(mount);
     return 0; // Success
 }
