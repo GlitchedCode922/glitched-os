@@ -408,6 +408,17 @@ int open(const char *path, file_handle_t* open_file) {
     return 0;
 }
 
+int clone_file_handle(file_handle_t file) {
+    filesystem_t* fs = &filesystems[file.mountpoint->type];
+    fs->select(file.mountpoint->fs_data);
+    if (fs->open) {
+        int res = fs->open(file.handle);
+        if (res < 0) return res;
+    }
+    file.mountpoint->refcount++;
+    return 0;
+}
+
 int close(file_handle_t open_file) {
     mountpoint_t* mount = open_file.mountpoint;
     filesystem_t* fs = &filesystems[mount->type];

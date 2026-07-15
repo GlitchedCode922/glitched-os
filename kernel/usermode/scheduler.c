@@ -1,5 +1,6 @@
 #include "scheduler.h"
 #include "../vfs.h"
+#include "fd.h"
 #include "syscalls.h"
 #include "../gdt.h"
 #include "../memory/mman.h"
@@ -144,6 +145,7 @@ void run_next(iframe_t* iframe) {
 
 void exit(int ret) {
     if (current_task == &init_task) panic("Init process exited!");
+    release_process_fds();
     current_task->state = STATE_ZOMBIE;
     current_task->return_code = ret;
 
@@ -216,6 +218,13 @@ int add_task(char* path, char** argv, task_t* parent, int pid, iframe_t* iframe)
     *new_task = *parent;
     new_task->state = STATE_READY;
     new_task->cr3 = clone_page_tables(base_pml4);
+
+    // Clone FD file handles
+    for (int fd = 0; fd < MAX_FDS; fd++) {
+        if (new_task->fd_table[fd].refcount == 0) continue;
+        int res = clone_file_handle(new_task->fd_table[fd].file_handle);
+        if (res < 0) return res;
+    }
 
     // Switch to the new page table
     asm volatile("mov %0, %%cr3" :: "r"(new_task->cr3));

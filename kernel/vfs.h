@@ -93,6 +93,7 @@ int chdir(char* path);
 int mknod(const char* path, uint32_t type, dev_t dev);
 int link(const char *file, const char *link);
 int ioctl(file_handle_t file, uint64_t request, uint64_t arg);
+int clone_file_handle(file_handle_t file);
 dev_t makedev(uint32_t major, uint32_t minor);
 uint32_t major(dev_t device);
 uint32_t minor(dev_t device);

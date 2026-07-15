@@ -36,3 +36,4 @@ int fd_open(const char* path, uint16_t flags);
 int fd_close(int fd);
 int dup(int fd);
 int dup2(int fd, int new_fd);
+void release_process_fds();

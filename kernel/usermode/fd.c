@@ -175,3 +175,10 @@ int dup2(int fd, int new_fd) {
     current_task->fd_ptr_table[fd]->refcount++;
     return new_fd;
 }
+
+void release_process_fds() {
+    for (int fd = 0; fd < MAX_FDS; fd++) {
+        if (current_task->fd_ptr_table[fd] == NULL) continue;
+        fd_close(fd);
+    }
+}
