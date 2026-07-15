@@ -48,5 +48,6 @@
 #define SYSCALL_SETFONT 60
 #define SYSCALL_MKNOD 61
 #define SYSCALL_TELL 62
+#define SYSCALL_LINK 63
 
 int64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6);

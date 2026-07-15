@@ -47,6 +47,15 @@ int seek(int fd, int64_t offset, int type) {
     return res;
 }
 
+int64_t tell(int fd) {
+    int64_t res = syscall(SYSCALL_TELL, (uint64_t)fd, 0, 0, 0, 0, 0);
+    if (res < 0) {
+        errno = -res;
+        return -1;
+    }
+    return res;
+}
+
 int dup(int fd) {
     int res = syscall(SYSCALL_DUP, (uint64_t)fd, 0, 0, 0, 0, 0);
     if (res < 0) {

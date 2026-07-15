@@ -40,11 +40,19 @@ int readdir(int fd, dirent_t* out);
 int open(const char* path, uint16_t flags);
 int close(int fd);
 int seek(int fd, int64_t offset, int type);
+int64_t tell(int fd);
 int dup(int fd);
 int dup2(int fd, int new_fd);
 
 
 int stat(const char* path, stat_t* out);
+int link(const char* path, const char* link);
+int remove_file(const char* path);
+int create_file(const char* path);
+int create_directory(const char* path);
+int rename_file(const char* old_path, const char* new_path);
+int chdir(char* path);
+void getcwd(char* buffer, size_t size);
 
 typedef int pid_t;
 

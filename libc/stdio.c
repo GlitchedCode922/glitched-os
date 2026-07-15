@@ -206,6 +206,15 @@ int stat(const char *path, stat_t* out) {
     return res;
 }
 
+int link(const char* file, const char* link) {
+    int res = syscall(SYSCALL_LINK, (uint64_t)file, (uint64_t)link, 0, 0, 0, 0);
+    if (res < 0) {
+        errno = -res;
+        return -1;
+    }
+    return res;
+}
+
 int remove_file(const char* path) {
     int res = syscall(SYSCALL_DELETE_FILE, (uint64_t)path, 0, 0, 0, 0, 0);
     if (res < 0) {

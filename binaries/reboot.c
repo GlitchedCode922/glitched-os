@@ -1,4 +1,4 @@
-#include "../libc/syscall.h"
+#include <syscall.h>
 
 int main() {
     syscall(SYSCALL_REBOOT, 0, 0, 0, 0, 0, 0);
