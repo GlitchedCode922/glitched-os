@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <unistd.h>
 #include <string.h>
 
 int main(int argc, char** argv) {
@@ -11,7 +12,7 @@ int main(int argc, char** argv) {
     char path_copy[strlen(argv[1]) + 1];
     strcpy(path_copy, argv[1]);
     int i = 0;
-    
+
     while (path_copy[i]) {
         if (path_copy[i] == '/') {
             last_slash = i;
