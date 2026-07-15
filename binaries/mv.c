@@ -48,7 +48,7 @@ int main(int argc, char** argv) {
     // Attempt to rename the file or directory
     if (rename_file(argv[1], dest_path) == 0) {
         return 0;
-    } 
+    }
 
     if (st_source.type == DT_DIR) {
         printf("Recursive move of directories is not implemented, renaming failed\n");
@@ -66,7 +66,7 @@ int main(int argc, char** argv) {
         perror(dest_path);
         return 1;
     }
-    size_t bytes_read, bytes_written;
+    int64_t bytes_read, bytes_written;
     while ((bytes_read = read(fd_read, buffer, sizeof(buffer))) != 0) {
         if (bytes_read < 0) {
             perror("Error reading from source file");

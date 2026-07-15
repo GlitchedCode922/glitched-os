@@ -18,7 +18,7 @@ int main(int argc, char** argv) {
         perror(argv[2]);
         return 1;
     }
-    size_t bytes_read, bytes_written;
+    int64_t bytes_read, bytes_written;
     char buffer[8192];
     while ((bytes_read = read(fd_read, buffer, sizeof(buffer))) != 0) {
         if (bytes_read < 0) {
