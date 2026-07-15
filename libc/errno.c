@@ -27,6 +27,7 @@ char* strerror(int errnum) {
         case ENOTBLK: return "Not a block device";
         case ENAMETOOLONG: return "Filename too long";
         case ENOTEMPTY: return "Directory not empty";
+        case EXDEV: return "Invalid cross-device link";
         default: return "Unknown error";
     }
 }

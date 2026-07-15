@@ -501,7 +501,7 @@ int rename_file(const char *old_path, const char *new_path) {
     mountpoint_t* old_mount = find_mountpoint(old_path, old_remaining_path);
     mountpoint_t* new_mount = find_mountpoint(new_path, new_remaining_path);
     if (old_mount != new_mount) {
-        return -ENOENT; // Cannot rename across different filesystems
+        return -EXDEV; // Cannot rename across different filesystems
     }
     filesystem_t* old_fs = &filesystems[old_mount->type];
     old_fs->select(old_mount->fs_data);
@@ -579,6 +579,25 @@ int mknod(const char *path, uint32_t type, dev_t dev) {
         return -ENOSYS; // mknod() not supported by this filesystem
     }
     return fs->mknod(remaining_path, type, dev);
+}
+
+int link(const char *file, const char *link) {
+    char remaining_path[MAX_PATH];
+    mountpoint_t* mount = find_mountpoint(file, remaining_path);
+    if (!mount) return -ENOENT; // Mount point not found
+    char remaining_link_path[MAX_PATH];
+    mountpoint_t* ln_mount = find_mountpoint(link, remaining_path);
+    if (!ln_mount) return -ENOENT; // Mount point not found
+    if (mount != ln_mount) return -EXDEV;
+    filesystem_t* fs = &filesystems[mount->type];
+    fs->select(mount->fs_data);
+    uint64_t handle;
+    int res = fs->lookup(remaining_path, &handle);
+    if (res < 0) return res;
+    if (!fs->link) {
+        return -ENOSYS; // Hard link creation not supported by this filesystem
+    }
+    return fs->link(handle, remaining_link_path);
 }
 
 int ioctl(file_handle_t file, uint64_t request, uint64_t arg) {

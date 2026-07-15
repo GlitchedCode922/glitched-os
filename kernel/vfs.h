@@ -52,6 +52,7 @@ typedef struct {
     int (*create_directory)(const char *path); // Create a new directory
     int (*remove)(const char *path); // Delete a file or directory
     int (*rename)(const char *old_path, const char *new_path); // Rename a file or directory
+    int (*link)(uint64_t handle, const char *link);
 } filesystem_t;
 
 typedef struct mountpoint {
@@ -89,6 +90,7 @@ void register_intree_filesystems();
 void getcwd(char* buffer, size_t len);
 int chdir(char* path);
 int mknod(const char* path, uint32_t type, dev_t dev);
+int link(const char *file, const char *link);
 int ioctl(file_handle_t file, uint64_t request, uint64_t arg);
 dev_t makedev(uint32_t major, uint32_t minor);
 uint32_t major(dev_t device);

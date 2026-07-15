@@ -69,7 +69,7 @@ void syscall(iframe_t* iframe) {
         ret = create_directory((const char*)arg1);
         break;
     case SYSCALL_GET_PPID:
-        // Not implemented, will come with process management
+        ret = getppid();
         break;
     case SYSCALL_READDIR:
         ret = fd_readdir(arg1, (dirent_t*)arg2);
@@ -199,6 +199,9 @@ void syscall(iframe_t* iframe) {
         break;
     case SYSCALL_TELL:
         ret = tell(arg1);
+        break;
+    case SYSCALL_LINK:
+        ret = link((const char*)arg1, (const char*)arg2);
         break;
     default:
         // Invalid syscall, return an error code

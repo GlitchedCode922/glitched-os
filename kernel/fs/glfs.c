@@ -175,6 +175,10 @@ int glfs_glue_rename(const char *old_path, const char *new_path) {
     return glfs_rename(mount, old_path, new_path);
 }
 
+int glfs_glue_link(uint64_t inode, const char* link) {
+    return glfs_link(mount, inode, link);
+}
+
 void glfs_register() {
     filesystem_t glfs = {0};
     memcpy(glfs.name, "glfs", 5);
@@ -198,6 +202,7 @@ void glfs_register() {
     glfs.create_directory = glfs_glue_create_directory;
     glfs.remove = glfs_glue_delete;
     glfs.rename = glfs_glue_rename;
+    glfs.link = glfs_glue_link;
 
     register_filesystem(glfs);
 }

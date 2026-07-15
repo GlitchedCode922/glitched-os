@@ -22,5 +22,6 @@
 #define ENOTBLK 15
 #define ENAMETOOLONG 36
 #define ENOTEMPTY 39
+#define EXDEV 18
 
 extern int errno;
