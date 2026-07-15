@@ -726,6 +726,7 @@ int fat_write_to_file(uint64_t handle, const uint8_t *buffer, size_t offset, siz
     uint32_t cluster_size = data->bpb.sectors_per_cluster * data->bpb.bytes_per_sector;
     uint32_t cluster_offset = 0;
     size_t bytes_written = 0;
+    size_t original_offset = offset;
 
     // Handle new files
     if (dirent.first_cluster_low == 0) {
@@ -790,8 +791,8 @@ int fat_write_to_file(uint64_t handle, const uint8_t *buffer, size_t offset, siz
         }
     }
     // Update file size if needed
-    if (offset + size > file_size) {
-        dirent.file_size = offset + size;
+    if (original_offset + size > file_size) {
+        dirent.file_size = original_offset + size;
     }
     // Update last modification time
     uint32_t year, month, day, hour, minute, second;
