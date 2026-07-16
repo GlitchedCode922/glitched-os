@@ -25,6 +25,10 @@ int main(int argc, char** argv) {
             close(dirfd);
             return 0;
         }
-        printf("%s\n", dirent.name);
+        if (dirent.type == DT_DIR) printf("\x1b[94m%s\x1b[0m\n", dirent.name);
+        else if (dirent.type == DT_DIR) printf("\x1b[94m%s\x1b[0m\n", dirent.name);
+        else if (dirent.type == DT_BLOCK) printf("\x1b[33m%s\x1b[0m\n", dirent.name);
+        else if (dirent.type == DT_CHAR) printf("\x1b[93m%s\x1b[0m\n", dirent.name);
+        else printf("%s\n", dirent.name);
     }
 }
