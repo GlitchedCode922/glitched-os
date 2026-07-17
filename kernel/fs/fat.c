@@ -3,64 +3,41 @@
 #include "../error.h"
 #include "../vfs.h"
 #include "../drivers/block.h"
+#include "../drivers/timer.h"
 #include <stddef.h>
 #include <stdint.h>
 
 static fat_data_t* data;
 
-static void get_wall_clock_time(uint32_t* year, uint32_t* month, uint32_t* day,
-                        uint32_t* hour, uint32_t* minute, uint32_t* second) {
-    // This function is a placeholder. It will be added with the RTC driver in timer.c.
-    *year = 2026;
-    *month = 2;
-    *day = 1;
-    *hour = 17;
-    *minute = 0;
-    *second = 0;
-}
-
 uint64_t fat_timestamp_to_unix(uint16_t fat_date, uint16_t fat_time) {
     // Convert FAT date and time to Unix timestamp
-    int year = ((fat_date >> 9) & 0x7F) + 1980;
-    int month = (fat_date >> 5) & 0x0F;
-    int day = fat_date & 0x1F;
-    int hour = (fat_time >> 11) & 0x1F;
-    int minute = (fat_time >> 5) & 0x3F;
-    int second = (fat_time & 0x1F) * 2;
+    datetime_t dt = {
+        .year = ((fat_date >> 9) & 0x7F) + 1980,
+        .month = (fat_date >> 5) & 0x0F,
+        .day = fat_date & 0x1F,
+        .hour = (fat_time >> 11) & 0x1F,
+        .minute = (fat_time >> 5) & 0x3F,
+        .second = (fat_time & 0x1F) * 2,
+    };
 
-    // Simple conversion to Unix timestamp (not accounting for leap years, etc.)
-    uint64_t days = (year - 1970) * 365 + (month - 1) * 30 + (day - 1); // Approximation
-    uint64_t timestamp = days * 86400 + hour * 3600 + minute * 60 + second;
-    return timestamp;
+    return to_unix_timestamp(dt);
 }
 
-void wall_clock_to_fat_timestamp(int year, int month, int day, int hour, int min, int sec, uint16_t *fat_date, uint16_t *fat_time) {
+void unix_to_fat_timestamp(uint64_t timestamp, uint16_t *fat_date, uint16_t *fat_time) {
     // FAT stores year as years since 1980
-    if (year < 1980) year = 1980;
-    int year_since_1980 = year - 1980;
+    datetime_t dt = to_datetime(timestamp);
+    if (dt.year < 1980) dt.year = 1980;
+    int year_since_1980 = dt.year - 1980;
 
     // Pack date field
     *fat_date = ((year_since_1980 & 0x7F) << 9)  // bits 9-15
-                | ((month & 0x0F) << 5)          // bits 5-8
-                | (day & 0x1F);                  // bits 0-4
+                | ((dt.month & 0x0F) << 5)          // bits 5-8
+                | (dt.day & 0x1F);                  // bits 0-4
 
     // Pack time field
-    *fat_time = ((hour & 0x1F) << 11)            // bits 11-15
-                | ((min & 0x3F) << 5)            // bits 5-10
-                | ((sec / 2) & 0x1F);           // bits 0-4 (seconds / 2)
-}
-
-void fat_timestamp_to_wall_clock(uint16_t fat_date, uint16_t fat_time, int *year, int *month, int *day, int *hour, int *min, int *sec) {
-    // Extract year, month, day from fat_date
-    int year_since_1980 = (fat_date >> 9) & 0x7F; // bits 9-15
-    *year = year_since_1980 + 1980; // FAT year is years since 1980
-    *month = (fat_date >> 5) & 0x0F; // bits 5-8
-    *day = fat_date & 0x1F; // bits 0-4
-
-    // Extract hour, minute, second from fat_time
-    *hour = (fat_time >> 11) & 0x1F; // bits 11-15
-    *min = (fat_time >> 5) & 0x3F; // bits 5-10
-    *sec = (fat_time & 0x1F) * 2; // bits 0-4, seconds are stored as half-seconds in FAT
+    *fat_time = ((dt.hour & 0x1F) << 11)            // bits 11-15
+                | ((dt.minute & 0x3F) << 5)            // bits 5-10
+                | ((dt.second / 2) & 0x1F);           // bits 0-4 (seconds / 2)
 }
 
 int fat_check(block_device_t device) {
@@ -611,10 +588,8 @@ int fat_create_file(const char *path) {
     dirent.first_cluster_low = 0;
     dirent.first_cluster_high = 0;
     dirent.file_size = 0;
-    uint32_t year, month, day, hour, minute, second;
-    get_wall_clock_time(&year, &month, &day, &hour, &minute, &second);
     uint16_t fat_date, fat_time;
-    wall_clock_to_fat_timestamp(year, month, day, hour, minute, second, &fat_date, &fat_time);
+    unix_to_fat_timestamp(get_time(), &fat_date, &fat_time);
     dirent.last_modification_date = fat_date;
     dirent.last_modification_time = fat_time;
     dirent.creation_date = fat_date;
@@ -645,10 +620,8 @@ int fat_create_directory(const char *path) {
     fat_dirent_t dirent;
     memset(&dirent, 0, sizeof(fat_dirent_t));
     dirent.attributes = DIRENT_DIRECTORY;
-    uint32_t year, month, day, hour, minute, second;
-    get_wall_clock_time(&year, &month, &day, &hour, &minute, &second);
     uint16_t fat_date, fat_time;
-    wall_clock_to_fat_timestamp(year, month, day, hour, minute, second, &fat_date, &fat_time);
+    unix_to_fat_timestamp(get_time(), &fat_date, &fat_time);
     dirent.last_modification_date = fat_date;
     dirent.last_modification_time = fat_time;
     dirent.creation_date = fat_date;
@@ -795,10 +768,8 @@ int fat_write_to_file(uint64_t handle, const uint8_t *buffer, size_t offset, siz
         dirent.file_size = original_offset + size;
     }
     // Update last modification time
-    uint32_t year, month, day, hour, minute, second;
-    get_wall_clock_time(&year, &month, &day, &hour, &minute, &second);
     uint16_t fat_date, fat_time;
-    wall_clock_to_fat_timestamp(year, month, day, hour, minute, second, &fat_date, &fat_time);
+    unix_to_fat_timestamp(get_time(), &fat_date, &fat_time);
     dirent.last_modification_date = fat_date;
     dirent.last_modification_time = fat_time;
     // Write back updated dirent

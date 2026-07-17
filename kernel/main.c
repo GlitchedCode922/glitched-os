@@ -143,7 +143,7 @@ void kernel_main() {
     register_null_devices();
     enumerate_pci();
     init_fpu();
-    time_base = get_timestamp();
+    time_base = rtc_get_timestamp();
 
     parse_kernel_cmdline();
 }
