@@ -1,4 +1,5 @@
 #include "drivers/fbdev.h"
+#include "drivers/rtc.h"
 #include "limine.h"
 #include "console.h"
 #include "panic.h"
@@ -12,6 +13,7 @@
 #include "idt.h"
 #include "drivers/net/rtl8139.h"
 #include "drivers/fpu.h"
+#include "drivers/timer.h"
 #include "io/pci.h"
 #include "drivers/serial.h"
 #include "usermode/scheduler.h"
@@ -141,6 +143,7 @@ void kernel_main() {
     register_null_devices();
     enumerate_pci();
     init_fpu();
+    time_base = get_timestamp();
 
     parse_kernel_cmdline();
 }

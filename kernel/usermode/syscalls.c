@@ -84,7 +84,7 @@ void syscall(iframe_t* iframe) {
         execv((char*)arg1, (char**)arg2, iframe);
         break;
     case SYSCALL_GET_TIME:
-        // Not implemented, will come with RTC
+        ret = get_time();
         break;
     case SYSCALL_GETPID:
         ret = getpid();

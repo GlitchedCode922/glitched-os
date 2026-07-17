@@ -5,6 +5,7 @@
 #define PIT_FREQUENCY 1000
 
 uint64_t pit_ticks = 0;
+uint64_t time_base = 0;
 
 void pit_tick() {
     pit_ticks++;
@@ -21,6 +22,10 @@ void pit_set_frequency(uint32_t frequency) {
     outb(0x43, 0x36); // Command byte: binary, mode 3, LSB/MSB
     outb(0x40, divisor & 0xFF); // Send LSB
     outb(0x40, (divisor >> 8) & 0xFF); // Send MSB
+}
+
+uint64_t get_time() {
+    return time_base + get_uptime_seconds();
 }
 
 uint64_t get_uptime_seconds() {

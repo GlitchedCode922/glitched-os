@@ -28,11 +28,11 @@ void serial_init() {
         outb(port + 4, 0x10);
         outb(port + 0, 0xAE); // Test serial chip (send byte 0xAE and check if it's received)
 
-        const uint64_t start_tick = pit_get_ticks(); // e.g., PIT, APIC, or RTC tick
-        const uint64_t timeout_ticks = 50; // number of ticks to wait
+        const uint64_t start_tick = get_uptime_milliseconds();
+        const uint64_t timeout_ticks = 50;
 
         while (!(inb(port + 5) & 0x01)) {
-            if ((pit_get_ticks() - start_tick) > timeout_ticks) {
+            if ((get_uptime_milliseconds() - start_tick) > timeout_ticks) {
                 goto next;
             }
         }
