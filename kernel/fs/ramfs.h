@@ -13,6 +13,9 @@ typedef struct ramfs_dirent {
     dev_t device;
     uint64_t file_size;
     uint64_t open_count;
+    uint64_t mtime;
+    uint64_t ctime;
+    uint64_t btime;
     int to_delete;
     ramfs_data_t* first_block;
     struct ramfs_dirent* previous;

@@ -2,6 +2,7 @@
 #include "../memory/mman.h"
 #include "../drivers/block.h"
 #include "../drivers/chrdev.h"
+#include "../drivers/timer.h"
 #include "../error.h"
 #include <stdint.h>
 
@@ -175,6 +176,9 @@ static int ramfs_add_dirent(const char* path, ramfs_dirent_t* dirent) {
     int res = ramfs_get_dirent(path, &parent_dir);
     if (res < 0) return res;
     if (parent_dir->type != DT_DIR) return -ENOTDIR;
+    dirent->mtime = get_time();
+    dirent->ctime = get_time();
+    dirent->btime = get_time();
     dirent->parent = parent_dir;
     dirent->next = parent_dir->child;
     parent_dir->child = dirent;
@@ -325,6 +329,7 @@ int ramfs_write(uint64_t handle, const uint8_t *buffer, size_t offset, size_t si
         }
         current = current->next;
     }
+    dirent->mtime = get_time();
     if (dirent->file_size < offset + size) dirent->file_size = offset + size;
     return bytes_written;
 }
@@ -375,7 +380,9 @@ int ramfs_stat(uint64_t handle, stat_t *out) {
     out->type = dirent->type;
     out->size = dirent->file_size;
     out->rdev = dirent->device;
-    // Timestamps will be added with RTC
+    out->mtime = dirent->mtime;
+    out->ctime = dirent->ctime;
+    out->btime = dirent->btime;
     return 0;
 }
 
@@ -386,6 +393,9 @@ int ramfs_check(block_device_t block) {
 void* ramfs_mount(block_device_t block, int flags) {
     mount = kmalloc(sizeof(ramfs_mount_t));
     mount->root.type = DT_DIR;
+    mount->root.mtime = get_time();
+    mount->root.ctime = get_time();
+    mount->root.btime = get_time();
     mount->read_only = flags & FLAG_READ_ONLY;
     return mount;
 }
