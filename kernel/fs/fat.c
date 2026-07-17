@@ -871,7 +871,7 @@ int fat_get_last_modification_time(const char *path, uint64_t *timestamp) {
 void fat_register() {
     filesystem_t fat_fs;
     memset(&fat_fs, 0, sizeof(filesystem_t));
-    memcpy(fat_fs.name, "FAT", 4);
+    memcpy(fat_fs.name, "fat", 4);
     fat_fs.check = fat_check;
     fat_fs.select = fat_select;
     fat_fs.mount = fat_mount;
