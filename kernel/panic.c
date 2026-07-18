@@ -38,12 +38,6 @@ __attribute__((noreturn)) void vpanic_int(uint64_t rbp, const char *fmt, va_list
     }
 operational:
 
-    clear_screen();
-    set_cursor_position(0, 0);
-
-    // Set background color to black for panic messages
-    setbg_color(COLOR(0, 0, 0));
-
     // Print the panic message
     kprintf(":( Kernel panic: ");
     kvprintf(fmt, args);
