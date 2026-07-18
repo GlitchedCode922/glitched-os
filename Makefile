@@ -64,7 +64,7 @@ build/kernel: $(KERNEL_OBJECTS) glitchfs/build/target-libglfs.a
 
 glitchfs/build/target-libglfs.a: glitchfs
 glitchfs:
-	$(MAKE) -C glitchfs HOSTCC="$(HOSTCC)" CC="$(CC)" AR="$(AR)" CFLAGS="$(CFLAGS) $(KERNEL_CFLAGS)"
+	$(MAKE) -C glitchfs HOSTCC="$(HOSTCC)" CC="$(CC)" AR="$(AR)" CFLAGS="$(CFLAGS) $(KERNEL_CFLAGS)" libglfs-target tools
 
 build/obj/kernel/%.o: kernel/%.c
 	@mkdir -p $(dir $@)

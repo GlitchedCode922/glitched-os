@@ -3,6 +3,7 @@
 #include "../vfs.h"
 #include "../drivers/block.h"
 #include "../drivers/chrdev.h"
+#include "../drivers/timer.h"
 #include "../error.h"
 #include "../memory/mman.h"
 #include "glfs/layout.h"
@@ -33,6 +34,7 @@ glfs_backing_t create_backing(block_device_t dev) {
         .data = d,
         .read_block = glfs_backing_read_block,
         .write_block = glfs_backing_write_block,
+        .time = get_time,
         .alloc = kmalloc,
         .free = kfree,
     };
@@ -51,7 +53,7 @@ void* glfs_glue_mount(block_device_t dev, int flags) {
 
 int glfs_glue_unmount(void* p_mount) {
     return glfs_unmount(p_mount);
-} 
+}
 
 void glfs_glue_select(void* p_mount) {
     mount = p_mount;
@@ -160,15 +162,15 @@ int glfs_glue_mknod(const char *path, uint32_t type, dev_t dev) {
         case DT_CHAR: type = GLFS_CHR; break;
         default: return -EINVAL;
     }
-    return glfs_mknod(mount, path, type, dev);
+    return glfs_mknod(mount, path, type, dev, 0777, 0, 0);
 }
 
 int glfs_glue_create_file(const char *path) {
-    return glfs_create_file(mount, path);
+    return glfs_glue_mknod(path, DT_FILE, 0);
 }
 
 int glfs_glue_create_directory(const char *path) {
-    return glfs_create_directory(mount, path);
+    return glfs_glue_mknod(path, DT_DIR, 0);
 }
 
 int glfs_glue_delete(const char *path) {
