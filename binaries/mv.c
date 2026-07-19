@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
+#include <errno.h>
 
 int main(int argc, char** argv) {
     if (argc != 3) {
@@ -46,8 +47,11 @@ int main(int argc, char** argv) {
     }
 
     // Attempt to rename the file or directory
-    if (rename_file(argv[1], dest_path) == 0) {
-        return 0;
+    int res = rename_file(argv[1], dest_path);
+    if (res == 0) return 0;
+    if (res < 0 && errno != EXDEV) {
+        perror("mv");
+        return 1;
     }
 
     if (st_source.type == DT_DIR) {
@@ -81,7 +85,7 @@ int main(int argc, char** argv) {
             return 1;
         }
     }
-    int res = remove_file(argv[1]);
+    res = remove_file(argv[1]);
     if (res < 0) {
         perror("Error deleting source file");
         return 1;

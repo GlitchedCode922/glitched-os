@@ -496,6 +496,7 @@ int remove_file(const char *path) {
     if (!mount) {
         return -ENOENT; // Mount point not found
     }
+    if (*remaining_path == '\0') return -EBUSY;
     filesystem_t* fs = &filesystems[mount->type];
     fs->select(mount->fs_data);
     uint64_t handle;
@@ -517,6 +518,9 @@ int rename_file(const char *old_path, const char *new_path) {
     char new_remaining_path[MAX_PATH];
     mountpoint_t* old_mount = find_mountpoint(old_path, old_remaining_path);
     mountpoint_t* new_mount = find_mountpoint(new_path, new_remaining_path);
+    if (!old_mount) return -ENOENT;
+    if (!new_mount) return -ENOENT;
+    if (*old_remaining_path == '\0') return -EBUSY;
     if (old_mount != new_mount) {
         return -EXDEV; // Cannot rename across different filesystems
     }
