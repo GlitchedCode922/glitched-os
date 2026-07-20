@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <stdint.h>
 
-int main() {
+int main(int argc, char** argv, char** envp) {
     while (1) {
         printf("$ ");
         char command_buffer[1024] = {0};
@@ -56,7 +56,7 @@ int main() {
             strcat(program_in_bin, args[0]);
 
             int ret;
-            pid_t p = spawn(program_in_bin, (const char**)args);
+            pid_t p = spawn(program_in_bin, (const char**)args, (const char**)envp);
             if (p > 0) {
                 waitpid(p, &ret, 0);
                 if (ret != 0) {
@@ -69,7 +69,7 @@ int main() {
         }
 
         int ret;
-        pid_t p = spawn(args[0], (const char**)args);
+        pid_t p = spawn(args[0], (const char**)args, (const char**)envp);
         if (p > 0) {
             waitpid(p, &ret, 0);
             if (ret != 0) {

@@ -12,7 +12,7 @@ int main() {
     if (console_fd > STDERR_FILENO) {
         close(console_fd);
     }
-    pid_t sh = spawn("/bin/sh", (const char*[]){"/bin/sh", NULL});
+    pid_t sh = spawn("/bin/sh", (const char*[]){"/bin/sh", NULL}, (const char*[]){NULL});
     if (sh <= 0) printf("Error running shell at /bin/sh");
     while (1) {
         wait(NULL);

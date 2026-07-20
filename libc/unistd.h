@@ -44,7 +44,6 @@ int64_t tell(int fd);
 int dup(int fd);
 int dup2(int fd, int new_fd);
 
-
 int stat(const char* path, stat_t* out);
 int link(const char* path, const char* link);
 int remove_file(const char* path);
@@ -59,8 +58,8 @@ typedef int pid_t;
 #define WNOHANG 0x1
 
 pid_t fork();
-pid_t spawn(const char *path, const char **argv);
-int execv(const char *path, const char **argv);
+pid_t spawn(const char *path, const char **argv, const char **envp);
+int execve(const char *path, const char **argv, const char **envp);
 pid_t waitpid(pid_t pid, int *wstatus, int options);
 pid_t wait(int *wstatus);
 

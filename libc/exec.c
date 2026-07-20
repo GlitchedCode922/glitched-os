@@ -12,8 +12,8 @@ pid_t fork() {
     return res;
 }
 
-pid_t spawn(const char* path, const char** argv) {
-    int res = syscall(SYSCALL_SPAWN, (uint64_t)path, (uint64_t)argv, 0, 0, 0, 0);
+pid_t spawn(const char* path, const char** argv, const char** envp) {
+    int res = syscall(SYSCALL_SPAWN, (uint64_t)path, (uint64_t)argv, (uint64_t)envp, 0, 0, 0);
     if (res < 0) {
         errno = -res;
         return -1;
@@ -21,8 +21,8 @@ pid_t spawn(const char* path, const char** argv) {
     return res;
 }
 
-int execv(const char* path, const char** argv) {
-    int res = syscall(SYSCALL_EXECV, (uint64_t)path, (uint64_t)argv, 0, 0, 0, 0);
+int execve(const char* path, const char** argv, const char** envp) {
+    int res = syscall(SYSCALL_EXECVE, (uint64_t)path, (uint64_t)argv, (uint64_t)envp, 0, 0, 0);
     if (res < 0) {
         errno = -res;
         return -1;

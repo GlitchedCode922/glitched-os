@@ -195,24 +195,35 @@ static int strlen(char* s) {
     return len;
 }
 
-int add_task(char* path, char** argv, task_t* parent, int pid, iframe_t* iframe) {
+int add_task(char* path, char** argv, char** envp, task_t* parent, int pid, iframe_t* iframe) {
     // Copy path to kernel memory
     size_t path_len = strlen(path) + 1;
     char kpath[path_len];
     memcpy(kpath, path, path_len);
 
-    // Count arguments
+    // Count arguments and environment variables
     int argc = 0;
     while (argv[argc]) argc++;
 
+    int envc = 0;
+    while (envp[envc]) envc++;
+
     // Copy argv strings to kernel memory
-    char* kargv[sizeof(char*) * (argc + 1)];
+    char* kargv[argc + 1];
     for (int i = 0; i < argc; i++) {
         size_t len = strlen(argv[i]) + 1;
         kargv[i] = kmalloc(len);
         memcpy(kargv[i], argv[i], len);
     }
     kargv[argc] = NULL;
+
+    char* kenvp[envc + 1];
+    for (int i = 0; i < envc; i++) {
+        size_t len = strlen(envp[i]) + 1;
+        kenvp[i] = kmalloc(len);
+        memcpy(kenvp[i], envp[i], len);
+    }
+    kenvp[envc] = NULL;
 
     task_t* new_task = kmalloc(sizeof(task_t));
     *new_task = *parent;
@@ -267,9 +278,18 @@ int add_task(char* path, char** argv, task_t* parent, int pid, iframe_t* iframe)
     uintptr_t user_stack = 0x10000000000 + 4096 * 128;
 
     // Temporary array for string addresses on user stack
-    uintptr_t argv_ptrs[sizeof(uintptr_t) * argc];
+    uintptr_t argv_ptrs[argc];
+    uintptr_t envp_ptrs[envc];
 
-    // Copy argv strings onto user stack
+    // Copy argv and envp strings onto user stack
+    for (int i = envc - 1; i >= 0; i--) {
+        size_t len = strlen(kenvp[i]) + 1;
+        user_stack -= len;
+        memcpy((void*)user_stack, kenvp[i], len);
+        envp_ptrs[i] = user_stack;
+        kfree(kenvp[i]);
+    }
+
     for (int i = argc - 1; i >= 0; i--) {
         size_t len = strlen(kargv[i]) + 1;
         user_stack -= len;
@@ -278,12 +298,16 @@ int add_task(char* path, char** argv, task_t* parent, int pid, iframe_t* iframe)
         kfree(kargv[i]);
     }
 
-    // Push argv pointers
+    // Push argv and envp pointers
+    for (int i = envc; i >= 0; i--) {
+        user_stack -= sizeof(uintptr_t);
+        *(uintptr_t*)user_stack = (i < envc) ? envp_ptrs[i] : 0;
+    }
+
     for (int i = argc; i >= 0; i--) {
         user_stack -= sizeof(uintptr_t);
         *(uintptr_t*)user_stack = (i < argc) ? argv_ptrs[i] : 0;
     }
-    uintptr_t argv_start = user_stack;
 
     // Push argc
     user_stack -= 8;
@@ -311,15 +335,15 @@ int add_task(char* path, char** argv, task_t* parent, int pid, iframe_t* iframe)
     return pid;
 }
 
-int spawn(char* path, char** argv, iframe_t* iframe) {
+int spawn(char* path, char** argv, char** envp, iframe_t* iframe) {
     if (last_pid == 2147483647) panic("No PIDs available");
 
     current_task->iframe = iframe;
-    return add_task(path, argv, current_task, ++last_pid, iframe);
+    return add_task(path, argv, envp, current_task, ++last_pid, iframe);
 }
 
-int execv(char *path, char **argv, iframe_t *iframe) {
-    int res = add_task(path, argv, current_task->parent, current_task->pid, iframe);
+int execve(char *path, char **argv, char** envp, iframe_t *iframe) {
+    int res = add_task(path, argv, envp, current_task->parent, current_task->pid, iframe);
     if (res != current_task->pid) {
         return res;
     }

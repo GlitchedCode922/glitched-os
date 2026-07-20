@@ -80,8 +80,8 @@ void syscall(iframe_t* iframe) {
     case SYSCALL_FORK:
         ret = fork(iframe);
         break;
-    case SYSCALL_EXECV:
-        execv((char*)arg1, (char**)arg2, iframe);
+    case SYSCALL_EXECVE:
+        execve((char*)arg1, (char**)arg2, (char**)arg3, iframe);
         break;
     case SYSCALL_GET_TIME:
         ret = get_time();
@@ -183,7 +183,7 @@ void syscall(iframe_t* iframe) {
         ret = waitpid(arg1, (int*)arg2, arg3, iframe);
         break;
     case SYSCALL_SPAWN:
-        ret = spawn((char*)arg1, (char**)arg2, iframe);
+        ret = spawn((char*)arg1, (char**)arg2, (char**)arg3, iframe);
         break;
     case SYSCALL_IOCTL:
         ret = fd_ioctl(arg1, arg2, arg3);
