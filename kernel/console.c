@@ -408,14 +408,14 @@ void get_cursor_position(uint16_t *x, uint16_t *y) {
     if (y) *y = cursor_y;
 }
 
-int console_echo(void *data, const uint8_t *buffer, uint64_t len) {
+int64_t console_echo(void *data, const uint8_t *buffer, uint64_t len) {
     for (int i = 0; i < len; i++) {
         putchar(buffer[i]);
     }
     return len;
 }
 
-int console_write(void* data, const uint8_t* buffer, uint64_t len) {
+int64_t console_write(void* data, const uint8_t* buffer, uint64_t len) {
     for (int i = 0; i < len; i++) {
         if (ansi_parser.state == TEXT) {
             if (buffer[i] == '\033') {

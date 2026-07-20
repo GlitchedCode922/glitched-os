@@ -53,7 +53,7 @@ void fbdev_init(volatile struct limine_framebuffer_request *req) {
     }
 }
 
-int fbdev_read(int minor_number, uint64_t offset, uint8_t *buffer, uint64_t size) {
+int64_t fbdev_read(int minor_number, uint64_t offset, uint8_t *buffer, uint64_t size) {
     if (minor_number < 0 || minor_number >= fb_response->framebuffer_count) return -ENODEV;
     volatile struct limine_framebuffer* fb = fb_response->framebuffers[minor_number];
     if (offset > fb->height * fb->pitch) return 0;
@@ -62,7 +62,7 @@ int fbdev_read(int minor_number, uint64_t offset, uint8_t *buffer, uint64_t size
     return size;
 }
 
-int fbdev_write(int minor_number, uint64_t offset, const uint8_t *buffer, uint64_t size) {
+int64_t fbdev_write(int minor_number, uint64_t offset, const uint8_t *buffer, uint64_t size) {
     if (minor_number < 0 || minor_number >= fb_response->framebuffer_count) return -ENODEV;
     volatile struct limine_framebuffer* fb = fb_response->framebuffers[minor_number];
     if (offset > fb->height * fb->pitch) return 0;

@@ -90,7 +90,7 @@ int serial_putc(int port, uint8_t data) {
     return 1;
 }
 
-int serial_write(void* data, const uint8_t* buffer, uint64_t size) {
+int64_t serial_write(void* data, const uint8_t* buffer, uint64_t size) {
     for (size_t i = 0; i < size; i++) {
         if (serial_putc((int)(int64_t)data, buffer[i]) < 0) {
             return i;

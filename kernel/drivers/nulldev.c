@@ -4,21 +4,21 @@
 #include "../error.h"
 #include <stdint.h>
 
-int null_write(int minor_number, uint64_t offset, const uint8_t *buffer, uint64_t size) {
+int64_t null_write(int minor_number, uint64_t offset, const uint8_t *buffer, uint64_t size) {
     if (minor_number < 0 || minor_number > 1) return -ENODEV;
     return size;
 }
 
-static int _null_read(uint64_t offset, uint8_t *buffer, uint64_t size) {
+static int64_t _null_read(uint64_t offset, uint8_t *buffer, uint64_t size) {
     return 0;
 }
 
-static int _zero_read(uint64_t offset, uint8_t *buffer, uint64_t size) {
+static int64_t _zero_read(uint64_t offset, uint8_t *buffer, uint64_t size) {
     memset(buffer, 0, size);
     return size;
 }
 
-int null_read(int minor_number, uint64_t offset, uint8_t *buffer, uint64_t size) {
+int64_t null_read(int minor_number, uint64_t offset, uint8_t *buffer, uint64_t size) {
     if (minor_number == 0) {
         return _null_read(offset, buffer, size);
     } else if (minor_number == 1) {

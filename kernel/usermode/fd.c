@@ -66,7 +66,7 @@ int fd_close(int fd) {
     return 0;
 }
 
-int seek(int fd, int64_t offset, int type) {
+int64_t seek(int fd, int64_t offset, int type) {
     if (fd < 0 || fd >= MAX_FDS || current_task->fd_ptr_table[fd] == NULL) {
         return -EBADF;
     }
@@ -86,10 +86,10 @@ int seek(int fd, int64_t offset, int type) {
     if (fd_entry->offset < 0) {
         fd_entry->offset = 0;
     }
-    return 0;
+    return fd_entry->offset;
 }
 
-int tell(int fd) {
+int64_t tell(int fd) {
     if (fd < 0 || fd >= MAX_FDS || current_task->fd_ptr_table[fd] == NULL) {
         return -EBADF;
     }
@@ -97,7 +97,7 @@ int tell(int fd) {
     return fd_entry->offset;
 }
 
-int read(int fd, void *buffer, size_t size) {
+int64_t read(int fd, void *buffer, size_t size) {
     if (fd < 0 || fd >= MAX_FDS || current_task->fd_ptr_table[fd] == NULL) {
         return -EBADF;
     }
@@ -115,7 +115,7 @@ int read(int fd, void *buffer, size_t size) {
     return bytes_read;
 }
 
-int write(int fd, const void *buffer, size_t size) {
+int64_t write(int fd, const void *buffer, size_t size) {
     if (fd < 0 || fd >= MAX_FDS || current_task->fd_ptr_table[fd] == NULL) {
         return -EBADF;
     }

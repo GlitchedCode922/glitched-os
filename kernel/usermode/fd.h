@@ -26,12 +26,12 @@ typedef struct {
     int refcount;
 } fd_entry_t;
 
-int read(int fd, void* buffer, size_t size);
-int write(int fd, const void* buffer, size_t size);
+int64_t read(int fd, void* buffer, size_t size);
+int64_t write(int fd, const void* buffer, size_t size);
 int fd_readdir(int fd, dirent_t* dirent);
 int fd_ioctl(int fd, uint64_t request, uint64_t arg);
-int seek(int fd, int64_t offset, int type);
-int tell(int fd);
+int64_t seek(int fd, int64_t offset, int type);
+int64_t tell(int fd);
 int fd_open(const char* path, uint16_t flags);
 int fd_close(int fd);
 int dup(int fd);

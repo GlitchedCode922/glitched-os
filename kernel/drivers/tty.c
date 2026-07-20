@@ -65,7 +65,7 @@ void tty_char_recv(int tty_id, char c) {
     }
 }
 
-int tty_read(int tty_id, uint64_t offset, uint8_t *buffer, uint64_t len) {
+int64_t tty_read(int tty_id, uint64_t offset, uint8_t *buffer, uint64_t len) {
     if (tty_id < 0) return -EINVAL;
     if (tty_id >= tty_count) return -EINVAL;
     tty_t* tty = ttys[tty_id];
@@ -79,7 +79,7 @@ int tty_read(int tty_id, uint64_t offset, uint8_t *buffer, uint64_t len) {
     return bytes_read;
 }
 
-int tty_write(int tty_id, uint64_t offset, const uint8_t* buffer, uint64_t len) {
+int64_t tty_write(int tty_id, uint64_t offset, const uint8_t* buffer, uint64_t len) {
     if (tty_id < 0) return -EINVAL;
     if (tty_id >= tty_count) return -EINVAL;
     tty_t* tty = ttys[tty_id];

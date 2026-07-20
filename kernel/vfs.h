@@ -45,8 +45,8 @@ typedef struct {
     int (*close)(uint64_t handle);
 
     int (*readdir)(uint64_t handle, int index, dirent_t* out); // List directory contents
-    int (*read)(uint64_t handle, uint8_t *buffer, size_t offset, size_t size); // Read from a file
-    int (*write)(uint64_t handle, const uint8_t *buffer, size_t offset, size_t size); // Write to a file
+    int64_t (*read)(uint64_t handle, uint8_t *buffer, size_t offset, size_t size); // Read from a file
+    int64_t (*write)(uint64_t handle, const uint8_t *buffer, size_t offset, size_t size); // Write to a file
     int (*stat)(uint64_t handle, stat_t *out);
     int (*mknod)(const char* path, uint32_t type, dev_t dev);
     int (*create_file)(const char *path); // Create a new file
@@ -81,8 +81,8 @@ int close(file_handle_t open_file);
 int readdir(file_handle_t file, int index, dirent_t* out);
 int stat_handle(file_handle_t file, stat_t* out);
 int stat(const char* path, stat_t* out);
-int read_file(file_handle_t file, uint8_t *buffer, size_t offset, size_t size);
-int write_file(file_handle_t file, const uint8_t *buffer, size_t offset, size_t size);
+int64_t read_file(file_handle_t file, uint8_t *buffer, size_t offset, size_t size);
+int64_t write_file(file_handle_t file, const uint8_t *buffer, size_t offset, size_t size);
 int remove_file(const char *path);
 int create_file(const char *path);
 int create_directory(const char *path);

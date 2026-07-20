@@ -117,7 +117,7 @@ int ramfs_readdir(uint64_t handle, int index, dirent_t *out) {
     return 0;
 }
 
-int ramfs_read(uint64_t handle, uint8_t *buffer, size_t offset, size_t size) {
+int64_t ramfs_read(uint64_t handle, uint8_t *buffer, size_t offset, size_t size) {
     ramfs_dirent_t* dirent = (ramfs_dirent_t*)handle;
     if (dirent->type == DT_DIR) return -EISDIR;
     if (dirent->type == DT_BLOCK) {
@@ -283,7 +283,7 @@ int ramfs_create_directory(const char *path) {
     return ramfs_add_dirent(dirname, dirent);
 }
 
-int ramfs_write(uint64_t handle, const uint8_t *buffer, size_t offset, size_t size) {
+int64_t ramfs_write(uint64_t handle, const uint8_t *buffer, size_t offset, size_t size) {
     if (mount->read_only) return -EROFS;
     ramfs_dirent_t* dirent = (ramfs_dirent_t*)handle;
     if (dirent->type == DT_DIR) return -EISDIR;

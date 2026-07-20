@@ -36,11 +36,11 @@ int ramfs_open(uint64_t handle);
 int ramfs_close(uint64_t handle);
 
 int ramfs_readdir(uint64_t handle, int index, dirent_t* out);
-int ramfs_read(uint64_t handle, uint8_t* buffer, size_t offset, size_t size);
+int64_t ramfs_read(uint64_t handle, uint8_t* buffer, size_t offset, size_t size);
 int ramfs_delete(const char* path);
 int ramfs_create_file(const char* path);
 int ramfs_create_directory(const char* path);
-int ramfs_write(uint64_t handle, const uint8_t *buffer, size_t offset, size_t size);
+int64_t ramfs_write(uint64_t handle, const uint8_t *buffer, size_t offset, size_t size);
 int ramfs_rename(const char* old_path, const char* new_path);
 int ramfs_stat(uint64_t handle, stat_t* out);
 int ramfs_mknod(const char* path, uint32_t type, dev_t dev);

@@ -411,7 +411,7 @@ int fat_readdir(uint64_t handle, int index, dirent_t* out) {
     return 0; // End of list
 }
 
-int fat_read(uint64_t handle, uint8_t *buffer, size_t offset, size_t size) {
+int64_t fat_read(uint64_t handle, uint8_t *buffer, size_t offset, size_t size) {
     fat_dirent_t dirent = fat_read_dirent(handle);
     if ((uint8_t)dirent.name[0] == DIRENT_DELETED ||
         (uint8_t)dirent.name[0] == 0x00)
@@ -683,7 +683,7 @@ int fat_create_directory(const char *path) {
     return 0;
 }
 
-int fat_write_to_file(uint64_t handle, const uint8_t *buffer, size_t offset, size_t size) {
+int64_t fat_write_to_file(uint64_t handle, const uint8_t *buffer, size_t offset, size_t size) {
     if (data->read_only) {
         return -EROFS; // Filesystem is read-only
     }

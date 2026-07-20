@@ -458,7 +458,7 @@ int readdir(file_handle_t file, int index, dirent_t* out) {
     }
 }
 
-int read_file(file_handle_t file, uint8_t *buffer, size_t offset, size_t size) {
+int64_t read_file(file_handle_t file, uint8_t *buffer, size_t offset, size_t size) {
     mountpoint_t* mount = file.mountpoint;
     filesystem_t* fs = &filesystems[mount->type];
     fs->select(mount->fs_data);
@@ -474,7 +474,7 @@ int read_file(file_handle_t file, uint8_t *buffer, size_t offset, size_t size) {
     return fs->read(file.handle, buffer, offset, size);
 }
 
-int write_file(file_handle_t file, const uint8_t *buffer, size_t offset, size_t size) {
+int64_t write_file(file_handle_t file, const uint8_t *buffer, size_t offset, size_t size) {
     mountpoint_t* mount = file.mountpoint;
     filesystem_t* fs = &filesystems[mount->type];
     fs->select(mount->fs_data);

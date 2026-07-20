@@ -106,7 +106,7 @@ int glfs_glue_stat(uint64_t inode, stat_t *out) {
     return 0;
 }
 
-int glfs_glue_read(uint64_t inode, uint8_t *buffer, size_t offset, size_t size) {
+int64_t glfs_glue_read(uint64_t inode, uint8_t *buffer, size_t offset, size_t size) {
     int res = glfs_read(mount, inode, buffer, offset, size);
     if (res == -ENODEV) {
         stat_t st;
@@ -130,7 +130,7 @@ int glfs_glue_read(uint64_t inode, uint8_t *buffer, size_t offset, size_t size) 
     return res;
 }
 
-int glfs_glue_write(uint64_t inode, const uint8_t *buffer, size_t offset, size_t size) {
+int64_t glfs_glue_write(uint64_t inode, const uint8_t *buffer, size_t offset, size_t size) {
     int res = glfs_write(mount, inode, buffer, offset, size);
     if (res == -ENODEV) {
         stat_t st;

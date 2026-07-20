@@ -53,5 +53,5 @@ void setfg_color(uint8_t color[3]);
 void set_cursor_position(uint16_t x, uint16_t y);
 void get_cursor_position(uint16_t *x, uint16_t *y);
 void scroll();
-int console_echo(void* data, const uint8_t* buffer, uint64_t len);
-int console_write(void* data, const uint8_t* buffer, uint64_t len);
+int64_t console_echo(void* data, const uint8_t* buffer, uint64_t len);
+int64_t console_write(void* data, const uint8_t* buffer, uint64_t len);

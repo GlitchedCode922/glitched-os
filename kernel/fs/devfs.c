@@ -25,7 +25,7 @@ int devfs_readdir(uint64_t handle, int index, dirent_t* out) {
     return ramfs_readdir(handle, index, out);
 }
 
-int devfs_read(uint64_t handle, uint8_t* buffer, size_t offset, size_t size) {
+int64_t devfs_read(uint64_t handle, uint8_t* buffer, size_t offset, size_t size) {
     ramfs_select(ramfs_instance);
     return ramfs_read(handle, buffer, offset, size);
 }
@@ -45,7 +45,7 @@ int devfs_create_directory(const char* path) {
     return ramfs_create_directory(path);
 }
 
-int devfs_write(uint64_t handle, const uint8_t *buffer, size_t offset, size_t size) {
+int64_t devfs_write(uint64_t handle, const uint8_t *buffer, size_t offset, size_t size) {
     ramfs_select(ramfs_instance);
     return ramfs_write(handle, buffer, offset, size);
 }

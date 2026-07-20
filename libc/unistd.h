@@ -34,12 +34,12 @@ typedef struct {
     uint32_t type;
 } __attribute__((packed)) stat_t;
 
-int read(int fd, void* buffer, size_t size);
-int write(int fd, const void* buffer, size_t size);
+int64_t read(int fd, void* buffer, size_t size);
+int64_t write(int fd, const void* buffer, size_t size);
 int readdir(int fd, dirent_t* out);
 int open(const char* path, uint16_t flags);
 int close(int fd);
-int seek(int fd, int64_t offset, int type);
+int64_t seek(int fd, int64_t offset, int type);
 int64_t tell(int fd);
 int dup(int fd);
 int dup2(int fd, int new_fd);
