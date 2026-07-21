@@ -1,60 +1,70 @@
 #include "break.h"
 #include "scheduler.h"
 #include "../memory/paging.h"
+#include "../console.h"
+#include <stdint.h>
 #include <stddef.h>
 
+#define USER_MAX 0x00007FFFFFFFFFFFULL
+
+static inline uintptr_t page_align_up(uintptr_t addr) {
+    return (addr + 0xFFF) & PAGE_MASK;
+}
+
 void* set_brk(void* addr) {
-    if (addr == NULL) {
-        return current_task->brk; // Return current break if addr is NULL
-    }
+    if (current_task == NULL) return NULL;
 
-    // Enforce address is canonical and above initial break
-    if ((uintptr_t)addr >= 0x0000800000000000 && (uintptr_t)addr < 0xFFFF800000000000 && (uintptr_t)addr >= (uintptr_t)current_task->initial_brk) {
-        // Valid address
-    } else {
-        return NULL;
-    }
+    if (addr == NULL) return current_task->brk;
 
-    if (current_task->brk < current_task->initial_brk) {
-        return NULL; // Current break is below initial break, should not happen
-    }
+    uintptr_t old_brk = (uintptr_t)current_task->brk;
+    uintptr_t new_brk = (uintptr_t)addr;
+    uintptr_t initial_brk = (uintptr_t)current_task->initial_brk;
 
-    // Check if the new break is below the current break
-    if (current_task->brk != NULL && addr < current_task->brk) {
-        // Get page difference and unmap pages
-        uintptr_t current_page = (uintptr_t)current_task->brk & ~0xFFF;
-        uintptr_t new_page = (uintptr_t)addr & ~0xFFF;
-        while (current_page > new_page) {
-            free_page((void*)current_page);
-            current_page -= 0x1000; // Move to the previous page
+    if (new_brk < initial_brk) return NULL;
+    if (new_brk > USER_MAX) return NULL;
+    if (old_brk < initial_brk) return NULL;
+
+    uintptr_t old_page_end = page_align_up(old_brk);
+    uintptr_t new_page_end = page_align_up(new_brk);
+
+    if (new_page_end > old_page_end) {
+        for (uintptr_t page = old_page_end; page < new_page_end; page += 0x1000) {
+            alloc_page(page, FLAGS_USER | FLAGS_RW);
         }
-    }
-
-    if (current_task->brk != NULL && addr > current_task->brk) {
-        // Get page difference and allocate pages
-        uintptr_t current_page = (uintptr_t)current_task->brk & ~0xFFF;
-        uintptr_t new_page = (uintptr_t)addr & ~0xFFF;
-        while (current_page < new_page) {
-            alloc_page(current_page, FLAGS_USER | FLAGS_RW);
-            current_page += 0x1000; // Move to the next page
+    } else if (new_page_end < old_page_end) {
+        for (uintptr_t page = new_page_end; page < old_page_end; page += 0x1000) {
+            free_page((void*)page);
         }
-    }
-
-    if (addr == NULL) {
-        return current_task->brk; // Return current break if addr is NULL
     }
 
     current_task->brk = addr;
-    return current_task->brk;
+    return addr;
 }
 
 void* sbrk(intptr_t increment) {
-    if (current_task->brk == NULL) {
-        return NULL;
+    if (current_task == NULL || current_task->brk == NULL) return (void*)-1;
+
+    uintptr_t old_brk = (uintptr_t)current_task->brk;
+    uintptr_t initial_brk = (uintptr_t)current_task->initial_brk;
+
+    if (increment > 0) {
+        uintptr_t amount = (uintptr_t)increment;
+
+        if (amount > UINTPTR_MAX - old_brk) return (void*)-1;
+
+        uintptr_t new_brk = old_brk + amount;
+
+        if (new_brk > USER_MAX) return (void*)-1;
+        if (set_brk((void*)new_brk) == NULL) return (void*)-1;
+    } else if (increment < 0) {
+        uintptr_t amount = (uintptr_t)(-(increment + 1)) + 1;
+
+        if (old_brk < initial_brk || amount > old_brk - initial_brk) return (void*)-1;
+
+        uintptr_t new_brk = old_brk - amount;
+
+        if (set_brk((void*)new_brk) == NULL) return (void*)-1;
     }
-    void* new_brk = (void*)((uintptr_t)current_task->brk + increment);
-    if (set_brk(new_brk) == NULL) {
-        return NULL;
-    }
-    return current_task->brk;
+
+    return (void*)old_brk;
 }

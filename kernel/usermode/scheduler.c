@@ -272,6 +272,7 @@ int add_task(char* path, char** argv, char** envp, task_t* parent, int pid, ifra
         change_pml4(current_task->cr3);
         return -ENOEXEC;
     }
+    new_task->brk = new_task->initial_brk;
 
     // Allocate user stack
     alloc_region(0x10000000000, 4096 * 128, FLAGS_PRESENT | FLAGS_RW | FLAGS_USER);
