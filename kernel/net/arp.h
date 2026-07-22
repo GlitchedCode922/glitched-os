@@ -8,7 +8,7 @@
 #define ARP_PLEN_IPV4 4
 #define ARP_OPCODE_REQUEST 1
 #define ARP_OPCODE_REPLY 2
-#define ARP_CACHE_SIZE 256
+#define ARP_CACHE_SIZE 1024
 #define ARP_ENTRY_TIMEOUT 300 // seconds
 #define ARP_MAX_RETRIES 3
 #define ARP_RETRY_INTERVAL 5 // seconds
@@ -31,4 +31,4 @@ typedef struct {
 } arp_entry_t;
 
 void arp_reply(uint8_t* request_frame, int card);
-void arp_request(uint8_t* target_ip, uint8_t* target_mac_buffer, int card);
+int arp_request(uint8_t* target_ip, uint8_t* target_mac_buffer, int card);

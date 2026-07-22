@@ -23,3 +23,5 @@
 #define ENAMETOOLONG 36
 #define ENOTEMPTY 39
 #define EXDEV 18
+#define EHOSTUNREACH 113
+#define EMSGSIZE 90

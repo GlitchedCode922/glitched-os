@@ -113,18 +113,6 @@ void syscall(iframe_t* iframe) {
     case SYSCALL_GETCWD:
         getcwd((char*)arg1, arg2);
         break;
-    case SYSCALL_SEND_UDP:
-        udp_send((uint8_t*)arg1, arg2, arg3, (uint8_t*)arg4, arg5);
-        break;
-    case SYSCALL_LISTEN_UDP:
-        // Temporarily disabled
-        //register_udp_listener(arg1, (void (*)(uint8_t*, uint16_t, uint8_t*, int))arg2);
-        ret = -ENOSYS;
-        break;
-    case SYSCALL_STOP_UDP_LISTEN:
-        //unregister_udp_listener(arg1);
-        ret = -ENOSYS;
-        break;
     case SYSCALL_PING:
         ping((uint8_t*)arg1);
         break;
@@ -142,9 +130,6 @@ void syscall(iframe_t* iframe) {
         break;
     case SYSCALL_SETUP_AUTOMATIC_ROUTING:
         setup_automatic_routing();
-        break;
-    case SYSCALL_CONFIG_DHCP:
-        ret = configure_network_interface_dhcp(arg1);
         break;
     case SYSCALL_CONFIG_STATIC:
         ret = configure_network_interface_static(arg1, arg2, arg3, arg4);
@@ -202,6 +187,21 @@ void syscall(iframe_t* iframe) {
         break;
     case SYSCALL_LINK:
         ret = link((const char*)arg1, (const char*)arg2);
+        break;
+    case SYSCALL_SOCKET:
+        ret = fd_socket(arg1, arg2, arg3);
+        break;
+    case SYSCALL_BIND:
+        ret = fd_bind(arg1, (sockaddr_in_t*)arg2);
+        break;
+    case SYSCALL_UNBIND:
+        ret = fd_unbind(arg1);
+        break;
+    case SYSCALL_RECVFROM:
+        ret = fd_recvfrom(arg1, (uint8_t*)arg2, arg3, arg4, (sockaddr_in_t*)arg5);
+        break;
+    case SYSCALL_SENDTO:
+        ret = fd_sendto(arg1, (const uint8_t*)arg2, arg3, arg4, (const sockaddr_in_t*)arg5);
         break;
     default:
         // Invalid syscall, return an error code

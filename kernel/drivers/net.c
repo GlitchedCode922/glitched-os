@@ -1,5 +1,4 @@
 #include "net.h"
-#include "../net/dhcp.h"
 #include "../error.h"
 #include <stddef.h>
 
@@ -53,14 +52,6 @@ int get_global_if_index(int driver, int driver_local_index) {
 
 int net_get_interface_count() {
     return net_interface_count;
-}
-
-int configure_network_interface_dhcp(int index) {
-    if (index < 0 || index >= net_interface_count) {
-        return -ENODEV; // Invalid index
-    }
-    dhcp_run(index);
-    return 0; // Success
 }
 
 int configure_network_interface_static(int index, uint32_t ip, uint32_t subnet, uint32_t router) {

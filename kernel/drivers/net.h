@@ -22,7 +22,6 @@ int get_if_index_by_name(const char* name);
 net_if_t net_get_interface(int index);
 int get_global_if_index(int driver, int driver_local_index);
 int net_get_interface_count();
-int configure_network_interface_dhcp(int index);
 int configure_network_interface_static(int index, uint32_t ip, uint32_t subnet, uint32_t router);
 int send_packet(int if_index, void* data, int length);
 int receive_packet(int if_index, void** buffer);

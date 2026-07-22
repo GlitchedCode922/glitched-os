@@ -58,8 +58,13 @@ int fd_close(int fd) {
     }
     fd_entry_t* fd_entry = current_task->fd_ptr_table[fd];
     if (--fd_entry->refcount == 0) {
-        int res = close(fd_entry->file_handle);
-        if (res < 0) return res;
+        if (fd_entry->type == FD_TYPE_FILE || fd_entry->type == FD_TYPE_DIR) {
+            int res = close(fd_entry->file_handle);
+            if (res < 0) return res;
+        } else if (fd_entry->type == FD_TYPE_SOCKET) {
+            int res = socket_close(fd_entry->socket);
+            if (res < 0) return res;
+        }
         fd_entry->offset = 0;
     }
     current_task->fd_ptr_table[fd] = NULL;
@@ -103,6 +108,7 @@ int64_t read(int fd, void *buffer, size_t size) {
     }
     fd_entry_t* fd_entry = current_task->fd_ptr_table[fd];
     if (fd_entry->type == FD_TYPE_DIR) return -EISDIR;
+    if (fd_entry->type == FD_TYPE_SOCKET) return -ENOSYS;
     int bytes_read;
     while (1) {
         bytes_read = read_file(fd_entry->file_handle, buffer, fd_entry->offset, size);
@@ -121,6 +127,7 @@ int64_t write(int fd, const void *buffer, size_t size) {
     }
     fd_entry_t* fd_entry = current_task->fd_ptr_table[fd];
     if (fd_entry->type == FD_TYPE_DIR) return -EISDIR;
+    if (fd_entry->type == FD_TYPE_SOCKET) return -ENOSYS;
     int bytes_written = write_file(fd_entry->file_handle, buffer, fd_entry->offset, size);
     if (bytes_written > 0) fd_entry->offset += bytes_written;
     return bytes_written;
@@ -174,6 +181,68 @@ int dup2(int fd, int new_fd) {
     current_task->fd_ptr_table[new_fd] = current_task->fd_ptr_table[fd];
     current_task->fd_ptr_table[fd]->refcount++;
     return new_fd;
+}
+
+int fd_socket(int domain, int type, int protocol) {
+    int fd_index = -1;
+    for (int i = 0; i < MAX_FDS; i++) {
+        if (current_task->fd_table[i].refcount == 0) {
+            int res = socket(domain, type, protocol, &current_task->fd_table[i].socket);
+            if (res < 0) return res;
+            current_task->fd_table[i].type = FD_TYPE_SOCKET;
+            current_task->fd_table[i].offset = 0;
+            current_task->fd_table[i].flags = 0;
+            current_task->fd_table[i].refcount = 1;
+            fd_index = i;
+            break;
+        }
+    }
+    if (fd_index == -1) {
+        return -EMFILE;
+    }
+    for (int i = 0; i < MAX_FDS; i++) {
+        if (current_task->fd_ptr_table[i] == NULL) {
+            current_task->fd_ptr_table[i] = current_task->fd_table + fd_index;
+            return i;
+        }
+    }
+    return -EMFILE;
+}
+
+int fd_bind(int fd, sockaddr_in_t *addr) {
+    if (fd < 0 || fd >= MAX_FDS || current_task->fd_ptr_table[fd] == NULL) {
+        return -EBADF;
+    }
+    fd_entry_t* fd_entry = current_task->fd_ptr_table[fd];
+    if (fd_entry->type != FD_TYPE_SOCKET) return -EINVAL;
+    return bind(fd_entry->socket, addr);
+}
+
+int fd_unbind(int fd) {
+    if (fd < 0 || fd >= MAX_FDS || current_task->fd_ptr_table[fd] == NULL) {
+        return -EBADF;
+    }
+    fd_entry_t* fd_entry = current_task->fd_ptr_table[fd];
+    if (fd_entry->type != FD_TYPE_SOCKET) return -EINVAL;
+    return unbind(fd_entry->socket);
+}
+
+int64_t fd_recvfrom(int fd, uint8_t *buffer, uint64_t len, int flags, sockaddr_in_t *addr) {
+    if (fd < 0 || fd >= MAX_FDS || current_task->fd_ptr_table[fd] == NULL) {
+        return -EBADF;
+    }
+    fd_entry_t* fd_entry = current_task->fd_ptr_table[fd];
+    if (fd_entry->type != FD_TYPE_SOCKET) return -EINVAL;
+    return recvfrom(fd_entry->socket, buffer, len, flags, addr);
+}
+
+int64_t fd_sendto(int fd, const uint8_t *buffer, uint64_t len, int flags, const sockaddr_in_t *addr) {
+    if (fd < 0 || fd >= MAX_FDS || current_task->fd_ptr_table[fd] == NULL) {
+        return -EBADF;
+    }
+    fd_entry_t* fd_entry = current_task->fd_ptr_table[fd];
+    if (fd_entry->type != FD_TYPE_SOCKET) return -EINVAL;
+    return sendto(fd_entry->socket, buffer, len, flags, addr);
 }
 
 void release_process_fds() {

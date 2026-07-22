@@ -3,6 +3,8 @@
 #include "../memory/mman.h"
 #include "ethernet.h"
 #include "../drivers/timer.h"
+#include "../usermode/scheduler.h"
+#include "../error.h"
 #include "icmp.h"
 
 int pinging = 0;
@@ -80,12 +82,9 @@ void icmp_received(uint8_t *packet, uint8_t* sender, int len) {
     }
 }
 
-void icmp_send(uint8_t *dest_ip, uint8_t type, uint8_t code, uint16_t identifier, uint16_t sequence_number, uint8_t *data, int data_len) {
+int icmp_send(uint8_t *dest_ip, uint8_t type, uint8_t code, uint16_t identifier, uint16_t sequence_number, uint8_t *data, int data_len) {
     int packet_len = sizeof(icmp_header_t) + data_len;
-    uint8_t *packet = (uint8_t *)kmalloc(packet_len);
-    if (!packet) {
-        return; // Memory allocation failed
-    }
+    uint8_t *packet = kmalloc(packet_len);
 
     icmp_header_t *icmp_hdr = (icmp_header_t *)packet;
     icmp_hdr->type = type;
@@ -97,9 +96,9 @@ void icmp_send(uint8_t *dest_ip, uint8_t type, uint8_t code, uint16_t identifier
     icmp_hdr->checksum = 0;
     icmp_hdr->checksum = icmp_checksum(packet, packet_len);
 
-    ip_send(dest_ip, IP_PROTO_ICMP, packet, packet_len);
-
+    int res = ip_send(dest_ip, IP_PROTO_ICMP, packet, packet_len);
     kfree(packet);
+    return res;
 }
 
 int ping(uint8_t *dest_ip) {
@@ -108,12 +107,12 @@ int ping(uint8_t *dest_ip) {
     pinging = 1;
     icmp_send(dest_ip, ICMP_ECHO_REQUEST, 0, 123, 0, (uint8_t*)ping_data, sizeof(ping_data));
     uint64_t start = get_uptime_milliseconds();
-    while (pinging == 1);
+    while (pinging == 1 && get_uptime_milliseconds() - start < 5000) yield_current();
     if (pinging == 0) {
         uint16_t elapsed = get_uptime_milliseconds() - start;
         return elapsed; // Ping successful
     } else {
-        return -1; // Ping failed or unreachable
+        return -EHOSTUNREACH; // Ping failed or unreachable
     }
 }
 

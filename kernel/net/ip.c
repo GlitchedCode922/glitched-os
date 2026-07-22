@@ -5,6 +5,7 @@
 #include "icmp.h"
 #include "udp.h"
 #include "../drivers/net.h"
+#include "../error.h"
 #include <stdint.h>
 
 uint8_t fragment_storage[12][0xFFFF]; // Storage for fragment reassembly
@@ -28,7 +29,7 @@ static inline int popcount(uint64_t x) {
     return count;
 }
 
-void ip_send(uint8_t* dst_ip, uint8_t protocol, uint8_t* payload, int payload_length) {
+int ip_send(uint8_t* dst_ip, uint8_t protocol, uint8_t* payload, int payload_length) {
     ipv4_header_t ip_header;
     uint8_t* packet;
     uint16_t total_length;
@@ -64,7 +65,7 @@ void ip_send(uint8_t* dst_ip, uint8_t protocol, uint8_t* payload, int payload_le
     // If IP is broadcast, change the destination interface to specified
     if (memcmp(dst_ip, IP_BROADCAST_ADDR, 4) == 0) {
         card = broadcast_card;
-    } else if (best_route == -1) return; // No route found for non-broadcast address
+    } else if (best_route == -1) return -EHOSTUNREACH; // No route found for non-broadcast address
 
     get_ip(card, (uint32_t*)ip);
     uint8_t* subnet = (best_route != -1) ? routes[best_route].netmask : NULL;
@@ -77,17 +78,18 @@ void ip_send(uint8_t* dst_ip, uint8_t protocol, uint8_t* payload, int payload_le
         same_subnet = 0;
     }
 
+    int res = 0;
     if (memcmp(dst_ip, IP_BROADCAST_ADDR, 4) == 0) {
         // If destination is broadcast address, use broadcast MAC
         memcpy(dst_mac, BROADCAST_MAC, 6);
     } else if (!same_subnet) {
         // If not in the same subnet, send to the router's MAC address
-        arp_request(router_ip, dst_mac, card);
+        res = arp_request(router_ip, dst_mac, card);
     } else {
         // If in the same subnet, resolve the destination MAC address
-        arp_request(dst_ip, dst_mac, card);
+        res = arp_request(dst_ip, dst_mac, card);
     }
-
+    if (res < 0) return res;
     // Fill IP header fields
     ip_header.version_ihl = (4 << 4) | (IPV4_HEADER_LEN / 4);
     ip_header.tos = 0;
@@ -118,10 +120,8 @@ void ip_send(uint8_t* dst_ip, uint8_t protocol, uint8_t* payload, int payload_le
             // Calculate fragment size
             int fragment_size = (payload_length - i > 1480) ? 1480 : (payload_length - i);
             int fragment_total_length = IPV4_HEADER_LEN + fragment_size;
-            uint8_t* fragment_packet = (uint8_t*)kmalloc(fragment_total_length);
-            if (!fragment_packet) {
-                return; // Memory allocation failed
-            }
+            uint8_t* fragment_packet = kmalloc(fragment_total_length);
+
             // Update IP header for the fragment
             ip_header.total_length = htons(fragment_total_length);
             uint16_t offset = i / 8;
@@ -142,18 +142,15 @@ void ip_send(uint8_t* dst_ip, uint8_t protocol, uint8_t* payload, int payload_le
             // Send the fragment
             uint8_t our_mac[6];
             get_mac(card, our_mac);
-            send_ethernet((char*)our_mac, (char*)dst_mac, 0x0800, fragment_packet, fragment_total_length, card);
+            res = send_ethernet((char*)our_mac, (char*)dst_mac, 0x0800, fragment_packet, fragment_total_length, card);
+            if (res < 0) return res;
         }
-        return;
+        return 0;
     }
 
     // Allocate memory for the entire packet (IP header + payload)
 
     packet = (uint8_t*)kmalloc(total_length);
-    if (!packet) {
-        return; // Memory allocation failed
-    }
-
     // Copy IP header and payload into the packet
     memcpy(packet, &ip_header, IPV4_HEADER_LEN);
     memcpy(packet + IPV4_HEADER_LEN, payload, payload_length);
@@ -161,10 +158,9 @@ void ip_send(uint8_t* dst_ip, uint8_t protocol, uint8_t* payload, int payload_le
     // Send the packet via Ethernet
     uint8_t our_mac[6];
     get_mac(card, our_mac);
-    send_ethernet((char*)our_mac, (char*)dst_mac, 0x0800, packet, total_length, card);
-
-    // Free allocated memory
+    res = send_ethernet((char*)our_mac, (char*)dst_mac, 0x0800, packet, total_length, card);
     kfree(packet);
+    return res;
 }
 
 void ip_received(uint8_t* frame, int card) {
@@ -199,7 +195,6 @@ void ip_received(uint8_t* frame, int card) {
     }
     // Restore checksum
     ip_header->header_checksum = received_checksum;
-
 
     // Extract payload
     int header_length = (ip_header->version_ihl & 0x0F) * 4;

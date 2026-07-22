@@ -3,7 +3,7 @@
 #include "../../io/ports.h"
 #include "../../memory/mman.h"
 #include "../../memory/paging.h"
-#include "../../console.h"
+#include "../../error.h"
 #include "../../net/ethernet.h"
 #include "../net.h"
 #include <stddef.h>
@@ -143,10 +143,10 @@ uint8_t* rtl8139_get_mac_address(int card) {
 }
 
 int rtl8139_read_packet(int card, void** buffer) {
-    if (card >= cards_existing) return -1; // Invalid card index
+    if (card >= cards_existing) return -ENODEV; // Invalid card index
     if (received_packet_read_head[card] == received_packet_write_head[card]) {
         // No packets available
-        return -1;
+        return -EAGAIN;
     }
 
     void* packet = received_packets[card][received_packet_read_head[card]];

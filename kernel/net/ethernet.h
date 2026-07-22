@@ -9,4 +9,4 @@ uint32_t htonl(uint32_t val);
 uint32_t ntohl(uint32_t val);
 
 void frame_received(int card);
-void send_ethernet(char* src_mac, char* dst_mac, uint16_t ethertype, uint8_t* payload, int payload_length, int card);
+int send_ethernet(char* src_mac, char* dst_mac, uint16_t ethertype, uint8_t* payload, int payload_length, int card);

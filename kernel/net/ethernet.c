@@ -1,5 +1,6 @@
 #include "../drivers/net.h"
 #include "../memory/mman.h"
+#include "../error.h"
 #include "ethernet.h"
 #include "arp.h"
 #include "ip.h"
@@ -45,16 +46,15 @@ void frame_received(int card) {
     }
 }
 
-void send_ethernet(char* src_mac, char* dst_mac, uint16_t ethertype, uint8_t* payload, int payload_length, int card) {
+int send_ethernet(char* src_mac, char* dst_mac, uint16_t ethertype, uint8_t* payload, int payload_length, int card) {
     int frame_length = 14 + payload_length;
     if (frame_length < 60) {
         frame_length = 60; // Minimum Ethernet frame size (without CRC)
     }
 
-    if (payload_length > 1792) return; // Exceeds MTU
+    if (payload_length > 1792) return -EMSGSIZE; // Exceeds MTU
 
     uint8_t* frame = (uint8_t*)kmalloc(frame_length);
-    if (!frame) return; // Handle memory allocation failure
     // Construct Ethernet frame
     memcpy(frame, dst_mac, 6);
     memcpy(frame + 6, src_mac, 6);
@@ -64,4 +64,5 @@ void send_ethernet(char* src_mac, char* dst_mac, uint16_t ethertype, uint8_t* pa
     // Send the frame using the network card
     send_packet(card, frame, frame_length);
     kfree(frame);
+    return 0;
 }

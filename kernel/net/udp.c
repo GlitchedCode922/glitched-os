@@ -1,12 +1,14 @@
 #include "udp.h"
 #include "ip.h"
 #include "ethernet.h"
+#include "../error.h"
 #include <stdint.h>
 #include "../memory/mman.h"
-#include "icmp.h"
 #include "../drivers/net.h"
 
-void (*port_listeners[65536])(uint8_t*, uint16_t, uint8_t*, int) = {0};
+uint8_t udp_packet_buffer[UDP_BUFFER_SIZE][1484];
+
+uint8_t udp_ports_open[65536];
 
 // Compute the UDP checksum
 uint16_t udp_checksum(uint8_t* src_ip, uint8_t* dest_ip, uint8_t* udp_packet, int len) {
@@ -48,21 +50,15 @@ uint16_t udp_checksum(uint8_t* src_ip, uint8_t* dest_ip, uint8_t* udp_packet, in
     return htons(~sum);
 }
 
-void udp_send(uint8_t *dest_ip, uint16_t src_port, uint16_t dest_port, uint8_t *data, int data_len) {
+int udp_send(uint8_t *dest_ip, uint16_t src_port, uint16_t dest_port, uint8_t *data, int data_len) {
     uint8_t ip[4];
     *(uint32_t*)ip = get_source_ip_for(dest_ip);
 
-    if (data_len > UDP_MAX_DATA_SIZE) {
-        // Data too large for a single UDP packet
-        return;
-    }
+    if (data_len > UDP_MAX_DATA_SIZE) return -EMSGSIZE;
 
     // Allocate memory for UDP packet
     int udp_packet_size = UDP_HEADER_SIZE + data_len;
     uint8_t* udp_packet = kmalloc(udp_packet_size);
-    if (!udp_packet) {
-        return; // Memory allocation failed
-    }
 
     // Fill UDP header
     udp_header_t* udp_header = (udp_header_t*)udp_packet;
@@ -78,10 +74,9 @@ void udp_send(uint8_t *dest_ip, uint16_t src_port, uint16_t dest_port, uint8_t *
     udp_header->checksum = udp_checksum((uint8_t*)ip, dest_ip, udp_packet, udp_packet_size);
 
     // Send the UDP packet using IP layer
-    ip_send(dest_ip, 17, udp_packet, udp_packet_size); // 17 is the protocol number for UDP
-
-    // Free allocated memory
+    int res = ip_send(dest_ip, 17, udp_packet, udp_packet_size); // 17 is the protocol number for UDP
     kfree(udp_packet);
+    return res;
 }
 
 void udp_received(uint8_t *packet, uint8_t *sender, uint8_t *dest, int len) {
@@ -103,26 +98,42 @@ void udp_received(uint8_t *packet, uint8_t *sender, uint8_t *dest, int len) {
         return; // Checksum mismatch
     }
 
-    // Extract source and destination ports
-    uint16_t src_port = ntohs(udp_header->src_port);
     uint16_t dest_port = ntohs(udp_header->dest_port);
-
-    // Extract payload
-    int payload_length = len - UDP_HEADER_SIZE;
-    uint8_t* payload = packet + UDP_HEADER_SIZE;
-
-    // Check for registered listener on destination port
-    if (port_listeners[dest_port]) {
-        port_listeners[dest_port](sender, src_port, payload, payload_length);
+    if (udp_ports_open[dest_port]) {
+        for (int i = 0; i < UDP_BUFFER_SIZE; i++) {
+            if (((udp_header_t*)(udp_packet_buffer[i] + 4))->length == 0) {
+                memcpy(udp_packet_buffer[i], sender, 4);
+                memcpy(udp_packet_buffer[i] + 4, packet, len);
+                break;
+            }
+        }
     } else {
         ip_send_dest_unreachable(sender, 3);
     }
 }
 
-void register_udp_listener(uint16_t port, void (*listener)(uint8_t*, uint16_t, uint8_t*, int)) {
-    port_listeners[port] = listener;
+int64_t udp_get_packet(uint8_t* source, uint16_t port, uint8_t* payload, size_t len, int peek) {
+    for (int i = 0; i < UDP_BUFFER_SIZE; i++) {
+        uint8_t* buf = udp_packet_buffer[i];
+        udp_header_t* header = (udp_header_t*)(buf + 4);
+        if (header->length == 0) continue;
+        if (memcmp(buf, source, 4) != 0 && memcmp(source, (uint8_t[4]){0}, 4) != 0) continue;
+        if (ntohs(header->dest_port) != port) continue;
+        size_t size = header->length - sizeof(udp_header_t);
+        if (size > len) size = len;
+        memcpy(payload, buf + 4 + 8, size);
+        if (!peek) header->length = 0;
+        return size;
+    }
+    return -EAGAIN;
 }
 
-void unregister_udp_listener(uint16_t port) {
-    port_listeners[port] = 0;
+int udp_open(uint16_t port_number) {
+    if (udp_ports_open[port_number]) return -EBUSY;
+    udp_ports_open[port_number] = 1;
+    return 0;
+}
+
+void udp_close(uint16_t port_number) {
+    udp_ports_open[port_number] = 0;
 }
