@@ -167,19 +167,17 @@ int register_net_interface(int driver, int driver_local_index) {
     // Generate a default name like "eth0", "eth1", etc.
     char default_name[32] = "eth";
     // Append the interface count to the name
-    int len;
+    int len = 3;
     if (net_interface_count < 10) {
         default_name[len++] = '0' + net_interface_count;
-        len = 4;
     } else if (net_interface_count < 100) {
         default_name[len++] = '0' + (net_interface_count / 10);
         default_name[len++] = '0' + (net_interface_count % 10);
-        len = 5;
     }
     default_name[len] = '\0';
     strncpy(iface->name, default_name, sizeof(iface->name) - 1);
     iface->name[sizeof(iface->name) - 1] = '\0'; // Ensure null-termination
-    
+
     // Initialize MAC address to zero
     for (int i = 0; i < 6; i++) {
         iface->mac[i] = 0;

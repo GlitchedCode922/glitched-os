@@ -114,7 +114,7 @@ void syscall(iframe_t* iframe) {
         getcwd((char*)arg1, arg2);
         break;
     case SYSCALL_PING:
-        ping((uint8_t*)arg1);
+        ret = ping((uint8_t*)arg1);
         break;
     case SYSCALL_GET_MAC:
         ret = get_mac(arg1, (uint8_t*)arg2);
