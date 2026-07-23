@@ -109,7 +109,7 @@ int64_t read(int fd, void *buffer, size_t size) {
     fd_entry_t* fd_entry = current_task->fd_ptr_table[fd];
     if (fd_entry->type == FD_TYPE_DIR) return -EISDIR;
     if (fd_entry->type == FD_TYPE_SOCKET) return -ENOSYS;
-    int bytes_read;
+    int64_t bytes_read;
     while (1) {
         bytes_read = read_file(fd_entry->file_handle, buffer, fd_entry->offset, size);
         if (fd_entry->flags & O_NONBLOCK || bytes_read != -EAGAIN) {
@@ -128,7 +128,7 @@ int64_t write(int fd, const void *buffer, size_t size) {
     fd_entry_t* fd_entry = current_task->fd_ptr_table[fd];
     if (fd_entry->type == FD_TYPE_DIR) return -EISDIR;
     if (fd_entry->type == FD_TYPE_SOCKET) return -ENOSYS;
-    int bytes_written = write_file(fd_entry->file_handle, buffer, fd_entry->offset, size);
+    int64_t bytes_written = write_file(fd_entry->file_handle, buffer, fd_entry->offset, size);
     if (bytes_written > 0) fd_entry->offset += bytes_written;
     return bytes_written;
 }
@@ -233,7 +233,15 @@ int64_t fd_recvfrom(int fd, uint8_t *buffer, uint64_t len, int flags, sockaddr_i
     }
     fd_entry_t* fd_entry = current_task->fd_ptr_table[fd];
     if (fd_entry->type != FD_TYPE_SOCKET) return -EINVAL;
-    return recvfrom(fd_entry->socket, buffer, len, flags, addr);
+    int64_t bytes_read;
+    while (1) {
+        bytes_read = recvfrom(fd_entry->socket, buffer, len, flags, addr);
+        if (fd_entry->flags & O_NONBLOCK || bytes_read != -EAGAIN) {
+            break;
+        }
+        yield_current();
+    }
+    return bytes_read;
 }
 
 int64_t fd_sendto(int fd, const uint8_t *buffer, uint64_t len, int flags, const sockaddr_in_t *addr) {
