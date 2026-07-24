@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <errno.h>
 
 static int parse_ip(char* string, uint8_t ip[4]) {
@@ -25,14 +26,16 @@ static int parse_ip(char* string, uint8_t ip[4]) {
 }
 
 int main(int argc, char** argv) {
-    if (argc < 2 || argc > 4) {
-        printf("Usage: %s <ip> [count] [timeout]\n", argv[0]);
+    if (argc < 2 || argc > 5) {
+        printf("Usage: %s <ip> [count] [timeout] [interval]\n", argv[0]);
         return 1;
     }
     int count = 16;
     if (argc >= 3) count = atoi(argv[2]);
-    int timeout = 1000;
+    int timeout = 2500;
     if (argc >= 4) timeout = atoi(argv[3]);
+    int interval = 1000;
+    if (argc >= 5) interval = atoi(argv[4]);
     uint8_t ip[4];
     int res = parse_ip(argv[1], ip);
     if (res < 0) {
@@ -49,6 +52,7 @@ int main(int argc, char** argv) {
             continue;
         }
         printf("%d: %d ms\n", i, ms);
+        if (interval > ms) sleep(interval - ms);
     }
     return 0;
 }
