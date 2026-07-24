@@ -118,12 +118,12 @@ int64_t udp_get_packet(uint16_t port, uint8_t* payload, size_t len, sockaddr_in_
         udp_header_t* header = (udp_header_t*)(buf + 4);
         if (header->length == 0) continue;
         if (ntohs(header->dest_port) != port) continue;
-        size_t size = header->length - sizeof(udp_header_t);
+        size_t size = ntohs(header->length) - sizeof(udp_header_t);
         if (size > len) size = len;
         memcpy(payload, buf + 4 + 8, size);
         sender->type = AF_INET;
         memcpy(sender->ip, buf, 4);
-        sender->port = header->src_port;
+        sender->port = ntohs(header->src_port);
         if (!peek) header->length = 0;
         return size;
     }
