@@ -284,32 +284,6 @@ uint32_t get_source_ip_for(uint8_t* dest_ip) {
     return *(uint32_t*)ip;
 }
 
-void setup_automatic_routing() {
-    int if_index = 0;
-    routes_existing = 0;
-    while (does_exist(if_index)) {
-        uint8_t ip[4];
-        uint8_t netmask[4];
-        uint8_t gateway[4];
-        get_ip(if_index, (uint32_t*)ip);
-        get_subnet(if_index, (uint32_t*)netmask);
-        get_router(if_index, (uint32_t*)gateway);
-        // Add route to routing table
-        memcpy(routes[routes_existing].dest_ips, ip, 4);
-        memset(routes[routes_existing].gateway, 0, 4);
-        memcpy(routes[routes_existing].netmask, netmask, 4);
-        routes[routes_existing].card = if_index;
-        routes_existing++;
-        // Add global route
-        memcpy(routes[routes_existing].dest_ips, IP_ADDR_ANY, 4);
-        memcpy(routes[routes_existing].gateway, gateway, 4);
-        memcpy(routes[routes_existing].netmask, IP_ADDR_ANY, 4);
-        routes[routes_existing].card = if_index;
-        routes_existing++;
-        if_index++;
-    }
-}
-
 void add_route(uint8_t *dest_ip, uint8_t *gateway, uint8_t *netmask, int card) {
     if (routes_existing >= 16) return; // Routing table full
     memcpy(routes[routes_existing].dest_ips, dest_ip, 4);

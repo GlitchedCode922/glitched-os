@@ -12,8 +12,8 @@ int ping(uint8_t *dest_ip, int timeout) {
     return res;
 }
 
-int configure_network_interface_static(int index, uint32_t ip, uint32_t subnet, uint32_t router) {
-    int64_t res = syscall(SYSCALL_CONFIG_STATIC, index, ip, subnet, router, 0, 0);
+int configure_network_interface(int index, uint32_t ip, uint32_t subnet) {
+    int64_t res = syscall(SYSCALL_CONFIG_STATIC, index, ip, subnet, 0, 0, 0);
     if (res < 0) {
         errno = -res;
         return -1;
@@ -27,10 +27,6 @@ void add_route(uint8_t* dest_ip, uint8_t* gateway, uint8_t* netmask, int card) {
 
 void remove_route(uint8_t* dest_ip, uint8_t* netmask) {
     syscall(SYSCALL_REMOVE_ROUTE, (uint64_t)dest_ip, (uint64_t)netmask, 0, 0, 0, 0);
-}
-
-void setup_automatic_routing() {
-    syscall(SYSCALL_SETUP_AUTOMATIC_ROUTING, 0, 0, 0, 0, 0, 0);
 }
 
 int socket(int domain, int type, int protocol) {

@@ -191,8 +191,9 @@ int main() {
         opt_ptr += 2 + *(opt_ptr + 1);
     }
 
-    configure_network_interface_static(0, *(uint32_t*)ip, *(uint32_t*)subnet_mask, *(uint32_t*)router_ip);
-    setup_automatic_routing();
+    configure_network_interface(0, *(uint32_t*)ip, *(uint32_t*)subnet_mask);
+    add_route(ip, (uint8_t[4]){0, 0, 0, 0}, subnet_mask, 0);
+    add_route((uint8_t[4]){0, 0, 0, 0}, router_ip, (uint8_t[4]){0, 0, 0, 0}, 0);
 
     return 0;
 }

@@ -127,11 +127,8 @@ void syscall(iframe_t* iframe) {
     case SYSCALL_REMOVE_ROUTE:
         remove_route((uint8_t*)arg1, (uint8_t*)arg2);
         break;
-    case SYSCALL_SETUP_AUTOMATIC_ROUTING:
-        setup_automatic_routing();
-        break;
     case SYSCALL_CONFIG_STATIC:
-        ret = configure_network_interface_static(arg1, arg2, arg3, arg4);
+        ret = configure_network_interface_static(arg1, arg2, arg3);
         break;
     case SYSCALL_MOUNT:
         ret = mount_filesystem((const char*)arg1, (const char*)arg2, (const char*)arg3, arg4);

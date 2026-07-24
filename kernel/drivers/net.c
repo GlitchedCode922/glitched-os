@@ -54,13 +54,12 @@ int net_get_interface_count() {
     return net_interface_count;
 }
 
-int configure_network_interface_static(int index, uint32_t ip, uint32_t subnet, uint32_t router) {
+int configure_network_interface_static(int index, uint32_t ip, uint32_t subnet) {
     if (index < 0 || index >= net_interface_count) {
         return -ENODEV; // Invalid index
     }
     net_interfaces[index].ip = ip;
     net_interfaces[index].subnet = subnet;
-    net_interfaces[index].router = router;
     return 0; // Success
 }
 
@@ -115,14 +114,6 @@ int get_subnet(int if_index, uint32_t* subnet) {
     return 0; // Success
 }
 
-int get_router(int if_index, uint32_t* router) {
-    if (if_index < 0 || if_index >= net_interface_count) {
-        return -ENODEV; // Invalid interface index
-    }
-    *router = net_interfaces[if_index].router;
-    return 0; // Success
-}
-
 int get_mac(int if_index, uint8_t* mac) {
     if (if_index < 0 || if_index >= net_interface_count) {
         return -ENODEV; // Invalid interface index
@@ -163,7 +154,6 @@ int register_net_interface(int driver, int driver_local_index) {
     iface->driver_local_index = driver_local_index;
     iface->ip = 0;
     iface->subnet = 0;
-    iface->router = 0;
     // Generate a default name like "eth0", "eth1", etc.
     char default_name[32] = "eth";
     // Append the interface count to the name

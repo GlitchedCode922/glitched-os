@@ -56,4 +56,3 @@ void ip_send_dest_unreachable(uint8_t* dest_ip, uint8_t code);
 uint32_t get_source_ip_for(uint8_t* dest_ip);
 void add_route(uint8_t* dest_ip, uint8_t* gateway, uint8_t* netmask, int card);
 void remove_route(uint8_t* dest_ip, uint8_t* netmask);
-void setup_automatic_routing();

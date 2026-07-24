@@ -40,11 +40,12 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    res = configure_network_interface_static(interface, *(uint32_t*)ip, *(uint32_t*)subnet, *(uint32_t*)router);
+    res = configure_network_interface(interface, *(uint32_t*)ip, *(uint32_t*)subnet);
     if (res < 0) {
         perror("ifconfig");
         return 1;
     }
-    setup_automatic_routing();
+    add_route(ip, (uint8_t[4]){0, 0, 0, 0}, subnet, interface);
+    add_route((uint8_t[4]){0, 0, 0, 0}, router, (uint8_t[4]){0, 0, 0, 0}, interface);
     return 0;
 }

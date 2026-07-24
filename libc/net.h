@@ -37,10 +37,9 @@ static inline uint32_t ntohl(uint32_t val) {
 }
 
 int ping(uint8_t* dest_ip, int timeout);
-int configure_network_interface_static(int index, uint32_t ip, uint32_t subnet, uint32_t router);
+int configure_network_interface(int index, uint32_t ip, uint32_t subnet);
 void add_route(uint8_t* dest_ip, uint8_t* gateway, uint8_t* netmask, int card);
 void remove_route(uint8_t* dest_ip, uint8_t* netmask);
-void setup_automatic_routing();
 int socket(int domain, int type, int protocol);
 int bind(int fd, sockaddr_in_t* addr);
 int unbind(int fd);
