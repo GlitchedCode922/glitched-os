@@ -3,8 +3,8 @@
 #include "errno.h"
 #include <stdint.h>
 
-int ping(uint8_t *dest_ip) {
-    int64_t res = syscall(SYSCALL_PING, (uint64_t)dest_ip, 0, 0, 0, 0, 0);
+int ping(uint8_t *dest_ip, int timeout) {
+    int64_t res = syscall(SYSCALL_PING, (uint64_t)dest_ip, timeout, 0, 0, 0, 0);
     if (res < 0) {
         errno = -res;
         return -1;

@@ -36,7 +36,7 @@ static inline uint32_t ntohl(uint32_t val) {
            ((val << 24) & 0xFF000000);
 }
 
-int ping(uint8_t* dest_ip);
+int ping(uint8_t* dest_ip, int timeout);
 int configure_network_interface_static(int index, uint32_t ip, uint32_t subnet, uint32_t router);
 void add_route(uint8_t* dest_ip, uint8_t* gateway, uint8_t* netmask, int card);
 void remove_route(uint8_t* dest_ip, uint8_t* netmask);

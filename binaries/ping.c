@@ -1,6 +1,8 @@
 #include <net.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
 
 static int parse_ip(char* string, uint8_t ip[4]) {
     for (int i = 0; i < 4; i++) {
@@ -23,21 +25,28 @@ static int parse_ip(char* string, uint8_t ip[4]) {
 }
 
 int main(int argc, char** argv) {
-    if (argc != 2) {
-        printf("Usage: %s ip\n", argv[0]);
+    if (argc < 2 || argc > 4) {
+        printf("Usage: %s <ip> [count] [timeout]\n", argv[0]);
         return 1;
     }
+    int count = 16;
+    if (argc >= 3) count = atoi(argv[2]);
+    int timeout = 1000;
+    if (argc >= 4) timeout = atoi(argv[3]);
     uint8_t ip[4];
     int res = parse_ip(argv[1], ip);
     if (res < 0) {
         printf("Invalid IP address\n");
         return 1;
     }
-    for (int i = 0; i < 16; i++) {
-        int ms = ping(ip);
-        if (ms < 0) {
+    for (int i = 0; i < count; i++) {
+        int ms = ping(ip, timeout);
+        if (ms < 0 && errno != ETIMEDOUT) {
             perror("ping");
             return 1;
+        } else if (ms < 0) {
+            printf("%d: timed out\n", i);
+            continue;
         }
         printf("%d: %d ms\n", i, ms);
     }

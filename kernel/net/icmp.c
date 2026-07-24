@@ -102,14 +102,14 @@ int icmp_send(uint8_t *dest_ip, uint8_t type, uint8_t code, uint16_t sequence_nu
     return res;
 }
 
-int ping(uint8_t *dest_ip) {
+int ping(uint8_t *dest_ip, int timeout) {
     char ping_data[56];
     memset(ping_data, 'a', 56);
     while (pinging) yield_current();
     pinging = 1;
     icmp_send(dest_ip, ICMP_ECHO_REQUEST, 0, 0, (uint8_t*)ping_data, sizeof(ping_data));
     uint64_t start = get_uptime_milliseconds();
-    while (pinging == 1 && get_uptime_milliseconds() - start < 5000) yield_current();
+    while (pinging == 1 && get_uptime_milliseconds() - start < timeout) yield_current();
     if (pinging == 0) {
         uint16_t elapsed = get_uptime_milliseconds() - start;
         return elapsed; // Ping successful
