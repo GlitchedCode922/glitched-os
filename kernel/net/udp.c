@@ -4,7 +4,7 @@
 #include "../error.h"
 #include <stdint.h>
 #include "../memory/mman.h"
-#include "../drivers/net.h"
+#include "socket.h"
 
 uint8_t udp_packet_buffer[UDP_BUFFER_SIZE][1484];
 
@@ -112,16 +112,18 @@ void udp_received(uint8_t *packet, uint8_t *sender, uint8_t *dest, int len) {
     }
 }
 
-int64_t udp_get_packet(uint8_t* source, uint16_t port, uint8_t* payload, size_t len, int peek) {
+int64_t udp_get_packet(uint16_t port, uint8_t* payload, size_t len, sockaddr_in_t* sender, int peek) {
     for (int i = 0; i < UDP_BUFFER_SIZE; i++) {
         uint8_t* buf = udp_packet_buffer[i];
         udp_header_t* header = (udp_header_t*)(buf + 4);
         if (header->length == 0) continue;
-        if (memcmp(buf, source, 4) != 0 && memcmp(source, (uint8_t[4]){0}, 4) != 0) continue;
         if (ntohs(header->dest_port) != port) continue;
         size_t size = header->length - sizeof(udp_header_t);
         if (size > len) size = len;
         memcpy(payload, buf + 4 + 8, size);
+        sender->type = AF_INET;
+        memcpy(sender->ip, buf, 4);
+        sender->port = header->src_port;
         if (!peek) header->length = 0;
         return size;
     }

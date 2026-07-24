@@ -53,7 +53,7 @@ int64_t recvfrom(socket_t* socket, uint8_t* buffer, uint64_t len, int flags, soc
             break;
         }
     }
-    return udp_get_packet((uint8_t[4]){0}, socket->bind_addr.port, buffer, len, flags | MSG_PEEK);
+    return udp_get_packet(socket->bind_addr.port, buffer, len, addr, flags | MSG_PEEK);
 }
 
 int64_t sendto(socket_t* socket, const uint8_t* buffer, uint64_t len, int flags, const sockaddr_in_t* addr) {
