@@ -60,7 +60,7 @@ int unbind(int fd) {
     return res;
 }
 
-int64_t recvfrom(int fd, uint8_t* buffer, uint64_t len, int flags, sockaddr_in_t* addr) {
+int64_t recvfrom(int fd, void* buffer, uint64_t len, int flags, sockaddr_in_t* addr) {
     int64_t res = syscall(SYSCALL_RECVFROM, fd, (uint64_t)buffer, len, flags, (uint64_t)addr, 0);
     if (res < 0) {
         errno = -res;
@@ -69,8 +69,26 @@ int64_t recvfrom(int fd, uint8_t* buffer, uint64_t len, int flags, sockaddr_in_t
     return res;
 }
 
-int64_t sendto(int fd, const uint8_t* buffer, uint64_t len, int flags, const sockaddr_in_t* addr) {
+int64_t sendto(int fd, const void* buffer, uint64_t len, int flags, const sockaddr_in_t* addr) {
     int64_t res = syscall(SYSCALL_SENDTO, fd, (uint64_t)buffer, len, flags, (uint64_t)addr, 0);
+    if (res < 0) {
+        errno = -res;
+        return -1;
+    }
+    return res;
+}
+
+int getmacaddr(int if_index, uint8_t *mac) {
+    int64_t res = syscall(SYSCALL_GET_MAC, if_index, (uint64_t)mac, 0, 0, 0, 0);
+    if (res < 0) {
+        errno = -res;
+        return -1;
+    }
+    return res;
+}
+
+int getipaddr(int if_index, uint8_t *ip) {
+    int64_t res = syscall(SYSCALL_GET_MAC, if_index, (uint64_t)ip, 0, 0, 0, 0);
     if (res < 0) {
         errno = -res;
         return -1;
