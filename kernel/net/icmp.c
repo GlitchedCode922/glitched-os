@@ -111,8 +111,12 @@ int ping(uint8_t *dest_ip) {
     if (pinging == 0) {
         uint16_t elapsed = get_uptime_milliseconds() - start;
         return elapsed; // Ping successful
+    } else if (pinging < 0) {
+        pinging = 0;
+        return -EHOSTUNREACH; // Ping failed
     } else {
-        return -EHOSTUNREACH; // Ping failed or unreachable
+        pinging = 0;
+        return -ETIMEDOUT;
     }
 }
 

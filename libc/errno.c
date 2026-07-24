@@ -28,6 +28,9 @@ char* strerror(int errnum) {
         case ENAMETOOLONG: return "Filename too long";
         case ENOTEMPTY: return "Directory not empty";
         case EXDEV: return "Invalid cross-device link";
+        case ETIMEDOUT: return "Connection timed out";
+        case EHOSTUNREACH: return "No route to host";
+        case EMSGSIZE: return "Message too long";
         default: return "Unknown error";
     }
 }

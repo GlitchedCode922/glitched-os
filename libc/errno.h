@@ -23,5 +23,8 @@
 #define ENAMETOOLONG 36
 #define ENOTEMPTY 39
 #define EXDEV 18
+#define ETIMEDOUT 110
+#define EHOSTUNREACH 113
+#define EMSGSIZE 90
 
 extern int errno;
