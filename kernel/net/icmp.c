@@ -8,6 +8,7 @@
 #include "icmp.h"
 
 int pinging = 0;
+uint16_t icmp_identifier = 1;
 
 // Function to calculate checksum
 uint16_t icmp_checksum(uint8_t* data, int len) {
@@ -82,14 +83,14 @@ void icmp_received(uint8_t *packet, uint8_t* sender, int len) {
     }
 }
 
-int icmp_send(uint8_t *dest_ip, uint8_t type, uint8_t code, uint16_t identifier, uint16_t sequence_number, uint8_t *data, int data_len) {
+int icmp_send(uint8_t *dest_ip, uint8_t type, uint8_t code, uint16_t sequence_number, uint8_t *data, int data_len) {
     int packet_len = sizeof(icmp_header_t) + data_len;
     uint8_t *packet = kmalloc(packet_len);
 
     icmp_header_t *icmp_hdr = (icmp_header_t *)packet;
     icmp_hdr->type = type;
     icmp_hdr->code = code;
-    icmp_hdr->identifier = htons(identifier);
+    icmp_hdr->identifier = htons(icmp_identifier++);
     icmp_hdr->sequence_number = htons(sequence_number);
     memcpy(packet + sizeof(icmp_header_t), data, data_len);
 
@@ -104,8 +105,9 @@ int icmp_send(uint8_t *dest_ip, uint8_t type, uint8_t code, uint16_t identifier,
 int ping(uint8_t *dest_ip) {
     char ping_data[56];
     memset(ping_data, 'a', 56);
+    while (pinging) yield_current();
     pinging = 1;
-    icmp_send(dest_ip, ICMP_ECHO_REQUEST, 0, 123, 0, (uint8_t*)ping_data, sizeof(ping_data));
+    icmp_send(dest_ip, ICMP_ECHO_REQUEST, 0, 0, (uint8_t*)ping_data, sizeof(ping_data));
     uint64_t start = get_uptime_milliseconds();
     while (pinging == 1 && get_uptime_milliseconds() - start < 5000) yield_current();
     if (pinging == 0) {
@@ -122,7 +124,7 @@ int ping(uint8_t *dest_ip) {
 
 void send_unreachable(uint8_t *dest_ip, uint8_t code, uint8_t *original_packet, int original_len) {
     // Send Destination Unreachable message
-    icmp_send(dest_ip, ICMP_DEST_UNREACHABLE, code, 0, 0, original_packet, original_len);
+    icmp_send(dest_ip, ICMP_DEST_UNREACHABLE, code, 0, original_packet, original_len);
 }
 
 
