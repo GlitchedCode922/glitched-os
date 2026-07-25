@@ -115,20 +115,11 @@ void syscall(iframe_t* iframe) {
     case SYSCALL_PING:
         ret = ping((uint8_t*)arg1, arg2);
         break;
-    case SYSCALL_GET_MAC:
-        ret = get_mac(arg1, (uint8_t*)arg2);
-        break;
-    case SYSCALL_GET_IP:
-        ret = get_ip(arg1, (uint32_t*)arg2);
-        break;
     case SYSCALL_ADD_ROUTE:
-        add_route((uint8_t*)arg1, (uint8_t*)arg2, (uint8_t*)arg3, arg4);
+        add_route((uint8_t*)arg1, (uint8_t*)arg2, (uint8_t*)arg3, (char*)arg4);
         break;
     case SYSCALL_REMOVE_ROUTE:
         remove_route((uint8_t*)arg1, (uint8_t*)arg2);
-        break;
-    case SYSCALL_CONFIG_STATIC:
-        ret = configure_network_interface_static(arg1, arg2, arg3);
         break;
     case SYSCALL_MOUNT:
         ret = mount_filesystem((const char*)arg1, (const char*)arg2, (const char*)arg3, arg4);

@@ -1,6 +1,8 @@
+#include "ioctl.h"
 #include <stdint.h>
 #include <net.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <string.h>
 
 #define DHCP_CLIENT_PORT 68
@@ -68,10 +70,12 @@ int main() {
     uint8_t offered_ip[4];
     uint8_t dhcp_server_ip[4];
 
+    if_info_t if_info;
     // Get MAC address of the network card
-    res = getmacaddr(0, client_mac);
+    int if_fd = open("/dev/eth0", 0);
+    res = ioctl(if_fd, IF_GET_INFO, &if_info);
     if (res < 0) {
-        perror("getmacaddr");
+        perror("ioctl");
         return 1;
     }
 
@@ -191,9 +195,11 @@ int main() {
         opt_ptr += 2 + *(opt_ptr + 1);
     }
 
-    configure_network_interface(0, *(uint32_t*)ip, *(uint32_t*)subnet_mask);
-    add_route(ip, (uint8_t[4]){0, 0, 0, 0}, subnet_mask, 0);
-    add_route((uint8_t[4]){0, 0, 0, 0}, router_ip, (uint8_t[4]){0, 0, 0, 0}, 0);
+    memcpy(if_info.ip, ip, 4);
+    memcpy(if_info.subnet, subnet_mask, 4);
+    ioctl(if_fd, IF_CONFIGURE, &if_info);
+    add_route(ip, (uint8_t[4]){0, 0, 0, 0}, subnet_mask, "/dev/eth0");
+    add_route((uint8_t[4]){0, 0, 0, 0}, router_ip, (uint8_t[4]){0, 0, 0, 0}, "/dev/eth0");
 
     return 0;
 }

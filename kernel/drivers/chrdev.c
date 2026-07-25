@@ -27,11 +27,13 @@ int register_char_device(char_device_t *device) {
 
 int64_t char_read(char_device_t device, uint64_t offset, uint8_t *buffer, uint64_t size) {
     if (device.major_number == 0 || !char_drivers[device.major_number].present) return -ENODEV;
+    if (!char_drivers[device.major_number].read) return -ENOSYS;
     return char_drivers[device.major_number].read(device.minor_number, offset, buffer, size);
 }
 
 int64_t char_write(char_device_t device, uint64_t offset, const uint8_t *buffer, uint64_t size) {
     if (device.major_number == 0 || !char_drivers[device.major_number].present) return -ENODEV;
+    if (!char_drivers[device.major_number].write) return -ENOSYS;
     return char_drivers[device.major_number].write(device.minor_number, offset, buffer, size);
 }
 

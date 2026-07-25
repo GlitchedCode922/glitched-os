@@ -12,17 +12,8 @@ int ping(uint8_t *dest_ip, int timeout) {
     return res;
 }
 
-int configure_network_interface(int index, uint32_t ip, uint32_t subnet) {
-    int64_t res = syscall(SYSCALL_CONFIG_STATIC, index, ip, subnet, 0, 0, 0);
-    if (res < 0) {
-        errno = -res;
-        return -1;
-    }
-    return res;
-}
-
-void add_route(uint8_t* dest_ip, uint8_t* gateway, uint8_t* netmask, int card) {
-    syscall(SYSCALL_ADD_ROUTE, (uint64_t)dest_ip, (uint64_t)gateway, (uint64_t)netmask, card, 0, 0);
+void add_route(uint8_t* dest_ip, uint8_t* gateway, uint8_t* netmask, char* interface) {
+    syscall(SYSCALL_ADD_ROUTE, (uint64_t)dest_ip, (uint64_t)gateway, (uint64_t)netmask, (uint64_t)interface, 0, 0);
 }
 
 void remove_route(uint8_t* dest_ip, uint8_t* netmask) {
@@ -67,24 +58,6 @@ int64_t recvfrom(int fd, void* buffer, uint64_t len, int flags, sockaddr_in_t* a
 
 int64_t sendto(int fd, const void* buffer, uint64_t len, int flags, const sockaddr_in_t* addr) {
     int64_t res = syscall(SYSCALL_SENDTO, fd, (uint64_t)buffer, len, flags, (uint64_t)addr, 0);
-    if (res < 0) {
-        errno = -res;
-        return -1;
-    }
-    return res;
-}
-
-int getmacaddr(int if_index, uint8_t *mac) {
-    int64_t res = syscall(SYSCALL_GET_MAC, if_index, (uint64_t)mac, 0, 0, 0, 0);
-    if (res < 0) {
-        errno = -res;
-        return -1;
-    }
-    return res;
-}
-
-int getipaddr(int if_index, uint8_t *ip) {
-    int64_t res = syscall(SYSCALL_GET_MAC, if_index, (uint64_t)ip, 0, 0, 0, 0);
     if (res < 0) {
         errno = -res;
         return -1;

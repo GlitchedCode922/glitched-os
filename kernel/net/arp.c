@@ -16,9 +16,9 @@ void arp_reply(uint8_t *request_frame, int card) {
     arp_packet_t reply;
 
     uint8_t ip[4];
-    get_ip(card, (uint32_t*)ip);
+    get_ip(card, ip);
 
-    uint8_t our_mac[6]; 
+    uint8_t our_mac[6];
     get_mac(card, our_mac);
     if (waiting_for_reply && ntohs(request->opcode) == ARP_OPCODE_REPLY && memcmp(ip, request->target_ip, 4) == 0) {
         // Update ARP cache
@@ -72,7 +72,7 @@ int arp_request(uint8_t* target_ip, uint8_t* target_mac_buffer, int card) {
     get_mac(card, our_mac);
 
     uint8_t ip[4];
-    get_ip(card, (uint32_t*)ip);
+    get_ip(card, ip);
     // Fill ARP request fields
     request.htype = htons(ARP_HTYPE_ETHERNET);
     request.ptype = htons(ARP_PTYPE_IPV4);

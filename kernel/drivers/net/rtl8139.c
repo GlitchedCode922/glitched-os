@@ -193,7 +193,6 @@ void register_rtl8139_driver() {
     };
     register_pci_driver(rtl8139_driver);
     driver_index = register_net_driver((net_driver_t){
-        .name = "rtl8139",
         .send_packet = rtl8139_send_packet,
         .read_packet = rtl8139_read_packet,
         .get_mac_address = rtl8139_get_mac_address,

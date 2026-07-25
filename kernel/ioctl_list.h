@@ -7,3 +7,5 @@
 #define CDROM_LOAD 5
 #define CDROM_EJECT 6
 #define FB_GET_INFO 7
+#define IF_GET_INFO 8
+#define IF_CONFIGURE 9

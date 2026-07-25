@@ -1,7 +1,9 @@
+#include "ioctl.h"
 #include <net.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 static int parse_ip(char* string, uint8_t ip[4]) {
     for (int i = 0; i < 4; i++) {
@@ -25,27 +27,31 @@ static int parse_ip(char* string, uint8_t ip[4]) {
 
 int main(int argc, char** argv) {
     if (argc != 5) {
-        printf("Usage: %s if_id ip subnet router\n", argv[0]);
+        printf("Usage: %s interface ip subnet router\n", argv[0]);
         return 1;
     }
-    int interface = atoi(argv[1]);
-    uint8_t ip[4];
-    uint8_t subnet[4];
+    int fd = open(argv[1], 0);
+    if (fd < 0) {
+        perror(argv[1]);
+        return 1;
+    }
+
+    if_info_t if_info;
     uint8_t router[4];
-    int res = parse_ip(argv[2], ip);
-    res += parse_ip(argv[3], subnet);
+    int res = parse_ip(argv[2], if_info.ip);
+    res += parse_ip(argv[3], if_info.subnet);
     res += parse_ip(argv[4], router);
     if (res < 0) {
         printf("Invalid IPv4 address");
         return 1;
     }
-
-    res = configure_network_interface(interface, *(uint32_t*)ip, *(uint32_t*)subnet);
+    
+    res = ioctl(fd, IF_CONFIGURE, &if_info);
     if (res < 0) {
         perror("ifconfig");
         return 1;
     }
-    add_route(ip, (uint8_t[4]){0, 0, 0, 0}, subnet, interface);
-    add_route((uint8_t[4]){0, 0, 0, 0}, router, (uint8_t[4]){0, 0, 0, 0}, interface);
+    add_route(if_info.ip, (uint8_t[4]){0, 0, 0, 0}, if_info.subnet, argv[1]);
+    add_route((uint8_t[4]){0, 0, 0, 0}, router, (uint8_t[4]){0, 0, 0, 0}, argv[1]);
     return 0;
 }

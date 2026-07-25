@@ -12,6 +12,7 @@
 #include "gdt.h"
 #include "idt.h"
 #include "drivers/net/rtl8139.h"
+#include "drivers/net.h"
 #include "drivers/fpu.h"
 #include "drivers/timer.h"
 #include "io/pci.h"
@@ -139,6 +140,7 @@ void kernel_main() {
     partition_init();
     ata_register();
     free_region(0x0, 0x100000000);
+    net_init();
     register_rtl8139_driver();
     register_null_devices();
     enumerate_pci();

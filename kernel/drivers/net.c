@@ -1,11 +1,18 @@
 #include "net.h"
 #include "../error.h"
+#include "chrdev.h"
 #include <stddef.h>
+#include <stdint.h>
+#include "../memory/mman.h"
+#include "../ioctl_list.h"
+#include "../vfs.h"
+#include "../fs/devfs.h"
 
 net_if_t net_interfaces[10];
 int net_interface_count = 0;
 net_driver_t net_drivers[10];
 int net_driver_count = 0;
+int net_driver_index = 0;
 
 static int strcmp(const char *s1, const char *s2) {
     while (*s1 && *s2 && (*s1 == *s2)) {
@@ -24,23 +31,6 @@ static int strncpy(char *dest, const char *src, size_t n) {
     return i;
 }
 
-int get_if_index_by_name(const char* name) {
-    for (int i = 0; i < net_interface_count; i++) {
-        if (strcmp(net_interfaces[i].name, name) == 0) {
-            return i;
-        }
-    }
-    return -1; // Not found
-}
-
-net_if_t net_get_interface(int index) {
-    if (index < 0 || index >= net_interface_count) {
-        net_if_t empty = {0};
-        return empty; // Return an empty struct if index is out of bounds
-    }
-    return net_interfaces[index];
-}
-
 int get_global_if_index(int driver, int driver_local_index) {
     for (int i = 0; i < net_interface_count; i++) {
         if (net_interfaces[i].driver == driver && net_interfaces[i].driver_local_index == driver_local_index) {
@@ -54,12 +44,12 @@ int net_get_interface_count() {
     return net_interface_count;
 }
 
-int configure_network_interface_static(int index, uint32_t ip, uint32_t subnet) {
+int configure_network_interface_static(int index, uint8_t* ip, uint8_t* subnet) {
     if (index < 0 || index >= net_interface_count) {
         return -ENODEV; // Invalid index
     }
-    net_interfaces[index].ip = ip;
-    net_interfaces[index].subnet = subnet;
+    memcpy(net_interfaces[index].ip, ip, 4);
+    memcpy(net_interfaces[index].subnet, subnet, 4);
     return 0; // Success
 }
 
@@ -98,19 +88,19 @@ int does_exist(int if_index) {
     return if_index >= 0 && if_index < net_interface_count;
 }
 
-int get_ip(int if_index, uint32_t* ip) {
+int get_ip(int if_index, uint8_t* ip) {
     if (if_index < 0 || if_index >= net_interface_count) {
         return -ENODEV; // Invalid interface index
     }
-    *ip = net_interfaces[if_index].ip;
+    memcpy(ip, net_interfaces[if_index].ip, 4);
     return 0; // Success
 }
 
-int get_subnet(int if_index, uint32_t* subnet) {
+int get_subnet(int if_index, uint8_t* subnet) {
     if (if_index < 0 || if_index >= net_interface_count) {
         return -ENODEV; // Invalid interface index
     }
-    *subnet = net_interfaces[if_index].subnet;
+    memcpy(subnet, net_interfaces[if_index].subnet, 4);
     return 0; // Success
 }
 
@@ -121,15 +111,6 @@ int get_mac(int if_index, uint8_t* mac) {
     for (int i = 0; i < 6; i++) {
         mac[i] = net_interfaces[if_index].mac[i];
     }
-    return 0; // Success
-}
-
-int rename_interface(int if_index, const char* new_name) {
-    if (if_index < 0 || if_index >= net_interface_count) {
-        return -ENODEV; // Invalid interface index
-    }
-    strncpy(net_interfaces[if_index].name, new_name, sizeof(net_interfaces[if_index].name) - 1);
-    net_interfaces[if_index].name[sizeof(net_interfaces[if_index].name) - 1] = '\0'; // Ensure null-termination
     return 0; // Success
 }
 
@@ -152,8 +133,8 @@ int register_net_interface(int driver, int driver_local_index) {
     net_if_t* iface = &net_interfaces[net_interface_count];
     iface->driver = driver;
     iface->driver_local_index = driver_local_index;
-    iface->ip = 0;
-    iface->subnet = 0;
+    memset(iface->ip, 0, 4);
+    memset(iface->subnet, 0, 4);
     // Generate a default name like "eth0", "eth1", etc.
     char default_name[32] = "eth";
     // Append the interface count to the name
@@ -165,8 +146,7 @@ int register_net_interface(int driver, int driver_local_index) {
         default_name[len++] = '0' + (net_interface_count % 10);
     }
     default_name[len] = '\0';
-    strncpy(iface->name, default_name, sizeof(iface->name) - 1);
-    iface->name[sizeof(iface->name) - 1] = '\0'; // Ensure null-termination
+    devfs_mknod(default_name, DT_CHAR, makedev(net_driver_index, net_interface_count));
 
     // Initialize MAC address to zero
     for (int i = 0; i < 6; i++) {
@@ -193,4 +173,29 @@ int register_net_interface(int driver, int driver_local_index) {
     }
     net_interface_count++;
     return net_interface_count - 1; // Return the index of the newly added interface
+}
+
+int net_ioctl(int if_index, uint64_t request, uint64_t arg) {
+    if (if_index < 0 || if_index >= net_interface_count) {
+        return -ENODEV; // Invalid interface index
+    }
+    if_info_t* ptr = (if_info_t*)arg;
+    if (request == IF_GET_INFO) {
+        memcpy(ptr->mac, net_interfaces[if_index].mac, 6);
+        memcpy(ptr->ip, net_interfaces[if_index].ip, 4);
+        memcpy(ptr->subnet, net_interfaces[if_index].subnet, 4);
+        return 0;
+    } else if (request == IF_CONFIGURE) {
+        memcpy(net_interfaces[if_index].ip, ptr->ip, 4);
+        memcpy(net_interfaces[if_index].subnet, ptr->subnet, 4);
+        return 0;
+    }
+    return -ENOTTY;
+}
+
+void net_init() {
+    char_driver_t net_driver = {
+        .ioctl = net_ioctl
+    };
+    net_driver_index = register_char_driver(&net_driver);
 }

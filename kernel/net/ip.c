@@ -7,6 +7,7 @@
 #include "../drivers/net.h"
 #include "../error.h"
 #include <stdint.h>
+#include "../vfs.h"
 
 uint8_t fragment_storage[12][0xFFFF]; // Storage for fragment reassembly
 int ids[12]; // Identification numbers for fragments
@@ -67,7 +68,7 @@ int ip_send(uint8_t* dst_ip, uint8_t protocol, uint8_t* payload, int payload_len
         card = broadcast_card;
     } else if (best_route == -1) return -EHOSTUNREACH; // No route found for non-broadcast address
 
-    get_ip(card, (uint32_t*)ip);
+    get_ip(card, ip);
     uint8_t* subnet = (best_route != -1) ? routes[best_route].netmask : NULL;
     uint8_t* router_ip = (best_route != -1) ? routes[best_route].gateway : NULL;
 
@@ -166,7 +167,7 @@ int ip_send(uint8_t* dst_ip, uint8_t protocol, uint8_t* payload, int payload_len
 void ip_received(uint8_t* frame, int card) {
     ipv4_header_t* ip_header = (ipv4_header_t*)frame;
     uint8_t ip[4];
-    get_ip(card, (uint32_t*)ip);
+    get_ip(card, ip);
 
     // Verify IP version and header length
     if ((ip_header->version_ihl >> 4) != 4 || (ip_header->version_ihl & 0x0F) < 5) {
@@ -280,16 +281,19 @@ uint32_t get_source_ip_for(uint8_t* dest_ip) {
     uint8_t ip[4];
     int card = (best_route != -1) ? routes[best_route].card : 0; // Default to card 0 if no route found
     if (best_route == -1) return 0;
-    get_ip(card, (uint32_t*)ip);
+    get_ip(card, ip);
     return *(uint32_t*)ip;
 }
 
-void add_route(uint8_t *dest_ip, uint8_t *gateway, uint8_t *netmask, int card) {
+void add_route(uint8_t *dest_ip, uint8_t *gateway, uint8_t *netmask, char* interface) {
     if (routes_existing >= 16) return; // Routing table full
     memcpy(routes[routes_existing].dest_ips, dest_ip, 4);
     memcpy(routes[routes_existing].gateway, gateway, 4);
     memcpy(routes[routes_existing].netmask, netmask, 4);
-    routes[routes_existing].card = card;
+    stat_t st;
+    stat(interface, &st);
+    if (major(st.rdev) != net_driver_index) return;
+    routes[routes_existing].card = minor(st.rdev);
     routes_existing++;
 }
 
