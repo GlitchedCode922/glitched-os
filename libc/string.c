@@ -1,5 +1,6 @@
 #include "string.h"
 #include <stddef.h>
+#include <stdint.h>
 
 size_t strlen(const char *s) {
     size_t len = 0;
@@ -146,18 +147,45 @@ void* memcpy(void* dest, const void* src, size_t n) {
     unsigned char *d = (unsigned char *)dest;
     const unsigned char *s = (const unsigned char *)src;
 
-    for (size_t i = 0; i < n; i++) {
-        d[i] = s[i];
+    while (n && ((uint64_t)d & 7)) {
+        *d++ = *s++;
+        n--;
     }
+
+    while (n >= 8) {
+        *(uint64_t*)d = *(const uint64_t*)s;
+        d += 8;
+        s += 8;
+        n -= 8;
+    }
+
+    while (n--) *d++ = *s++;
     return dest;
 }
 
-void* memset(void* ptr, unsigned char value, size_t n) {
+void* memset(void* ptr, int value, size_t n) {
     unsigned char *p = (unsigned char *)ptr;
+    unsigned char c = (unsigned char)value;
 
-    for (size_t i = 0; i < n; i++) {
-        p[i] = value;
+    while (n && ((uintptr_t)p & sizeof((uintptr_t) - 1))) {
+        *p++ = c;
+        n--;
     }
+
+    uint64_t word = 0;
+    for (size_t i = 0; i < 8; i++) {
+        word = (word << 8) | c;
+    }
+
+    uint64_t* w = (uint64_t*)p;
+    while (n >= 8) {
+        *w++ = word;
+        n -= 8;
+    }
+
+    p = (unsigned char*)w;
+    while (n--) *p++ = c;
+
     return ptr;
 }
 

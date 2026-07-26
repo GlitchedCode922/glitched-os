@@ -16,6 +16,6 @@ void kfree(void* ptr);
 void init_mman(size_t executable_size);
 
 void* memcpy(void* dest, const void* src, size_t n);
-void* memset(void* ptr, unsigned char value, size_t n);
+void* memset(void* ptr, int value, size_t n);
 void* memmove(void* dest, const void* src, size_t n);
 int memcmp(const void* ptr1, const void* ptr2, size_t n);
