@@ -191,6 +191,8 @@ static int ramfs_add_dirent(const char* path, ramfs_dirent_t* dirent) {
 int ramfs_mknod(const char *path, uint32_t type, dev_t dev) {
     if (mount->read_only) return -EROFS;
     if (type != DT_BLOCK && type != DT_CHAR) return -EINVAL;
+    ramfs_dirent_t* tmp;
+    if (ramfs_get_dirent(path, &tmp) >= 0) return -EEXIST;
     size_t len = strlen(path);
     while (len > 0 && path[len - 1] == '/') {
         len--;
@@ -223,6 +225,8 @@ int ramfs_mknod(const char *path, uint32_t type, dev_t dev) {
 
 int ramfs_create_file(const char *path) {
     if (mount->read_only) return -EROFS;
+    ramfs_dirent_t* tmp;
+    if (ramfs_get_dirent(path, &tmp) >= 0) return -EEXIST;
     size_t len = strlen(path);
     while (len > 0 && path[len - 1] == '/') {
         len--;
@@ -254,6 +258,8 @@ int ramfs_create_file(const char *path) {
 
 int ramfs_create_directory(const char *path) {
     if (mount->read_only) return -EROFS;
+    ramfs_dirent_t* tmp;
+    if (ramfs_get_dirent(path, &tmp) >= 0) return -EEXIST;
     size_t len = strlen(path);
     while (len > 0 && path[len - 1] == '/') {
         len--;
