@@ -13,20 +13,19 @@ override KERNEL_CFLAGS += -mno-80387 -mno-mmx -mno-sse -mno-sse2 -mno-red-zone -
 LDFLAGS =
 KERNEL_LDFLAGS =
 BIN_LDFLAGS =
-override LDFLAGS += -nostdlib
 override KERNEL_LDFLAGS += -T kernel/linker.ld
 LDLIBS =
 ARFLAGS =
 
 ifeq ($(TOOLCHAIN), llvm)
 	CC = clang
+	LD = ld.lld
 	AR = llvm-ar
 	override CFLAGS += --target=$(TARGET)
-	override LDFLAGS += --target=$(TARGET) -fuse-ld=lld
 else ifeq ($(TOOLCHAIN), gcc)
 	CC = $(TARGET)-gcc
+	LD = $(TARGET)-ld
 	AR = $(TARGET)-ar
-	override LDLIBS += -lgcc
 else ifeq ($(TOOLCHAIN), custom)
 else
 	$(error Invalid TOOLCHAIN specified: $(TOOLCHAIN))
@@ -60,7 +59,7 @@ all: kernel libc binaries disk-image
 kernel: build/kernel
 
 build/kernel: $(KERNEL_OBJECTS) glitchfs/build/target-libglfs.a
-	$(CC) $(LDFLAGS) $(KERNEL_LDFLAGS) $^ $(LDLIBS) -o $@
+	$(LD) $(LDFLAGS) $(KERNEL_LDFLAGS) $^ $(LDLIBS) -o $@
 
 glitchfs/build/target-libglfs.a: glitchfs
 glitchfs:
@@ -92,7 +91,7 @@ build/crt0.o: libc/crt0.asm
 	$(AS) $(ASFLAGS) $< -o $@
 
 build/binaries/%: build/obj/binaries/%.o build/crt0.o build/libc.a | build/binaries
-	$(CC) $(LDFLAGS) $(BIN_LDFLAGS) build/crt0.o $< build/libc.a $(LDLIBS) -o $@
+	$(LD) $(LDFLAGS) $(BIN_LDFLAGS) build/crt0.o $< build/libc.a $(LDLIBS) -o $@
 
 build/obj/binaries/%.o: binaries/%.c | build/obj/binaries
 	$(CC) $(CFLAGS) $(BIN_CFLAGS) -c -Ilibc/ $< -o $@
