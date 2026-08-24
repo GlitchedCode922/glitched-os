@@ -9,9 +9,14 @@
 #define STDOUT_FILENO 1
 #define STDERR_FILENO 2
 
-#define O_CREAT 0x01
-#define O_NONBLOCK 0x02
-#define O_DIRECTORY 0x04
+#define O_RDONLY 0x00
+#define O_WRONLY 0x01
+#define O_RDWR 0x02
+#define O_CREAT 0x04
+#define O_NONBLOCK 0x08
+#define O_DIRECTORY 0x10
+
+#define O_ACCESS 0x03
 
 enum {
     DT_UNKNOWN = 0,

@@ -60,12 +60,12 @@ int main(int argc, char** argv) {
     }
 
     char buffer[8192];
-    int fd_read = open(argv[1], 0);
+    int fd_read = open(argv[1], O_RDONLY);
     if (fd_read < 0) {
         perror(argv[1]);
         return 1;
     }
-    int fd_write = open(dest_path, O_CREAT);
+    int fd_write = open(dest_path, O_WRONLY | O_CREAT);
     if (fd_write < 0) {
         perror(dest_path);
         return 1;

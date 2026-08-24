@@ -30,7 +30,7 @@ int main(int argc, char** argv) {
         printf("Usage: %s interface ip subnet router\n", argv[0]);
         return 1;
     }
-    int fd = open(argv[1], 0);
+    int fd = open(argv[1], O_RDONLY);
     if (fd < 0) {
         perror(argv[1]);
         return 1;

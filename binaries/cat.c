@@ -8,7 +8,7 @@ int main(int argc, char** argv) {
         return 2;
     }
 
-    int fd_read = open(argv[1], 0);
+    int fd_read = open(argv[1], O_RDONLY);
     if (fd_read < 0) {
         perror(argv[1]);
         return 1;

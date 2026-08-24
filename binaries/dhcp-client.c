@@ -72,7 +72,7 @@ int main() {
 
     if_info_t if_info;
     // Get MAC address of the network card
-    int if_fd = open("/dev/eth0", 0);
+    int if_fd = open("/dev/eth0", O_RDONLY);
     res = ioctl(if_fd, IF_GET_INFO, &if_info);
     if (res < 0) {
         perror("ioctl");

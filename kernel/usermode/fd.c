@@ -16,6 +16,7 @@ static int strlen(const char* str) {
 }
 
 int fd_open(const char *path, uint16_t flags) {
+    if (flags & O_WRONLY && flags & O_RDWR) return -EINVAL;
     stat_t st = {0};
     int res = stat(path, &st);
     if (res < 0) {
@@ -107,6 +108,7 @@ int64_t read(int fd, void *buffer, size_t size) {
         return -EBADF;
     }
     fd_entry_t* fd_entry = current_task->fd_ptr_table[fd];
+    if (fd_entry->type == FD_TYPE_FILE && (fd_entry->flags & O_ACCESS) == O_WRONLY) return -EBADF;
     if (fd_entry->type == FD_TYPE_DIR) return -EISDIR;
     if (fd_entry->type == FD_TYPE_SOCKET) return -ENOSYS;
     int64_t bytes_read;
@@ -126,6 +128,7 @@ int64_t write(int fd, const void *buffer, size_t size) {
         return -EBADF;
     }
     fd_entry_t* fd_entry = current_task->fd_ptr_table[fd];
+    if (fd_entry->type == FD_TYPE_FILE && (fd_entry->flags & O_ACCESS) == O_RDONLY) return -EBADF;
     if (fd_entry->type == FD_TYPE_DIR) return -EISDIR;
     if (fd_entry->type == FD_TYPE_SOCKET) return -ENOSYS;
     int64_t bytes_written = write_file(fd_entry->file_handle, buffer, fd_entry->offset, size);
