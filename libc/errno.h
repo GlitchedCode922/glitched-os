@@ -16,6 +16,7 @@
 #define EROFS 30
 #define ENOEXEC 8
 #define EMFILE 24
+#define ENFILE 23
 #define ESPIPE 29
 #define ENOTTY 25
 #define EBUSY 16

@@ -6,7 +6,6 @@
 #include "fs/ramfs.h"
 #include "fs/devfs.h"
 #include "memory/mman.h"
-#include "usermode/fd.h"
 #include "usermode/scheduler.h"
 #include "error.h"
 #include <stddef.h>

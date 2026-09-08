@@ -21,6 +21,7 @@ char* strerror(int errnum) {
         case EROFS: return "Read-only file system";
         case ENOEXEC: return "Exec format error";
         case EMFILE: return "Too many open files";
+        case ENFILE: return "Too many open files in system";
         case ESPIPE: return "Illegal seek";
         case ENOTTY: return "Not a typewriter";
         case EBUSY: return "Device or resource busy";

@@ -232,9 +232,17 @@ int add_task(char* path, char** argv, char** envp, task_t* parent, int pid, ifra
 
     // Clone FD file handles
     for (int fd = 0; fd < MAX_FDS; fd++) {
-        if (new_task->fd_table[fd].refcount == 0) continue;
-        int res = clone_file_handle(new_task->fd_table[fd].file_handle);
-        if (res < 0) return res;
+        if (!new_task->fd_table[fd].fd) continue;
+        if (new_task->fd_table[fd].flags & O_CLOEXEC) {
+            new_task->fd_table[fd].fd = NULL;
+            new_task->fd_table[fd].flags = 0;
+            continue;
+        }
+        new_task->fd_table[fd].fd->refcount++;
+        if (new_task->fd_table[fd].fd->type == FD_TYPE_FILE || new_task->fd_table[fd].fd->type == FD_TYPE_DIR) {
+            int res = clone_file_handle(new_task->fd_table[fd].fd->file_handle);
+            if (res < 0) return res;
+        }
     }
 
     // Switch to the new page table

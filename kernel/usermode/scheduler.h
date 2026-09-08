@@ -32,8 +32,7 @@ typedef struct Task {
     void* brk;
     void* fpu_state;
     char wd[MAX_PATH];
-    fd_entry_t fd_table[MAX_FDS];
-    fd_entry_t* fd_ptr_table[MAX_FDS];
+    fd_t fd_table[MAX_FDS];
     int64_t time_slice;
     block_reason_t block_reason;
     uint64_t blocked_ticks;
