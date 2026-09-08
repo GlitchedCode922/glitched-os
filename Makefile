@@ -45,10 +45,17 @@ BINARIES_SOURCE = $(wildcard binaries/*.c)
 BINARIES_OBJECTS = $(patsubst binaries/%, build/obj/binaries/%,$(BINARIES:.c=.o))
 BINARIES = $(basename $(notdir $(BINARIES_SOURCE)))
 BINARY_TARGETS = $(patsubst %, build/binaries/%,$(BINARIES))
+GLITCHFS_SOURCES := $(shell find glitchfs \
+	-type f \
+	! -path 'glitchfs/build/*' \
+	! -path 'glitchfs/.git/*')
+
+GLFS_LIB  := glitchfs/build/target-libglfs.a
+GLFS_PACK := glitchfs/build/tools/glfs-pack
 
 .DELETE_ON_ERROR:
 .SECONDARY:
-.PHONY: all clean kernel libc binaries disk-image glitchfs
+.PHONY: all clean kernel libc binaries disk-image
 
 all: kernel libc binaries disk-image
 
@@ -58,12 +65,17 @@ all: kernel libc binaries disk-image
 
 kernel: build/kernel
 
-build/kernel: $(KERNEL_OBJECTS) glitchfs/build/target-libglfs.a
-	$(LD) $(LDFLAGS) $(KERNEL_LDFLAGS) $^ $(LDLIBS) -o $@
+build/.glitchfs-stamp: $(GLITCHFS_SOURCES)
+	$(MAKE) -C glitchfs \
+		HOSTCC="$(HOSTCC)" \
+		CC="$(CC)" \
+		AR="$(AR)" \
+		CFLAGS="$(CFLAGS) $(KERNEL_CFLAGS)" \
+		libglfs-target tools
+	@touch $@
 
-glitchfs/build/target-libglfs.a: glitchfs
-glitchfs:
-	$(MAKE) -C glitchfs HOSTCC="$(HOSTCC)" CC="$(CC)" AR="$(AR)" CFLAGS="$(CFLAGS) $(KERNEL_CFLAGS)" libglfs-target tools
+build/kernel: $(KERNEL_OBJECTS) build/.glitchfs-stamp
+	$(LD) $(LDFLAGS) $(KERNEL_LDFLAGS) $^ glitchfs/build/target-libglfs.a $(LDLIBS) -o $@
 
 build/obj/kernel/%.o: kernel/%.c
 	@mkdir -p $(dir $@)
@@ -104,7 +116,7 @@ build/binaries:
 
 disk-image: build/disk.img
 
-build/disk.img: build/kernel $(BINARY_TARGETS) limine.conf glitchfs
+build/disk.img: build/kernel $(BINARY_TARGETS) limine.conf build/.glitchfs-stamp
 	$(MAKE) -C thirdparty/limine CC=$(HOSTCC)
 	dd if=/dev/zero of=build/disk.img.incomplete bs=1M count=128
 	dd if=/dev/zero of=build/root.img.tmp bs=1M count=111
