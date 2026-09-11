@@ -53,7 +53,7 @@ int main(int argc, char* argv[]) {
 
     font_t font;
     if (psf1_header->magic == PSF1_FONT_MAGIC) {
-        seek(font_file, sizeof(PSF1_Header), SEEK_START);
+        lseek(font_file, sizeof(PSF1_Header), SEEK_SET);
         char glyphs[128][psf1_header->characterSize];
         font.width = 8;
         font.height = psf1_header->characterSize;
@@ -69,7 +69,7 @@ int main(int argc, char* argv[]) {
         }
         syscall(SYSCALL_SETFONT, (uint64_t)&font, 0, 0, 0, 0, 0);
     } else if (psf2_header->magic == PSF2_FONT_MAGIC) {
-        seek(font_file, sizeof(PSF2_Header), SEEK_START);
+        lseek(font_file, sizeof(PSF2_Header), SEEK_SET);
         char glyphs[psf2_header->glyphCount][psf2_header->glyphSize];
         font.width = psf2_header->width;
         font.height = psf2_header->height;

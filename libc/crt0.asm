@@ -1,6 +1,6 @@
 section .text
 global _start
-extern main
+extern _libc_init_main
 _start:
     xor rbp, rbp
 
@@ -9,8 +9,4 @@ _start:
     lea rdx, [rsi + rdi * 8 + 8]
 
     and rsp, -16
-    call main
-    mov edi, eax
-    mov rax, 0
-
-    syscall ; Exit
+    jmp _libc_init_main

@@ -7,8 +7,9 @@
 int main(int argc, char** argv, char** envp) {
     while (1) {
         printf("$ ");
+        fflush(stdout);
         char command_buffer[1024] = {0};
-        readline(command_buffer, sizeof(command_buffer));
+        fgets(command_buffer, sizeof(command_buffer), stdin);
         char *command = command_buffer;
         char *args[512] = {0};
         int arg_idx = 0;
@@ -51,7 +52,7 @@ int main(int argc, char** argv, char** envp) {
 
         if (strchr(args[0], '/') == NULL) {
             // Merge args[0] with /bin
-            char program_in_bin[strlen("/bin/") + strlen(args[0])];
+            char program_in_bin[strlen("/bin/") + strlen(args[0]) + 1];
             strcpy(program_in_bin, "/bin/");
             strcat(program_in_bin, args[0]);
 

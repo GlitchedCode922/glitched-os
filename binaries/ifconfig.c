@@ -1,8 +1,7 @@
-#include "ioctl.h"
+#include <sys/ioctl.h>
 #include <net.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <unistd.h>
 
 static int parse_ip(char* string, uint8_t ip[4]) {

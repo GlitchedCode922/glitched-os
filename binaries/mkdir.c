@@ -33,7 +33,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    int res = create_directory(argv[1]);
+    int res = mkdir(argv[1]);
     if (res < 0) {
         perror("Failed to create directory");
         return 1;

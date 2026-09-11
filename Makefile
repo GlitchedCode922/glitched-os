@@ -10,6 +10,7 @@ KERNEL_CFLAGS =
 LIBC_CFLAGS =
 BIN_CFLAGS =
 override KERNEL_CFLAGS += -mno-80387 -mno-mmx -mno-sse -mno-sse2 -mno-red-zone -mcmodel=kernel -Iglitchfs/libglfs/include
+override LIBC_CFLAGS += -Ilibc/include -Ilibc/platform/include
 LDFLAGS =
 KERNEL_LDFLAGS =
 BIN_LDFLAGS =
@@ -106,7 +107,7 @@ build/binaries/%: build/obj/binaries/%.o build/crt0.o build/libc.a | build/binar
 	$(LD) $(LDFLAGS) $(BIN_LDFLAGS) build/crt0.o $< build/libc.a $(LDLIBS) -o $@
 
 build/obj/binaries/%.o: binaries/%.c | build/obj/binaries
-	$(CC) $(CFLAGS) $(BIN_CFLAGS) -c -Ilibc/ $< -o $@
+	$(CC) $(CFLAGS) $(BIN_CFLAGS) -c -Ilibc/include -Ilibc/platform/include $< -o $@
 
 build/obj/binaries:
 	mkdir -p build/obj/binaries

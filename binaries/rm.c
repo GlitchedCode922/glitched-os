@@ -7,7 +7,7 @@ int main(int argc, char** argv) {
         return 2;
     }
 
-    int res = remove_file(argv[1]);
+    int res = unlink(argv[1]);
     if (res < 0) {
         perror("Failed to remove file");
         return 1;

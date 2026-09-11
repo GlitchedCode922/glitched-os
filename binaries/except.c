@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <stdint.h>
 
 /* Manual string-to-int decoder (base 10 only) */
 int manual_parse(const char *s) {

@@ -47,7 +47,7 @@ int main(int argc, char** argv) {
     }
 
     // Attempt to rename the file or directory
-    int res = rename_file(argv[1], dest_path);
+    int res = rename(argv[1], dest_path);
     if (res == 0) return 0;
     if (res < 0 && errno != EXDEV) {
         perror("mv");
@@ -60,23 +60,25 @@ int main(int argc, char** argv) {
     }
 
     char buffer[8192];
-    int fd_read = open(argv[1], O_RDONLY);
-    if (fd_read < 0) {
+    FILE* fp_read = fopen(argv[1], "r");
+
+    if (fp_read == NULL) {
         perror(argv[1]);
         return 1;
     }
-    int fd_write = open(dest_path, O_WRONLY | O_CREAT);
-    if (fd_write < 0) {
+
+    FILE* fp_write = fopen(dest_path, "w");
+    if (fp_write < 0) {
         perror(dest_path);
         return 1;
     }
     int64_t bytes_read, bytes_written;
-    while ((bytes_read = read(fd_read, buffer, sizeof(buffer))) != 0) {
+    while ((bytes_read = fread(buffer, 1, sizeof(buffer), fp_read)) != 0) {
         if (bytes_read < 0) {
             perror("Error reading from source file");
             return 1;
         }
-        bytes_written = write(fd_write, buffer, bytes_read);
+        bytes_written = fwrite(buffer, 1, bytes_read, fp_write);
         if (bytes_written < 0) {
             perror("Error writing to destination file");
             return 1;
@@ -85,13 +87,13 @@ int main(int argc, char** argv) {
             return 1;
         }
     }
-    res = remove_file(argv[1]);
+    res = unlink(argv[1]);
     if (res < 0) {
         perror("Error deleting source file");
         return 1;
     }
-    close(fd_read);
-    close(fd_write);
+    fclose(fp_read);
+    fclose(fp_write);
 
     return 0;
 }

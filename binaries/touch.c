@@ -7,10 +7,11 @@ int main(int argc, char** argv) {
         return 2;
     }
 
-    int res = create_file(argv[1]);
+    int res = open(argv[1], O_CREAT | O_WRONLY);
     if (res < 0) {
         perror("Error creating file");
     }
+    close(res);
 
     return 0;
 }
