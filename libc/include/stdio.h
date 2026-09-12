@@ -794,6 +794,11 @@ _PDCLIB_PUBLIC int ferror( FILE * stream );
 */
 _PDCLIB_PUBLIC void perror( const char * s );
 
+/* Returns the file descriptor associated with the given stream,
+   or -1 if an error occurs. POSIX extension, not part of ISO C.
+*/
+int fileno(FILE* stream);
+
 /* Annex K -- Bounds-checking interfaces */
 
 #if ( __STDC_WANT_LIB_EXT1__ + 0 ) != 0
