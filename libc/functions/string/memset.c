@@ -5,19 +5,34 @@
 */
 
 #include <string.h>
+#include <stdint.h>
 
 #ifndef REGTEST
 
-void * memset( void * s, int c, size_t n )
-{
-    unsigned char * p = ( unsigned char * ) s;
+void* memset(void* ptr, int value, size_t n) {
+    unsigned char *p = (unsigned char *)ptr;
+    unsigned char c = (unsigned char)value;
 
-    while ( n-- )
-    {
-        *p++ = ( unsigned char ) c;
+    while (n && ((uintptr_t)p & sizeof((uintptr_t) - 1))) {
+        *p++ = c;
+        n--;
     }
 
-    return s;
+    uint64_t word = 0;
+    for (size_t i = 0; i < 8; i++) {
+        word = (word << 8) | c;
+    }
+
+    uint64_t* w = (uint64_t*)p;
+    while (n >= 8) {
+        *w++ = word;
+        n -= 8;
+    }
+
+    p = (unsigned char*)w;
+    while (n--) *p++ = c;
+
+    return ptr;
 }
 
 #endif

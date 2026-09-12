@@ -5,20 +5,28 @@
 */
 
 #include <string.h>
+#include <stdint.h>
 
 #ifndef REGTEST
 
-void * memcpy( void * _PDCLIB_restrict s1, const void * _PDCLIB_restrict s2, size_t n )
-{
-    char * dest = ( char * ) s1;
-    const char * src = ( const char * ) s2;
+void* memcpy(void* _PDCLIB_restrict dest, const void* _PDCLIB_restrict src, size_t n) {
+    unsigned char *d = (unsigned char *)dest;
+    const unsigned char *s = (const unsigned char *)src;
 
-    while ( n-- )
-    {
-        *dest++ = *src++;
+    while (n && ((uint64_t)d & 7)) {
+        *d++ = *s++;
+        n--;
     }
 
-    return s1;
+    while (n >= 8) {
+        *(uint64_t*)d = *(const uint64_t*)s;
+        d += 8;
+        s += 8;
+        n -= 8;
+    }
+
+    while (n--) *d++ = *s++;
+    return dest;
 }
 
 #endif
