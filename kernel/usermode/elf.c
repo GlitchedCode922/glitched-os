@@ -88,6 +88,9 @@ void* load_elf(file_handle_t file, void** brk) {
             // Read the segment data from the file
             read_file(file, (uint8_t*)segment_start, phdrs[i].p_offset, phdrs[i].p_filesz);
 
+            // Zero memory not in file
+            memset((uint8_t*)segment_start + phdrs[i].p_filesz, 0, phdrs[i].p_memsz - phdrs[i].p_filesz);
+
             // Update break address
             uint64_t segment_end = phdrs[i].p_vaddr + phdrs[i].p_memsz;
             if (!break_addr || segment_end > (uint64_t)break_addr) {
