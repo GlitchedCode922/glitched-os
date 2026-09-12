@@ -1,6 +1,7 @@
 #include "break.h"
 #include "scheduler.h"
 #include "../memory/paging.h"
+#include "../memory/mman.h"
 #include "../console.h"
 #include <stdint.h>
 #include <stddef.h>
@@ -30,6 +31,7 @@ void* set_brk(void* addr) {
     if (new_page_end > old_page_end) {
         for (uintptr_t page = old_page_end; page < new_page_end; page += 0x1000) {
             alloc_page(page, FLAGS_USER | FLAGS_RW);
+            memset((void*)page, 0, 4096);
         }
     } else if (new_page_end < old_page_end) {
         for (uintptr_t page = new_page_end; page < old_page_end; page += 0x1000) {
