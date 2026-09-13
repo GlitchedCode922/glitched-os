@@ -1,6 +1,5 @@
 #pragma once
 #include <stdint.h>
-#include <stddef.h>
 
 #define AF_INET 1
 #define SOCK_DGRAM 1
