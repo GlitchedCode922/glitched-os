@@ -1,54 +1,6 @@
 #pragma once
-
-#include <stdint.h>
 #include "../idt.h"
-
-#define SYSCALL_EXIT 0
-#define SYSCALL_CREATE_FILE 3
-#define SYSCALL_DELETE_FILE 4
-#define SYSCALL_CREATE_DIR 5
-#define SYSCALL_GET_PPID 6
-#define SYSCALL_READDIR 9
-#define SYSCALL_STAT 10
-#define SYSCALL_FORK 11
-#define SYSCALL_EXECVE 12
-#define SYSCALL_GET_TIME 13
-#define SYSCALL_GETPID 14
-#define SYSCALL_GET_UPTIME 15
-#define SYSCALL_SLEEP 16
-#define SYSCALL_RENAME_FILE 17
-#define SYSCALL_BRK 19
-#define SYSCALL_SBRK 20
-#define SYSCALL_REBOOT 22
-#define SYSCALL_CHDIR 24
-#define SYSCALL_GETCWD 25
-#define SYSCALL_PING 30
-#define SYSCALL_ADD_ROUTE 33
-#define SYSCALL_REMOVE_ROUTE 34
-#define SYSCALL_MOUNT 39
-#define SYSCALL_UNMOUNT 40
-#define SYSCALL_OPEN 42
-#define SYSCALL_CLOSE 45
-#define SYSCALL_READ 46
-#define SYSCALL_WRITE 47
-#define SYSCALL_SEEK 48
-#define SYSCALL_DUP 49
-#define SYSCALL_DUP2 50
-#define SYSCALL_IOCTL 51
-#define SYSCALL_YIELD 52
-#define SYSCALL_WAITPID 53
-#define SYSCALL_SPAWN 54
-#define SYSCALL_GETPPID 55
-#define SYSCALL_SETFONT 60
-#define SYSCALL_MKNOD 61
-#define SYSCALL_TELL 62
-#define SYSCALL_LINK 63
-#define SYSCALL_SOCKET 64
-#define SYSCALL_BIND 65
-#define SYSCALL_UNBIND 66
-#define SYSCALL_RECVFROM 67
-#define SYSCALL_SENDTO 68
-#define SYSCALL_FSTAT 69
+#include "../uapi/syscalls.h" // IWYU pragma: export
 
 void syscall_init();
 void syscall(iframe_t* iframe);

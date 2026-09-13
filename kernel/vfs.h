@@ -1,34 +1,12 @@
 #pragma once
 #include "drivers/block.h"
+#include "uapi/dirent.h"
+#include "uapi/stat.h"
 #include <stdint.h>
 #include <stddef.h>
 
 #define FLAG_READ_ONLY 0x01
 #define MAX_PATH 2048
-
-typedef uint64_t dev_t;
-
-enum {
-    DT_UNKNOWN = 0,
-    DT_FILE = 1,
-    DT_DIR = 2,
-    DT_BLOCK = 3,
-    DT_CHAR = 4,
-};
-
-typedef struct {
-    char name[256];
-    uint32_t type;
-} __attribute__((packed)) dirent_t;
-
-typedef struct {
-    uint64_t size;
-    uint64_t ctime;
-    uint64_t mtime;
-    uint64_t btime;
-    uint32_t type;
-    dev_t rdev;
-} __attribute__((packed)) stat_t;
 
 typedef struct {
     char name[32];          // Name of the filesystem

@@ -2,7 +2,7 @@
 #include "chrdev.h"
 #include "../memory/mman.h"
 #include "../error.h"
-#include "../ioctl_list.h"
+#include "../uapi/ioctl.h"
 
 static volatile struct limine_framebuffer_response* fb_response;
 

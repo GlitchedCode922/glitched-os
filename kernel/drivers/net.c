@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include "../memory/mman.h"
-#include "../ioctl_list.h"
+#include "../uapi/ioctl.h"
 #include "../vfs.h"
 #include "../fs/devfs.h"
 

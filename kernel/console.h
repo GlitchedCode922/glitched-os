@@ -1,8 +1,8 @@
 #pragma once
-#include <stddef.h>
 #include <stdint.h>
 #include <stdarg.h>
 #include "drivers/tty.h"
+#include "uapi/console.h" // IWYU pragma: export
 
 #define COLOR(r, g, b) ((uint8_t[]){(r), (g), (b)})
 
@@ -30,12 +30,6 @@ typedef struct {
     uint8_t bg[3];
     uint8_t padding;
 } character_t;
-
-typedef struct {
-    char* ascii[128];
-    uint8_t width;
-    uint8_t height;
-} __attribute__((packed)) font_t;
 
 void initialize_console();
 void setfont(font_t* font);

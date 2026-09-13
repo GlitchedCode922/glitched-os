@@ -1,26 +1,6 @@
 #pragma once
-#include <stddef.h>
 #include <stdint.h>
-
-#define ICRNL 0x1
-#define ISTRIP 0x2
-
-#define OPOST 0x1
-#define ONLCR 0x2
-#define OCRNL 0x4
-
-#define ICANON 0x1
-#define ECHO 0x2
-#define ECHOE 0x4
-#define ECHOCTL 0x8
-
-#define MAX_TTYS 256
-
-typedef struct termios {
-    uint64_t c_iflag;
-    uint64_t c_oflag;
-    uint64_t c_lflag;
-} termios_t;
+#include "../uapi/termios.h" // IWYU pragma: export
 
 typedef struct tty {
     termios_t termios;

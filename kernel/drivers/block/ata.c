@@ -3,7 +3,7 @@
 #include "../../io/ports.h"
 #include "../block.h"
 #include "../../error.h"
-#include "../../ioctl_list.h"
+#include "../../uapi/ioctl.h"
 #include <stdint.h>
 #include <stddef.h>
 

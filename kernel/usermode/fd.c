@@ -81,9 +81,9 @@ int64_t seek(int fd, int64_t offset, int type) {
         return -EBADF;
     }
     file_description_t* file_description = current_task->fd_table[fd].fd;
-    if (type == SEEK_START) {
+    if (type == SEEK_SET) {
         file_description->offset = offset;
-    } else if (type == SEEK_CURRENT) {
+    } else if (type == SEEK_CUR) {
         file_description->offset += offset;
     } else if (type == SEEK_END) {
         stat_t st;

@@ -1,5 +1,6 @@
 #pragma once
 #include <stdint.h>
+#include "../uapi/netif.h" // IWYU pragma: export
 
 extern int net_driver_index;
 
@@ -16,12 +17,6 @@ typedef struct {
     int (*read_packet)(int card, void** buffer);
     uint8_t* (*get_mac_address)(int card);
 } net_driver_t;
-
-typedef struct {
-    uint8_t mac[6];
-    uint8_t ip[4];
-    uint8_t subnet[4];
-} if_info_t;
 
 int get_global_if_index(int driver, int driver_local_index);
 int send_packet(int if_index, void* data, int length);

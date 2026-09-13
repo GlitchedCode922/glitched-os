@@ -1,35 +1,12 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <sys/types.h>
+#include <uapi/fd.h> // IWYU pragma: export
+#include <uapi/dirent.h> // IWYU pragma: export
 
 #define STDIN_FILENO 0
 #define STDOUT_FILENO 1
 #define STDERR_FILENO 2
-
-#define O_RDONLY 0x00
-#define O_WRONLY 0x01
-#define O_RDWR 0x02
-#define O_CREAT 0x04
-#define O_NONBLOCK 0x08
-#define O_DIRECTORY 0x10
-#define O_APPEND 0x20
-#define O_CLOEXEC 0x40
-#define O_EXCL 0x80
-
-#define O_ACCESS 0x03
-
-enum {
-    DT_UNKNOWN = 0,
-    DT_FILE = 1,
-    DT_DIR = 2,
-    DT_BLOCK = 3,
-    DT_CHAR = 4,
-};
-
-typedef struct {
-    char name[256];
-    uint32_t type;
-} __attribute__((packed)) dirent_t;
 
 ssize_t read(int fd, void* buffer, size_t size);
 ssize_t write(int fd, const void* buffer, size_t size);

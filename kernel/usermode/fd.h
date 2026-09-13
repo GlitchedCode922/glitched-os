@@ -3,25 +3,14 @@
 #include <stdint.h>
 #include "../vfs.h"
 #include "../net/socket.h"
+#include "../uapi/fd.h" // IWYU pragma: export
 
 #define MAX_FDS 1024
 #define MAX_FILES 4096
 
-#define SEEK_START 0
-#define SEEK_CURRENT 1
+#define SEEK_SET 0
+#define SEEK_CUR 1
 #define SEEK_END 2
-
-#define O_RDONLY 0x00
-#define O_WRONLY 0x01
-#define O_RDWR 0x02
-#define O_CREAT 0x04
-#define O_NONBLOCK 0x08
-#define O_DIRECTORY 0x10
-#define O_APPEND 0x20
-#define O_CLOEXEC 0x40
-#define O_EXCL 0x80
-
-#define O_ACCESS 0x03
 
 enum {
     FD_TYPE_FILE = 0,
