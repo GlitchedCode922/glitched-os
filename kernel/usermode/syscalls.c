@@ -7,7 +7,6 @@
 #include "../power.h"
 #include "../net/icmp.h"
 #include "../net/ip.h"
-#include "../drivers/net.h"
 #include "../panic.h"
 #include "../error.h"
 #include "scheduler.h"
@@ -189,6 +188,9 @@ void syscall(iframe_t* iframe) {
         break;
     case SYSCALL_SENDTO:
         ret = fd_sendto(arg1, (const uint8_t*)arg2, arg3, arg4, (const sockaddr_in_t*)arg5);
+        break;
+    case SYSCALL_FSTAT:
+        ret = fstat(arg1, (stat_t*)arg2);
         break;
     default:
         // Invalid syscall, return an error code

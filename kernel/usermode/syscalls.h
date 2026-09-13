@@ -48,6 +48,7 @@
 #define SYSCALL_UNBIND 66
 #define SYSCALL_RECVFROM 67
 #define SYSCALL_SENDTO 68
+#define SYSCALL_FSTAT 69
 
 void syscall_init();
 void syscall(iframe_t* iframe);

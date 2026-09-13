@@ -49,6 +49,7 @@ int fd_readdir(int fd, dirent_t* dirent);
 int fd_ioctl(int fd, uint64_t request, uint64_t arg);
 int64_t seek(int fd, int64_t offset, int type);
 int64_t tell(int fd);
+int fstat(int fd, stat_t* stat);
 int fd_open(const char* path, uint16_t flags);
 int fd_close(int fd);
 int dup(int fd);

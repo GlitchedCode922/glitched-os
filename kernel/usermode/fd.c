@@ -158,7 +158,17 @@ int fd_ioctl(int fd, uint64_t request, uint64_t arg) {
     }
     file_description_t* file_description = current_task->fd_table[fd].fd;
     if (file_description->type == FD_TYPE_DIR) return -EISDIR;
+    if (file_description->type == FD_TYPE_SOCKET) return -EINVAL;
     return ioctl(file_description->file_handle, request, arg);
+}
+
+int fstat(int fd, stat_t* stat) {
+    if (fd < 0 || fd >= MAX_FDS || current_task->fd_table[fd].fd == NULL) {
+        return -EBADF;
+    }
+    file_description_t* file_description = current_task->fd_table[fd].fd;
+    if (file_description->type == FD_TYPE_SOCKET) return -EINVAL;
+    return stat_handle(file_description->file_handle, stat);
 }
 
 int dup(int fd) {

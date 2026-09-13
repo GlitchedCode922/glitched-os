@@ -20,6 +20,15 @@ int stat(const char *path, stat_t* out) {
     return res;
 }
 
+int fstat(int fd, stat_t* out) {
+    int res = syscall(SYSCALL_FSTAT, (uint64_t)fd, (uint64_t)out, 0, 0, 0, 0);
+    if (res < 0) {
+        errno = -res;
+        return -1;
+    }
+    return res;
+}
+
 int link(const char* file, const char* link) {
     int res = syscall(SYSCALL_LINK, (uint64_t)file, (uint64_t)link, 0, 0, 0, 0);
     if (res < 0) {

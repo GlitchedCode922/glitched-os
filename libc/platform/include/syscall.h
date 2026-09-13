@@ -46,5 +46,6 @@
 #define SYSCALL_UNBIND 66
 #define SYSCALL_RECVFROM 67
 #define SYSCALL_SENDTO 68
+#define SYSCALL_FSTAT 69
 
 int64_t syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6);

@@ -31,12 +31,13 @@ typedef struct {
     uint32_t type;
 } __attribute__((packed)) dirent_t;
 
-typedef struct {
+typedef struct stat {
     uint64_t size;
     uint64_t ctime;
     uint64_t mtime;
     uint64_t btime;
     uint32_t type;
+    dev_t rdev;
 } __attribute__((packed)) stat_t;
 
 ssize_t read(int fd, void* buffer, size_t size);
@@ -50,6 +51,7 @@ int dup(int fd);
 int dup2(int fd, int new_fd);
 
 int stat(const char* path, stat_t* out);
+int fstat(int fd, stat_t* out);
 int link(const char* path, const char* link);
 int unlink(const char* path);
 int mkdir(const char* path, ...);
