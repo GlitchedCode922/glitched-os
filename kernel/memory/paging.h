@@ -31,6 +31,8 @@ void init_paging(uintptr_t cr3, struct limine_memmap_response *memmap, uintptr_t
 void* alloc_page(uintptr_t addr, uint64_t flags);
 void* alloc_mmio_page(uintptr_t vaddr, uintptr_t paddr, uint64_t flags);
 uintptr_t get_physical_address(uintptr_t virtual_address);
+int validate_user_pointer(void* ptr, uint64_t len, int write);
+int validate_user_string(const char *str, uint64_t max_len);
 int free_page(void* page);
 void* clone_page_tables(void* pml4_address);
 void free_page_tables(void* pml4_address);

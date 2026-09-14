@@ -27,3 +27,4 @@
 #define ETIMEDOUT 110
 #define EHOSTUNREACH 113
 #define EMSGSIZE 90
+#define EFAULT 14

@@ -1,6 +1,7 @@
 #include "paging.h"
 #include "mman.h"
 #include "../panic.h"
+#include "../error.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -481,6 +482,50 @@ int cow_handler(void* faulting_address) {
         return 1;
     }
     return 0;
+}
+
+int validate_user_pointer(void *ptr, uint64_t len, int write) {
+    if (len == 0) return 0;
+    if (ptr == NULL) return -EFAULT;
+    if ((uintptr_t)ptr > 0x00007FFFFFFFFFFF) return -EFAULT;
+    if (len - 1 > 0x00007FFFFFFFFFFF - (uintptr_t)ptr) return -EFAULT;
+    for (uintptr_t addr = (uintptr_t)ptr; addr < (uintptr_t)ptr + len; addr += PAGE_SIZE) {
+        page_address_t entry = get_page_entry(addr);
+        uint64_t* pml4 = (uint64_t*)pml4_address;
+        if (!(pml4[entry.pml4_index] & FLAGS_PRESENT) || !(pml4[entry.pml4_index] & FLAGS_USER)) return -EFAULT;
+        uint64_t* pdpt = add_hhdm_to(page_table_to_address(pml4[entry.pml4_index]));
+        if (!(pdpt[entry.pdpt_index] & FLAGS_PRESENT) || !(pdpt[entry.pdpt_index] & FLAGS_USER)) return -EFAULT;
+        uint64_t* pd = add_hhdm_to(page_table_to_address(pdpt[entry.pdpt_index]));
+        if (!(pd[entry.pd_index] & FLAGS_PRESENT) || !(pd[entry.pd_index] & FLAGS_USER)) return -EFAULT;
+        uint64_t* pt = add_hhdm_to(page_table_to_address(pd[entry.pd_index]));
+        if (!(pt[entry.pt_index] & FLAGS_PRESENT) || !(pt[entry.pt_index] & FLAGS_USER)) return -EFAULT;
+        if (write && !(pt[entry.pt_index] & FLAGS_RW)) {
+            if (pt[entry.pt_index] & FLAGS_COW) {
+                if (!cow_handler((void*)addr)) {
+                    return -EFAULT;
+                }
+            } else {
+                return -EFAULT;
+            }
+        }
+    }
+    return 0;
+}
+
+int validate_user_string(const char *str, uint64_t max_len) {
+    if (str == NULL) return -EFAULT;
+    for (uint64_t i = 0; i < max_len;) {
+        uint64_t page_remaining = PAGE_SIZE - ((uintptr_t)(str + i) & (PAGE_SIZE - 1));
+        uint64_t n = page_remaining;
+        if (n > max_len - i) n = max_len - i;
+        int res = validate_user_pointer((void*)(str + i), n, 0);
+        if (res < 0) return res;
+        for (uint64_t j = 0; j < n; j++) {
+            if (str[i + j] == '\0') return 0;
+        }
+        i += n;
+    }
+    return -ENAMETOOLONG;
 }
 
 void change_pml4(void* pml4) {
