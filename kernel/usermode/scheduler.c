@@ -201,12 +201,43 @@ int add_task(char* path, char** argv, char** envp, task_t* parent, int pid, ifra
     char kpath[path_len];
     memcpy(kpath, path, path_len);
 
-    // Count arguments and environment variables
     int argc = 0;
-    while (argv[argc]) argc++;
-
     int envc = 0;
-    while (envp[envc]) envc++;
+
+    if (!argv) {
+        argv = (char*[]){path, NULL};
+        argc = 1;
+    } else {
+        // Validate argv
+        char** p = argv;
+        for (argc = 0; argc < 8192; argc++) {
+            int res = validate_user_pointer(p, sizeof(char*), 0);
+            if (res < 0) return res;
+            char* string = *p;
+            if (string == NULL) break;
+            res = validate_user_string(string, 0x10000);
+            if (res < 0) return res;
+            p++;
+        }
+        if (argc == 8192) return -EINVAL;
+    }
+    if (!envp) {
+        envp = (char*[]){NULL};
+        envc = 0;
+    } else {
+        // Validate envp
+        char** p = envp;
+        for (envc = 0; envc < 8192; envc++) {
+            int res = validate_user_pointer(p, sizeof(char*), 0);
+            if (res < 0) return res;
+            char* string = *p;
+            if (string == NULL) break;
+            res = validate_user_string(string, 0x10000);
+            if (res < 0) return res;
+            p++;
+        }
+        if (envc == 8192) return -EINVAL;
+    }
 
     // Copy argv strings to kernel memory
     char* kargv[argc + 1];
