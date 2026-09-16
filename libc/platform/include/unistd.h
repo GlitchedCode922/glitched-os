@@ -21,6 +21,8 @@ int dup2(int fd, int new_fd);
 int link(const char* path, const char* link);
 int unlink(const char* path);
 int mkdir(const char* path, ...);
+int truncate(const char* path, size_t new_len);
+int ftruncate(int fd, size_t new_len);
 int chdir(char* path);
 void getcwd(char* buffer, size_t size);
 

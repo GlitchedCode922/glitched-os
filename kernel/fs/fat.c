@@ -718,6 +718,11 @@ int64_t fat_write_to_file(uint64_t handle, const uint8_t *buffer, size_t offset,
             if (free_cluster == 0) {
                 return -ENOSPC; // No free clusters available
             }
+            // Clear cluster
+            uint8_t empty_cluster[data->bpb.sectors_per_cluster * 512];
+            memset(empty_cluster, 0, data->bpb.sectors_per_cluster * 512);
+            int res = write_sectors(data->backing, get_first_cluster_sector(free_cluster), empty_cluster, data->bpb.sectors_per_cluster);
+            if (res < 0) return res;
             // Update FAT to link new cluster
             write_fat(previous_cluster, free_cluster & 0x0FFFFFFF);
             write_fat(free_cluster, CLUSTER_CHAIN_END); // Mark end of chain
@@ -745,9 +750,14 @@ int64_t fat_write_to_file(uint64_t handle, const uint8_t *buffer, size_t offset,
         }
         uint32_t first_sector = get_first_cluster_sector(current_cluster);
         uint8_t cluster_buffer[cluster_size];
-        int res = read_sectors(data->backing, first_sector, cluster_buffer, data->bpb.sectors_per_cluster);
-        if (res < 0) {
-            return res; // Failed to read cluster
+
+        if (cluster_offset) {
+            int res = read_sectors(data->backing, first_sector, cluster_buffer, data->bpb.sectors_per_cluster);
+            if (res < 0) {
+                return res; // Failed to read cluster
+            }
+        } else if (size - bytes_written < data->bpb.sectors_per_cluster * 512) {
+            memset(cluster_buffer, 0, data->bpb.sectors_per_cluster * 512);
         }
 
         while (cluster_offset < cluster_size && bytes_written < size) {
@@ -844,6 +854,106 @@ int fat_stat(uint64_t handle, stat_t *out) {
     return 0;
 }
 
+int fat_truncate(uint64_t handle, uint64_t new_size) {
+    if (data->read_only) {
+        return -EROFS; // Filesystem is read-only
+    }
+    fat_dirent_t dirent = fat_read_dirent(handle);
+    if ((uint8_t)dirent.name[0] == DIRENT_DELETED ||
+        (uint8_t)dirent.name[0] == 0x00)
+        return -ENOENT;
+
+    uint64_t original_cluster_count = (dirent.file_size + data->bpb.sectors_per_cluster * 512 - 1) / (data->bpb.sectors_per_cluster * 512);
+    uint64_t required_cluster_count = (new_size + data->bpb.sectors_per_cluster * 512 - 1) / (data->bpb.sectors_per_cluster * 512);
+    dirent.file_size = new_size;
+    uint16_t fat_date, fat_time;
+    unix_to_fat_timestamp(get_time(), &fat_date, &fat_time);
+    dirent.last_modification_date = fat_date;
+    dirent.last_modification_time = fat_time;
+
+    if (original_cluster_count < required_cluster_count) {
+        uint64_t difference = required_cluster_count - original_cluster_count;
+        if (!dirent.first_cluster_high && !dirent.first_cluster_low) {
+            // Allocate new cluster
+            uint32_t free_cluster = fat_compute_free_cluster();
+            if (free_cluster == 0) {
+                return -ENOSPC; // No free clusters available
+            }
+            // Clear cluster
+            uint8_t empty_cluster[data->bpb.sectors_per_cluster * 512];
+            memset(empty_cluster, 0, data->bpb.sectors_per_cluster * 512);
+            int res = write_sectors(data->backing, get_first_cluster_sector(free_cluster), empty_cluster, data->bpb.sectors_per_cluster);
+            if (res < 0) return res;
+            write_fat(free_cluster, CLUSTER_CHAIN_END);
+            dirent.first_cluster_high = free_cluster >> 16;
+            dirent.first_cluster_low = free_cluster & 0xFFFF;
+            difference -= 1;
+        }
+        uint32_t last_cluster = (uint32_t)dirent.first_cluster_high << 16 | dirent.first_cluster_low;
+        while (1) {
+            uint32_t next = read_fat(last_cluster);
+            if (next >= CLUSTER_CHAIN_END) break;
+            last_cluster = next;
+        }
+        for (uint64_t i = 0; i < difference; i++) {
+            // Allocate new cluster
+            uint32_t free_cluster = fat_compute_free_cluster();
+            if (free_cluster == 0) {
+                return -ENOSPC; // No free clusters available
+            }
+            // Clear cluster
+            uint8_t empty_cluster[data->bpb.sectors_per_cluster * 512];
+            memset(empty_cluster, 0, data->bpb.sectors_per_cluster * 512);
+            int res = write_sectors(data->backing, get_first_cluster_sector(free_cluster), empty_cluster, data->bpb.sectors_per_cluster);
+            if (res < 0) return res;
+            // Update FAT to link new cluster
+            write_fat(last_cluster, free_cluster & 0x0FFFFFFF);
+            last_cluster = free_cluster;
+        }
+        write_fat(last_cluster, CLUSTER_CHAIN_END); // Mark end of chain
+    } else if (original_cluster_count > required_cluster_count) {
+        uint64_t difference = original_cluster_count - required_cluster_count;
+        uint32_t last_clusters[difference + 1];
+        memset(last_clusters, 0, sizeof(last_clusters));
+        last_clusters[0] = (uint32_t)dirent.first_cluster_high << 16 | dirent.first_cluster_low;
+        int head = 0;
+        while (1) {
+            uint32_t next = read_fat(last_clusters[head]);
+            if (next >= CLUSTER_CHAIN_END) break;
+            head = (head + 1) % (difference + 1);
+            last_clusters[head] = next;
+        }
+        uint32_t new_end = last_clusters[(head + 1) % (difference + 1)];
+        if (new_end) {
+            write_fat(new_end, CLUSTER_CHAIN_END);
+            if (new_size % (data->bpb.sectors_per_cluster * 512)) {
+                uint8_t cluster_buffer[data->bpb.sectors_per_cluster * 512];
+                read_sectors(data->backing, get_first_cluster_sector(new_end), cluster_buffer, data->bpb.sectors_per_cluster);
+                memset(
+                    cluster_buffer + (new_size % (data->bpb.sectors_per_cluster * 512)), 0,
+                    data->bpb.sectors_per_cluster * 512 - (new_size % (data->bpb.sectors_per_cluster * 512))
+                );
+                write_sectors(data->backing, get_first_cluster_sector(new_end), cluster_buffer, data->bpb.sectors_per_cluster);
+            }
+        } else {
+            dirent.first_cluster_high = 0;
+            dirent.first_cluster_low = 0;
+        }
+        for (uint64_t i = 0; i < difference; i++) {
+            write_fat(last_clusters[head], CLUSTER_FREE);
+            head = (head + difference) % (difference + 1);
+        }
+    }
+
+    uint8_t sector_buffer[512];
+    read_sectors(data->backing, (uint32_t)(handle >> 32), sector_buffer, 1);
+    memcpy(&sector_buffer[(uint32_t)(handle & 0xFFFFFFFF)], &dirent, sizeof(fat_dirent_t));
+    write_sectors(data->backing, (uint32_t)(handle >> 32), sector_buffer, 1);
+
+    return 0;
+}
+
+
 int fat_get_creation_time(const char *path, uint64_t *timestamp) {
     fat_dirent_ref_t dirent_ref = fat_get_dirent_ref(path);
     if (!dirent_ref.found) {
@@ -884,6 +994,7 @@ void fat_register() {
     fat_fs.remove = fat_delete;
     fat_fs.rename = fat_rename;
     fat_fs.stat = fat_stat;
+    fat_fs.truncate = fat_truncate;
     fat_fs.case_sensitive = 0;
     fat_fs.requires_backing = 1;
 

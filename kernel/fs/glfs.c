@@ -185,6 +185,10 @@ int glfs_glue_link(uint64_t inode, const char* link) {
     return glfs_link(mount, inode, link);
 }
 
+int glfs_glue_truncate(uint64_t inode, uint64_t new_size) {
+    return glfs_truncate(mount, inode, new_size);
+}
+
 void glfs_register() {
     filesystem_t glfs = {0};
     memcpy(glfs.name, "glfs", 5);
@@ -210,6 +214,7 @@ void glfs_register() {
     glfs.remove = glfs_glue_delete;
     glfs.rename = glfs_glue_rename;
     glfs.link = glfs_glue_link;
+    glfs.truncate = glfs_glue_truncate;
 
     register_filesystem(glfs);
 }

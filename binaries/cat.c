@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <sys/types.h>
 
 int main(int argc, char** argv) {
     if (argc != 2) {
@@ -11,14 +12,14 @@ int main(int argc, char** argv) {
         perror(argv[1]);
         return 1;
     }
-    size_t bytes_read, bytes_written;
+    ssize_t bytes_read, bytes_written;
     char buffer[8192];
     while ((bytes_read = fread(buffer, 1, sizeof(buffer), fp)) != 0) {
         if (bytes_read < 0) {
             perror("Error reading from source file");
             return 1;
         }
-        bytes_written = fwrite(buffer, 1, bytes_read, fp);
+        bytes_written = fwrite(buffer, 1, bytes_read, stdout);
         if (bytes_written < 0) {
             perror("Error writing to destination");
             return 1;

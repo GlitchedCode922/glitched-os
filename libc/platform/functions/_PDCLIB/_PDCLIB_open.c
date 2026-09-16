@@ -30,7 +30,7 @@ _PDCLIB_fd_t _PDCLIB_open( const char * const filename, unsigned int mode )
             break;
 
         case _PDCLIB_FWRITE: /* "w" */
-            osmode = O_WRONLY | O_CREAT; // TODO: Add O_TRUNC in the kernel.
+            osmode = O_WRONLY | O_CREAT | O_TRUNC;
             break;
 
         case _PDCLIB_FAPPEND: /* "a" */
@@ -42,7 +42,7 @@ _PDCLIB_fd_t _PDCLIB_open( const char * const filename, unsigned int mode )
             break;
 
         case _PDCLIB_FWRITE | _PDCLIB_FRW: /* "w+" */
-            osmode = O_RDWR | O_CREAT; // TODO: Add O_TRUNC in the kernel.
+            osmode = O_RDWR | O_CREAT | O_TRUNC;
             break;
 
         case _PDCLIB_FAPPEND | _PDCLIB_FRW: /* "a+" */

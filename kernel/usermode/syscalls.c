@@ -271,6 +271,17 @@ void syscall(iframe_t* iframe) {
         if (ret < 0) break;
         ret = fstat(arg1, (stat_t*)arg2);
         break;
+    case SYSCALL_TRUNCATE:
+        ret = validate_user_string((char*)arg1, MAX_PATH);
+        if (ret < 0) break;
+        file_handle_t handle;
+        ret = lookup((char*)arg1, &handle);
+        if (ret < 0) break;
+        ret = truncate(handle, arg2);
+        break;
+    case SYSCALL_FTRUNCATE:
+        ret = ftruncate(arg1, arg2);
+        break;
     default:
         // Invalid syscall, return an error code
         ret = -ENOSYS;

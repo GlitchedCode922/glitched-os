@@ -44,6 +44,13 @@ int fd_open(const char *path, uint16_t flags) {
         if (file_descriptions[i].refcount == 0) {
             int res = open(path, &file_descriptions[i].file_handle);
             if (res < 0) return res;
+            if (flags & O_TRUNC && st.type == DT_FILE) {
+                res = truncate(file_descriptions[i].file_handle, 0);
+                if (res < 0) {
+                    file_descriptions[i].file_handle = (file_handle_t){0};
+                    return res;
+                }
+            }
             file_descriptions[i].type = st.type == DT_DIR ? FD_TYPE_DIR : FD_TYPE_FILE;
             file_descriptions[i].offset = 0;
             file_descriptions[i].flags = flags & ~O_CLOEXEC;
@@ -169,6 +176,15 @@ int fstat(int fd, stat_t* stat) {
     file_description_t* file_description = current_task->fd_table[fd].fd;
     if (file_description->type == FD_TYPE_SOCKET) return -EINVAL;
     return stat_handle(file_description->file_handle, stat);
+}
+
+int ftruncate(int fd, uint64_t new_size) {
+    if (fd < 0 || fd >= MAX_FDS || current_task->fd_table[fd].fd == NULL) {
+        return -EBADF;
+    }
+    file_description_t* file_description = current_task->fd_table[fd].fd;
+    if (file_description->type == FD_TYPE_SOCKET) return -EINVAL;
+    return truncate(file_description->file_handle, new_size);
 }
 
 int dup(int fd) {

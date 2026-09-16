@@ -9,5 +9,5 @@
 #define O_APPEND 0x20
 #define O_CLOEXEC 0x40
 #define O_EXCL 0x80
-
+#define O_TRUNC 0x100
 #define O_ACCESS 0x03

@@ -1,7 +1,7 @@
 #pragma once
 #include "drivers/block.h"
-#include "uapi/dirent.h"
-#include "uapi/stat.h"
+#include "uapi/dirent.h" // IWYU pragma: export
+#include "uapi/stat.h" // IWYU pragma: export
 #include <stdint.h>
 #include <stddef.h>
 
@@ -32,6 +32,7 @@ typedef struct {
     int (*remove)(const char *path); // Delete a file or directory
     int (*rename)(const char *old_path, const char *new_path); // Rename a file or directory
     int (*link)(uint64_t handle, const char *link);
+    int (*truncate)(uint64_t handle, uint64_t new_size);
 } filesystem_t;
 
 typedef struct mountpoint {
@@ -71,6 +72,7 @@ int chdir(char* path);
 int mknod(const char* path, uint32_t type, dev_t dev);
 int link(const char *file, const char *link);
 int ioctl(file_handle_t file, uint64_t request, uint64_t arg);
+int truncate(file_handle_t file, uint64_t new_size);
 int clone_file_handle(file_handle_t file);
 dev_t makedev(uint32_t major, uint32_t minor);
 uint32_t major(dev_t device);

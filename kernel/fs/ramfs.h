@@ -44,6 +44,7 @@ int64_t ramfs_write(uint64_t handle, const uint8_t *buffer, size_t offset, size_
 int ramfs_rename(const char* old_path, const char* new_path);
 int ramfs_stat(uint64_t handle, stat_t* out);
 int ramfs_mknod(const char* path, uint32_t type, dev_t dev);
+int ramfs_truncate(uint64_t handle, uint64_t new_size);
 
 int ramfs_check(block_device_t block);
 void* ramfs_mount(block_device_t block, int flags);

@@ -645,6 +645,16 @@ int ioctl(file_handle_t file, uint64_t request, uint64_t arg) {
     }
 }
 
+int truncate(file_handle_t file, uint64_t new_size) {
+    mountpoint_t* mount = file.mountpoint;
+    filesystem_t* fs = &filesystems[mount->type];
+    fs->select(mount->fs_data);
+    if (!fs->truncate) {
+        return -ENOSYS;
+    }
+    return fs->truncate(file.handle, new_size);
+}
+
 void register_intree_filesystems() {
     fat_register();
     glfs_register();

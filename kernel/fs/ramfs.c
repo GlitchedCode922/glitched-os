@@ -392,6 +392,60 @@ int ramfs_stat(uint64_t handle, stat_t *out) {
     return 0;
 }
 
+int ramfs_truncate(uint64_t handle, uint64_t new_size) {
+    ramfs_dirent_t* dirent = (ramfs_dirent_t*)handle;
+
+    uint64_t original_block_count = (dirent->file_size + RAMFS_BLOCK_SIZE - 1) / RAMFS_BLOCK_SIZE;
+    uint64_t required_block_count = (new_size + RAMFS_BLOCK_SIZE - 1) / RAMFS_BLOCK_SIZE;
+    dirent->file_size = new_size;
+    dirent->ctime = get_time();
+    dirent->mtime = get_time();
+    if (original_block_count < required_block_count) {
+        uint64_t difference = required_block_count - original_block_count;
+        if (!dirent->first_block) {
+            dirent->first_block = kmalloc(4096);
+            difference -= 1;
+        }
+        ramfs_data_t* last_block = dirent->first_block;
+        while (1) {
+            if (!last_block->next) break;
+            last_block = last_block->next;
+        }
+        for (int i = 0; i < difference; i++) {
+            last_block->next = kmalloc(4096);
+            last_block = last_block->next;
+        }
+    } else if (original_block_count > required_block_count) {
+        uint64_t difference = original_block_count - required_block_count;
+        ramfs_data_t* last_blocks[difference + 1];
+        memset(last_blocks, 0, sizeof(last_blocks));
+        last_blocks[0] = dirent->first_block;
+        int head = 0;
+        while (1) {
+            if (!last_blocks[head]->next) break;
+            int old_head = head;
+            head = (head + 1) % (difference + 1);
+            last_blocks[head] = last_blocks[old_head]->next;
+        }
+        ramfs_data_t* new_end = last_blocks[(head + 1) % (difference + 1)];
+        if (new_end) {
+            new_end->next = NULL;
+            if (new_size % RAMFS_BLOCK_SIZE) memset(
+                new_end->data + (new_size % RAMFS_BLOCK_SIZE), 0,
+                RAMFS_BLOCK_SIZE - (new_size % RAMFS_BLOCK_SIZE)
+            );
+        } else {
+            dirent->first_block = NULL;
+        }
+        for (int i = 0; i < difference; i++) {
+            kfree(last_blocks[head]);
+            head = (head + difference) % (difference + 1);
+        }
+    }
+
+    return 0;
+}
+
 int ramfs_check(block_device_t block) {
     return 1;
 }
@@ -458,6 +512,7 @@ void ramfs_register() {
     ramfs.write = ramfs_write;
     ramfs.rename = ramfs_rename;
     ramfs.stat = ramfs_stat;
+    ramfs.truncate = ramfs_truncate;
 
     register_filesystem(ramfs);
 }

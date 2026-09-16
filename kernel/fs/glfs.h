@@ -1,5 +1,4 @@
 #pragma once
-#include "../drivers/block.h"
 #include "../vfs.h"
 #include <stdint.h>
 
@@ -12,5 +11,6 @@ int64_t glfs_glue_write(uint64_t inode, const uint8_t *buffer, size_t offset, si
 int glfs_glue_rename(const char* old_path, const char* new_path);
 int glfs_glue_stat(uint64_t inode, stat_t* out);
 int glfs_glue_mknod(const char* path, uint32_t type, dev_t dev);
+int glfs_glue_truncate(uint64_t inode, uint64_t new_size);
 
 void glfs_register();
