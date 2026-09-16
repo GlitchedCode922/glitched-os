@@ -597,7 +597,7 @@ int fat_create_file(const char *path) {
 
     // Extract filename from path
     char dirname[256];
-    char filename[12];
+    char filename[12] = {0};
     separate_dirname_filename(path, dirname, filename);
     readable_to_8d3(filename);
     memcpy(dirent.name, filename, 11);
@@ -644,7 +644,7 @@ int fat_create_directory(const char *path) {
 
     // Extract filename from path
     char dirname[256];
-    char filename[12];
+    char filename[12] = {0};
     separate_dirname_filename(path, dirname, filename);
     readable_to_8d3(filename);
 
