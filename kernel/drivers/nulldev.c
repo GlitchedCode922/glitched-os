@@ -1,7 +1,7 @@
-#include "nulldev.h"
-#include "chrdev.h"
-#include "../memory/mman.h"
-#include "../error.h"
+#include "drivers/nulldev.h"
+#include "drivers/chrdev.h"
+#include "memory/mman.h"
+#include "error.h"
 #include <stdint.h>
 
 int64_t null_write(int minor_number, uint64_t offset, const uint8_t *buffer, uint64_t size) {

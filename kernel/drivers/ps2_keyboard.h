@@ -1,6 +1,4 @@
 #pragma once
-
-#include "tty.h"
 #include <stdint.h>
 
 #define INPUT_LINE_LENGTH 1024

@@ -1,8 +1,8 @@
 #pragma once
+#include "usermode/fd.h"
+#include "idt.h"
+#include "vfs.h"
 #include <stdint.h>
-#include "../idt.h"
-#include "../vfs.h"
-#include "fd.h"
 
 typedef enum {
     STATE_READY,

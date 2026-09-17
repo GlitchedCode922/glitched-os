@@ -1,7 +1,7 @@
-#include "paging.h"
-#include "mman.h"
-#include "../panic.h"
-#include "../error.h"
+#include "memory/paging.h"
+#include "memory/mman.h"
+#include "panic.h"
+#include "error.h"
 #include <stddef.h>
 #include <stdint.h>
 

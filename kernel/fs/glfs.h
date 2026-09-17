@@ -1,5 +1,5 @@
 #pragma once
-#include "../vfs.h"
+#include "vfs.h"
 #include <stdint.h>
 
 int glfs_glue_readdir(uint64_t inode, int index, dirent_t* out);

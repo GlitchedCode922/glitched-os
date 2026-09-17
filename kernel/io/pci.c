@@ -1,9 +1,9 @@
-#include "pci.h"
+#include "io/pci.h"
+#include "io/ports.h"
+#include "io/8259pic.h"
+#include "console.h"
 #include <stdint.h>
-#include "ports.h"
 #include <stddef.h>
-#include "../console.h"
-#include "8259pic.h"
 
 pci_device_t pci_devices[MAX_PCI_DEVICES];
 size_t pci_device_count = 0;

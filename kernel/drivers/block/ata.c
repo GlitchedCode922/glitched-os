@@ -1,9 +1,9 @@
-#include "ata.h"
-#include "atapi.h"
-#include "../../io/ports.h"
-#include "../block.h"
-#include "../../error.h"
-#include "../../uapi/ioctl.h"
+#include "drivers/block/ata.h"
+#include "drivers/block/atapi.h"
+#include "io/ports.h"
+#include "drivers/block.h"
+#include "error.h"
+#include "uapi/ioctl.h"
 #include <stdint.h>
 #include <stddef.h>
 

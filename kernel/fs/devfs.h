@@ -1,5 +1,5 @@
 #pragma once
-#include "../vfs.h"
+#include "vfs.h"
 #include <stdint.h>
 
 int devfs_lookup(const char* path, uint64_t* handle);

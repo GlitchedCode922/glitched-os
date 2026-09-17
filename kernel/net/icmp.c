@@ -1,11 +1,11 @@
-#include <stdint.h>
-#include "ip.h"
-#include "../memory/mman.h"
+#include "net/icmp.h"
+#include "net/ip.h"
+#include "memory/mman.h"
 #include "ethernet.h"
-#include "../drivers/timer.h"
-#include "../usermode/scheduler.h"
-#include "../error.h"
-#include "icmp.h"
+#include "drivers/timer.h"
+#include "usermode/scheduler.h"
+#include "error.h"
+#include <stdint.h>
 
 int pinging = 0;
 uint16_t icmp_identifier = 1;

@@ -1,6 +1,6 @@
 #pragma once
 #include <stdint.h>
-#include "../uapi/termios.h" // IWYU pragma: export
+#include "uapi/termios.h" // IWYU pragma: export
 
 typedef struct tty {
     termios_t termios;

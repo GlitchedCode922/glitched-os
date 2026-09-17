@@ -1,7 +1,7 @@
-#include "chrdev.h"
-#include "../fs/devfs.h"
-#include "../vfs.h"
-#include "../error.h"
+#include "drivers/chrdev.h"
+#include "fs/devfs.h"
+#include "vfs.h"
+#include "error.h"
 #include <stdint.h>
 
 char_driver_t char_drivers[128] = {0};

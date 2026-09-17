@@ -1,6 +1,6 @@
-#include "devfs.h"
-#include "ramfs.h"
-#include "../memory/mman.h"
+#include "fs/devfs.h"
+#include "fs/ramfs.h"
+#include "memory/mman.h"
 #include <stdint.h>
 
 static void* ramfs_instance;

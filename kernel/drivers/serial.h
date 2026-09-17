@@ -1,7 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include <stddef.h>
-#include "tty.h"
+#include "drivers/tty.h"
 
 #define COM1_PORT 0x3F8
 #define COM2_PORT 0x2F8

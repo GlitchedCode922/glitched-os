@@ -1,7 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include <stddef.h>
-#include "../vfs.h"
+#include "vfs.h"
 
 typedef struct __attribute__((packed)) {
     uint8_t jmp[3];          // Jump instruction to boot code

@@ -9,7 +9,7 @@ override CFLAGS += -nostdlib -ffreestanding -fno-stack-protector -fno-stack-chec
 KERNEL_CFLAGS =
 LIBC_CFLAGS =
 BIN_CFLAGS =
-override KERNEL_CFLAGS += -mno-80387 -mno-mmx -mno-sse -mno-sse2 -mno-red-zone -mcmodel=kernel -Iglitchfs/libglfs/include
+override KERNEL_CFLAGS += -mno-80387 -mno-mmx -mno-sse -mno-sse2 -mno-red-zone -mcmodel=kernel -Iglitchfs/libglfs/include -Ikernel
 override LIBC_CFLAGS += -Ilibc/include -Ilibc/platform/include -Ikernel
 override BIN_CFLAGS += -Ilibc/include -Ilibc/platform/include -Ikernel
 LDFLAGS =

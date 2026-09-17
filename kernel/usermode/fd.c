@@ -1,7 +1,7 @@
-#include "fd.h"
-#include "scheduler.h"
-#include "../vfs.h"
-#include "../error.h"
+#include "usermode/fd.h"
+#include "usermode/scheduler.h"
+#include "vfs.h"
+#include "error.h"
 #include <stdint.h>
 
 file_description_t file_descriptions[MAX_FILES] = {0};

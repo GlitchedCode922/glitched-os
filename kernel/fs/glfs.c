@@ -1,12 +1,11 @@
-#include "glfs.h"
+#include "fs/glfs.h"
 #include <glfs/glfs.h>
-#include "../vfs.h"
-#include "../drivers/block.h"
-#include "../drivers/chrdev.h"
-#include "../drivers/timer.h"
-#include "../error.h"
-#include "../memory/mman.h"
-#include "glfs/layout.h"
+#include "vfs.h"
+#include "drivers/block.h"
+#include "drivers/chrdev.h"
+#include "drivers/timer.h"
+#include "error.h"
+#include "memory/mman.h"
 #include <stddef.h>
 #include <stdint.h>
 

@@ -1,8 +1,7 @@
-#include "rtc.h"
-#include "timer.h"
-#include "../io/ports.h"
+#include "drivers/rtc.h"
+#include "drivers/timer.h"
+#include "io/ports.h"
 #include <stdint.h>
-#include "../console.h"
 
 static uint8_t rtc_read(uint8_t reg) {
     outb(0x70, 0x80 | reg);

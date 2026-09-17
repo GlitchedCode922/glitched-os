@@ -1,6 +1,6 @@
 #pragma once
 #include <stdint.h>
-#include "../uapi/netif.h" // IWYU pragma: export
+#include "uapi/netif.h" // IWYU pragma: export
 
 extern int net_driver_index;
 

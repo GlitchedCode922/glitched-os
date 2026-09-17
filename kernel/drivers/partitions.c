@@ -1,7 +1,7 @@
-#include "partitions.h"
-#include "block.h"
-#include "../error.h"
-#include "../memory/mman.h"
+#include "drivers/partitions.h"
+#include "drivers/block.h"
+#include "error.h"
+#include "memory/mman.h"
 #include <stdint.h>
 
 partition_t partitions[256] = {0};

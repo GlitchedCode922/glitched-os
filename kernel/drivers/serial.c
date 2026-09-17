@@ -1,11 +1,11 @@
-#include "serial.h"
+#include "drivers/serial.h"
 #include <stddef.h>
 #include <stdint.h>
-#include "../io/ports.h"
-#include "../io/8259pic.h"
-#include "../error.h"
-#include "timer.h"
-#include "tty.h"
+#include "io/ports.h"
+#include "io/8259pic.h"
+#include "error.h"
+#include "drivers/timer.h"
+#include "drivers/tty.h"
 
 const uint16_t serial_ports[] = {COM1_PORT, COM2_PORT, COM3_PORT, COM4_PORT};
 const uint8_t interrupt_numbers[] = {4, 3, 4, 3};

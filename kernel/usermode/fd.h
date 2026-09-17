@@ -1,9 +1,9 @@
 #pragma once
+#include "vfs.h"
+#include "net/socket.h"
+#include "uapi/fd.h" // IWYU pragma: export
 #include <stddef.h>
 #include <stdint.h>
-#include "../vfs.h"
-#include "../net/socket.h"
-#include "../uapi/fd.h" // IWYU pragma: export
 
 #define MAX_FDS 1024
 #define MAX_FILES 4096

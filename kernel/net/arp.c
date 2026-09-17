@@ -1,10 +1,10 @@
-#include "arp.h"
-#include "../drivers/net.h"
-#include "../drivers/timer.h"
-#include "ethernet.h"
-#include "../memory/mman.h"
-#include "../error.h"
-#include "../usermode/scheduler.h"
+#include "net/arp.h"
+#include "net/ethernet.h"
+#include "drivers/net.h"
+#include "drivers/timer.h"
+#include "memory/mman.h"
+#include "error.h"
+#include "usermode/scheduler.h"
 #include <stdint.h>
 
 static arp_entry_t arp_cache[ARP_CACHE_SIZE] = {0};
@@ -87,7 +87,7 @@ int arp_request(uint8_t* target_ip, uint8_t* target_mac_buffer, int card) {
     // Padding to meet minimum Ethernet frame size
     uint8_t padded_frame[60 - 14] = {0};
     memcpy(padded_frame, &request, sizeof(arp_packet_t));
-    
+
     waiting_for_reply = 1;
 
     for (int i = 0; i < 3; i++) {

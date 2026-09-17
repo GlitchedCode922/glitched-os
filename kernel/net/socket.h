@@ -1,6 +1,6 @@
 #pragma once
 #include <stdint.h>
-#include "../uapi/socket.h" // IWYU pragma: export
+#include "uapi/socket.h" // IWYU pragma: export
 
 typedef struct {
     uint8_t domain;

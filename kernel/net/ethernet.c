@@ -1,9 +1,9 @@
-#include "../drivers/net.h"
-#include "../memory/mman.h"
-#include "../error.h"
-#include "ethernet.h"
-#include "arp.h"
-#include "ip.h"
+#include "net/ethernet.h"
+#include "net/arp.h"
+#include "net/ip.h"
+#include "drivers/net.h"
+#include "memory/mman.h"
+#include "error.h"
 #include <stdint.h>
 
 uint16_t htons(uint16_t val) {

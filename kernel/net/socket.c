@@ -1,7 +1,7 @@
-#include "socket.h"
-#include "../error.h"
-#include "../memory/mman.h"
-#include "udp.h"
+#include "net/socket.h"
+#include "net/udp.h"
+#include "error.h"
+#include "memory/mman.h"
 #include <stdint.h>
 
 int socket(int domain, int type, int protocol, socket_t** socket) {

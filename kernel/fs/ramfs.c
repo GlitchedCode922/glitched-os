@@ -1,9 +1,9 @@
-#include "ramfs.h"
-#include "../memory/mman.h"
-#include "../drivers/block.h"
-#include "../drivers/chrdev.h"
-#include "../drivers/timer.h"
-#include "../error.h"
+#include "fs/ramfs.h"
+#include "memory/mman.h"
+#include "drivers/block.h"
+#include "drivers/chrdev.h"
+#include "drivers/timer.h"
+#include "error.h"
 #include <stdint.h>
 
 static ramfs_mount_t* mount;

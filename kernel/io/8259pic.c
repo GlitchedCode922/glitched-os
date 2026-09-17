@@ -1,10 +1,10 @@
-#include "ports.h"
-#include "8259pic.h"
-#include "pci.h"
-#include "../usermode/scheduler.h"
-#include "../drivers/timer.h"
-#include "../drivers/ps2_keyboard.h"
-#include "../drivers/serial.h"
+#include "io/ports.h"
+#include "io/8259pic.h"
+#include "io/pci.h"
+#include "usermode/scheduler.h"
+#include "drivers/timer.h"
+#include "drivers/ps2_keyboard.h"
+#include "drivers/serial.h"
 #include <stdint.h>
 
 int spurious_interrupts = 0;

@@ -1,6 +1,6 @@
-#include "mman.h"
-#include "paging.h"
-#include "../panic.h"
+#include "memory/mman.h"
+#include "memory/paging.h"
+#include "panic.h"
 #include <stddef.h>
 #include <stdint.h>
 

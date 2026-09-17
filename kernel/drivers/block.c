@@ -1,9 +1,9 @@
-#include "block.h"
+#include "drivers/block.h"
+#include "error.h"
+#include "drivers/partitions.h"
+#include "vfs.h"
+#include "fs/devfs.h"
 #include <stdint.h>
-#include "../error.h"
-#include "partitions.h"
-#include "../vfs.h"
-#include "../fs/devfs.h"
 
 block_driver_t block_drivers[128] = {0};
 int block_driver_count = 0;

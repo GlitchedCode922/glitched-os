@@ -1,5 +1,5 @@
-#include "../io/ports.h"
-#include "timer.h"
+#include "drivers/timer.h"
+#include "io/ports.h"
 #include <stdint.h>
 
 #define PIT_FREQUENCY 1000

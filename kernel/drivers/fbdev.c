@@ -1,8 +1,8 @@
-#include "fbdev.h"
-#include "chrdev.h"
-#include "../memory/mman.h"
-#include "../error.h"
-#include "../uapi/ioctl.h"
+#include "drivers/fbdev.h"
+#include "drivers/chrdev.h"
+#include "memory/mman.h"
+#include "error.h"
+#include "uapi/ioctl.h"
 
 static volatile struct limine_framebuffer_response* fb_response;
 

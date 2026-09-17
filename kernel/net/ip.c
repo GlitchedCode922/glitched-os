@@ -1,13 +1,13 @@
-#include "ip.h"
-#include "ethernet.h"
-#include "arp.h"
-#include "../memory/mman.h"
-#include "icmp.h"
-#include "udp.h"
-#include "../drivers/net.h"
-#include "../error.h"
+#include "net/ip.h"
+#include "net/ethernet.h"
+#include "net/arp.h"
+#include "net/icmp.h"
+#include "net/udp.h"
+#include "memory/mman.h"
+#include "drivers/net.h"
+#include "error.h"
+#include "vfs.h"
 #include <stdint.h>
-#include "../vfs.h"
 
 uint8_t fragment_storage[12][0xFFFF]; // Storage for fragment reassembly
 int ids[12]; // Identification numbers for fragments

@@ -1,9 +1,9 @@
-#include "fat.h"
-#include "../memory/mman.h"
-#include "../error.h"
-#include "../vfs.h"
-#include "../drivers/block.h"
-#include "../drivers/timer.h"
+#include "fs/fat.h"
+#include "memory/mman.h"
+#include "error.h"
+#include "vfs.h"
+#include "drivers/block.h"
+#include "drivers/timer.h"
 #include <stddef.h>
 #include <stdint.h>
 

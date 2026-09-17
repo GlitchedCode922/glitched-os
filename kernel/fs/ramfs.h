@@ -1,5 +1,5 @@
 #pragma once
-#include "../vfs.h"
+#include "vfs.h"
 #include <stdint.h>
 
 typedef struct ramfs_data {

@@ -1,10 +1,10 @@
-#include "udp.h"
-#include "ip.h"
-#include "ethernet.h"
-#include "../error.h"
+#include "net/udp.h"
+#include "net/ip.h"
+#include "net/ethernet.h"
+#include "net/socket.h"
+#include "memory/mman.h"
+#include "error.h"
 #include <stdint.h>
-#include "../memory/mman.h"
-#include "socket.h"
 
 uint8_t udp_packet_buffer[UDP_BUFFER_SIZE][1484];
 

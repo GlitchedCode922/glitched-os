@@ -1,11 +1,11 @@
-#include "rtl8139.h"
-#include "../../io/pci.h"
-#include "../../io/ports.h"
-#include "../../memory/mman.h"
-#include "../../memory/paging.h"
-#include "../../error.h"
-#include "../../net/ethernet.h"
-#include "../net.h"
+#include "drivers/net/rtl8139.h"
+#include "drivers/net.h"
+#include "net/ethernet.h"
+#include "io/pci.h"
+#include "io/ports.h"
+#include "memory/mman.h"
+#include "memory/paging.h"
+#include "error.h"
 #include <stddef.h>
 #include <stdint.h>
 

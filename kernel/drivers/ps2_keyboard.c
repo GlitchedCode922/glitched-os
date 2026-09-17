@@ -1,6 +1,6 @@
-#include "ps2_keyboard.h"
-#include "../console.h"
-#include "tty.h"
+#include "drivers/ps2_keyboard.h"
+#include "console.h"
+#include "drivers/tty.h"
 #include <stdint.h>
 
 #define KEY_RELEASE 0x80

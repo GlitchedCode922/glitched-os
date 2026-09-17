@@ -1,8 +1,7 @@
-#include "break.h"
-#include "scheduler.h"
-#include "../memory/paging.h"
-#include "../memory/mman.h"
-#include "../console.h"
+#include "usermode/break.h"
+#include "usermode/scheduler.h"
+#include "memory/paging.h"
+#include "memory/mman.h"
 #include <stdint.h>
 #include <stddef.h>
 

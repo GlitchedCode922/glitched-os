@@ -1,8 +1,8 @@
+#include "drivers/block/atapi.h"
+#include "drivers/block/ata.h"
+#include "io/ports.h"
+#include "error.h"
 #include <stdint.h>
-#include "atapi.h"
-#include "ata.h"
-#include "../../io/ports.h"
-#include "../../error.h"
 
 ata_device_t detect_packet_device(uint16_t bus_port, uint16_t disk) {
     ata_device_t device = {0};

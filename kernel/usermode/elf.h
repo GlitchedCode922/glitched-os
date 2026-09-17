@@ -1,6 +1,6 @@
 #pragma once
 #include <stdint.h>
-#include "../vfs.h"
+#include "vfs.h"
 
 // --- ELF Magic Number ---
 #define ELFMAG0 0x7f

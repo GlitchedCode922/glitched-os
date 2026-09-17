@@ -1,8 +1,8 @@
-#include "tty.h"
+#include "drivers/tty.h"
 #include <stdint.h>
-#include "../error.h"
-#include "chrdev.h"
-#include "../uapi/ioctl.h"
+#include "error.h"
+#include "drivers/chrdev.h"
+#include "uapi/ioctl.h"
 
 tty_t* ttys[MAX_TTYS];
 int tty_count = 0;

@@ -1,12 +1,12 @@
-#include "net.h"
-#include "../error.h"
-#include "chrdev.h"
+#include "drivers/net.h"
+#include "error.h"
+#include "drivers/chrdev.h"
 #include <stddef.h>
 #include <stdint.h>
-#include "../memory/mman.h"
-#include "../uapi/ioctl.h"
-#include "../vfs.h"
-#include "../fs/devfs.h"
+#include "memory/mman.h"
+#include "uapi/ioctl.h"
+#include "vfs.h"
+#include "fs/devfs.h"
 
 net_if_t net_interfaces[10];
 int net_interface_count = 0;
