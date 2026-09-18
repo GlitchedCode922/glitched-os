@@ -2,12 +2,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdint.h>
-
-typedef struct {
-    char* ascii[128];
-    uint8_t width;
-    uint8_t height;
-} __attribute__((packed)) font_t;
+#include <uapi/console.h>
 
 #define PSF1_FONT_MAGIC 0x0436
 

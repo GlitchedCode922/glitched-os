@@ -2,14 +2,14 @@
 #include "drivers/ps2_keyboard.h"
 #include "drivers/tty.h"
 #include "memory/mman.h"
-#include "default_font.h"
+#include "font/default_font.h"
 #include "limine.h"
 #include <stdint.h>
 #include <stdarg.h>
 #include <stddef.h>
 
-char* glyphs; // For custom fonts
-char* ascii[128];
+uint8_t* glyphs; // For custom fonts
+uint8_t* ascii[128];
 char* colored_bitmap;
 
 extern volatile struct limine_framebuffer* framebuffer;
@@ -127,9 +127,11 @@ void clear_screen() {
 
 void initialize_console() {
     fb_address = (volatile char *)framebuffer->address;
-    memcpy(ascii, default_font, 128 * sizeof(char*));
-    c_width = default_font_width;
-    c_height = default_font_height;
+    for (int i = 0; i < 128; i++) {
+        ascii[i] = default_font[i];
+    }
+    c_width = DEFAULT_FONT_WIDTH;
+    c_height = DEFAULT_FONT_HEIGHT;
 
     width = framebuffer->width / c_width;
     height = framebuffer->height / c_height;
@@ -173,7 +175,7 @@ char* colorize_bitmap(uint8_t index, int inv) {
     if (index >= 128) {
         return NULL; // Invalid character index
     }
-    char *bitmap = ascii[index];
+    uint8_t* bitmap = ascii[index];
     char fg[3];
     char bg[3];
     for (int i = 0; i < 3; i++) {
