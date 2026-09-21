@@ -268,7 +268,7 @@ int add_task(char* path, char** argv, char** envp, task_t* parent, int pid, ifra
     kenvp[envc] = NULL;
 
     task_t* new_task = kmalloc(sizeof(task_t));
-    *new_task = *parent;
+    *new_task = *current_task;
     new_task->state = STATE_READY;
     new_task->cr3 = clone_page_tables(base_pml4);
 
