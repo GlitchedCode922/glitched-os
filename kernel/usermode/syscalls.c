@@ -211,6 +211,11 @@ void syscall(iframe_t* iframe) {
         if (ret < 0) break;
         ret = spawn((char*)arg1, (char**)arg2, (char**)arg3, iframe);
         break;
+    case SYSCALL_PIPE:
+        ret = validate_user_pointer((void*)arg1, sizeof(int) * 2, 1);
+        if (ret < 0) break;
+        ret = pipe((int*)arg1);
+        break;
     case SYSCALL_IOCTL:
         ret = fd_ioctl(arg1, arg2, arg3);
         break;

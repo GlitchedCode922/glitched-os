@@ -17,6 +17,7 @@ ssize_t lseek(int fd, off_t offset, int type);
 ssize_t tell(int fd);
 int dup(int fd);
 int dup2(int fd, int new_fd);
+int pipe(int fd[2]);
 
 int link(const char* path, const char* link);
 int unlink(const char* path);

@@ -1,4 +1,5 @@
 #pragma once
+#include "usermode/pipe.h"
 #include "vfs.h"
 #include "net/socket.h"
 #include "uapi/fd.h" // IWYU pragma: export
@@ -16,11 +17,13 @@ enum {
     FD_TYPE_FILE = 0,
     FD_TYPE_DIR = 1,
     FD_TYPE_SOCKET = 2,
+    FD_TYPE_PIPE = 3,
 };
 
 typedef struct {
     file_handle_t file_handle;
     socket_t* socket;
+    pipe_t* pipe;
     int type;
     size_t offset;
     int flags;
@@ -48,5 +51,6 @@ void release_process_fds();
 int fd_socket(int domain, int type, int protocol);
 int fd_bind(int fd, sockaddr_in_t* addr);
 int fd_unbind(int fd);
+int pipe(int fd[2]);
 int64_t fd_recvfrom(int fd, uint8_t* buffer, uint64_t len, int flags, sockaddr_in_t* addr);
 int64_t fd_sendto(int fd, const uint8_t* buffer, uint64_t len, int flags, const sockaddr_in_t* addr);

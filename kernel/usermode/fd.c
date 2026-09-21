@@ -1,5 +1,7 @@
 #include "usermode/fd.h"
+#include "uapi/fd.h"
 #include "usermode/scheduler.h"
+#include "usermode/pipe.h"
 #include "vfs.h"
 #include "error.h"
 #include <stdint.h>
@@ -75,6 +77,12 @@ int fd_close(int fd) {
         } else if (file_description->type == FD_TYPE_SOCKET) {
             int res = socket_close(file_description->socket);
             if (res < 0) return res;
+        } else if (file_description->type == FD_TYPE_PIPE) {
+            if ((file_description->flags & O_ACCESS) == O_RDONLY) {
+                remove_pipe_reader(file_description->pipe);
+            } else {
+                remove_pipe_writer(file_description->pipe);
+            }
         }
         file_description->offset = 0;
     }
@@ -119,18 +127,22 @@ int64_t read(int fd, void *buffer, size_t size) {
         return -EBADF;
     }
     file_description_t* file_description = current_task->fd_table[fd].fd;
-    if (file_description->type == FD_TYPE_FILE && (file_description->flags & O_ACCESS) == O_WRONLY) return -EBADF;
+    if ((file_description->flags & O_ACCESS) == O_WRONLY) return -EBADF;
     if (file_description->type == FD_TYPE_DIR) return -EISDIR;
     if (file_description->type == FD_TYPE_SOCKET) return -ENOSYS;
     int64_t bytes_read;
-    while (1) {
-        bytes_read = read_file(file_description->file_handle, buffer, file_description->offset, size);
-        if (file_description->flags & O_NONBLOCK || bytes_read != -EAGAIN) {
-            break;
+    if (file_description->type == FD_TYPE_FILE) {
+        while (1) {
+            bytes_read = read_file(file_description->file_handle, buffer, file_description->offset, size);
+            if (file_description->flags & O_NONBLOCK || bytes_read != -EAGAIN) {
+                break;
+            }
+            yield_current();
         }
-        yield_current();
+        if (bytes_read > 0) file_description->offset += bytes_read;
+    } else if (file_description->type == FD_TYPE_PIPE) {
+        bytes_read = pipe_read(file_description->pipe, buffer, size);
     }
-    if (bytes_read > 0) file_description->offset += bytes_read;
     return bytes_read;
 }
 
@@ -139,12 +151,17 @@ int64_t write(int fd, const void *buffer, size_t size) {
         return -EBADF;
     }
     file_description_t* file_description = current_task->fd_table[fd].fd;
-    if (file_description->type == FD_TYPE_FILE && (file_description->flags & O_ACCESS) == O_RDONLY) return -EBADF;
+    if ((file_description->flags & O_ACCESS) == O_RDONLY) return -EBADF;
     if (file_description->type == FD_TYPE_DIR) return -EISDIR;
     if (file_description->type == FD_TYPE_SOCKET) return -ENOSYS;
-    if (file_description->flags & O_APPEND) seek(fd, 0, SEEK_END);
-    int64_t bytes_written = write_file(file_description->file_handle, buffer, file_description->offset, size);
-    if (bytes_written > 0) file_description->offset += bytes_written;
+    int64_t bytes_written;
+    if (file_description->type == FD_TYPE_FILE) {
+        if (file_description->flags & O_APPEND) seek(fd, 0, SEEK_END);
+        bytes_written = write_file(file_description->file_handle, buffer, file_description->offset, size);
+        if (bytes_written > 0) file_description->offset += bytes_written;
+    } else if (file_description->type == FD_TYPE_PIPE) {
+        bytes_written = pipe_write(file_description->pipe, buffer, size);
+    }
     return bytes_written;
 }
 
@@ -165,7 +182,7 @@ int fd_ioctl(int fd, uint64_t request, uint64_t arg) {
     }
     file_description_t* file_description = current_task->fd_table[fd].fd;
     if (file_description->type == FD_TYPE_DIR) return -EISDIR;
-    if (file_description->type == FD_TYPE_SOCKET) return -EINVAL;
+    if (file_description->type != FD_TYPE_FILE) return -EINVAL;
     return ioctl(file_description->file_handle, request, arg);
 }
 
@@ -174,7 +191,8 @@ int fstat(int fd, stat_t* stat) {
         return -EBADF;
     }
     file_description_t* file_description = current_task->fd_table[fd].fd;
-    if (file_description->type == FD_TYPE_SOCKET) return -EINVAL;
+    if (file_description->type != FD_TYPE_FILE &&
+        file_description->type != FD_TYPE_DIR) return -EINVAL;
     return stat_handle(file_description->file_handle, stat);
 }
 
@@ -183,7 +201,7 @@ int ftruncate(int fd, uint64_t new_size) {
         return -EBADF;
     }
     file_description_t* file_description = current_task->fd_table[fd].fd;
-    if (file_description->type == FD_TYPE_SOCKET) return -EINVAL;
+    if (file_description->type != FD_TYPE_FILE) return -EINVAL;
     return truncate(file_description->file_handle, new_size);
 }
 
@@ -217,6 +235,40 @@ int dup2(int fd, int new_fd) {
     current_task->fd_table[new_fd].flags = 0;
     current_task->fd_table[fd].fd->refcount++;
     return new_fd;
+}
+
+int pipe(int fd[2]) {
+    int found = 0;
+    for (int i = 0; i < MAX_FDS; i++) {
+        if (current_task->fd_table[i].fd == NULL) {
+            fd[found++] = i;
+            if (found == 2) break;
+        }
+    }
+    if (found != 2) return -EMFILE;
+    int file_index[2] = {0};
+    found = 0;
+    for (int i = 0; i < MAX_FILES; i++) {
+        if (file_descriptions[i].refcount == 0) {
+            file_index[found++] = i;
+            if (found == 2) break;
+        }
+    }
+    if (found != 2) return -ENFILE;
+    pipe_t* pipe = create_pipe();
+    file_descriptions[file_index[0]].pipe = pipe;
+    file_descriptions[file_index[0]].flags = O_RDONLY;
+    file_descriptions[file_index[0]].refcount = 1;
+    file_descriptions[file_index[0]].type = FD_TYPE_PIPE;
+    file_descriptions[file_index[1]].pipe = pipe;
+    file_descriptions[file_index[1]].flags = O_WRONLY;
+    file_descriptions[file_index[1]].refcount = 1;
+    file_descriptions[file_index[1]].type = FD_TYPE_PIPE;
+    current_task->fd_table[fd[0]].fd = &file_descriptions[file_index[0]];
+    current_task->fd_table[fd[1]].fd = &file_descriptions[file_index[1]];
+    current_task->fd_table[fd[0]].flags = 0;
+    current_task->fd_table[fd[1]].flags = 0;
+    return 0;
 }
 
 int fd_socket(int domain, int type, int protocol) {

@@ -75,3 +75,12 @@ int dup2(int fd, int new_fd) {
     }
     return res;
 }
+
+int pipe(int fd[2]) {
+    int res = syscall(SYSCALL_PIPE, (uint64_t)fd, 0, 0, 0, 0, 0);
+    if (res < 0) {
+        errno = -res;
+        return -1;
+    }
+    return res;
+}

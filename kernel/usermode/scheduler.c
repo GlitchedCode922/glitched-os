@@ -177,6 +177,13 @@ int fork(iframe_t* iframe) {
     new_task->iframe = new_iframe;
     new_task->fpu_state = kmalloc(fpu_memory_size);
     memcpy(new_task->fpu_state, current_task->fpu_state, fpu_memory_size);
+
+    // Increment file description refcounts
+    for (int fd = 0; fd < MAX_FDS; fd++) {
+        if (!new_task->fd_table[fd].fd) continue;
+        new_task->fd_table[fd].fd->refcount++;
+    }
+
     new_task->next = current_task->next;
     current_task->next = new_task;
     new_task->next_sibling = current_task->child;
@@ -265,7 +272,7 @@ int add_task(char* path, char** argv, char** envp, task_t* parent, int pid, ifra
     new_task->state = STATE_READY;
     new_task->cr3 = clone_page_tables(base_pml4);
 
-    // Clone FD file handles
+    // Increment file description refcounts
     for (int fd = 0; fd < MAX_FDS; fd++) {
         if (!new_task->fd_table[fd].fd) continue;
         if (new_task->fd_table[fd].flags & O_CLOEXEC) {
@@ -274,10 +281,6 @@ int add_task(char* path, char** argv, char** envp, task_t* parent, int pid, ifra
             continue;
         }
         new_task->fd_table[fd].fd->refcount++;
-        if (new_task->fd_table[fd].fd->type == FD_TYPE_FILE || new_task->fd_table[fd].fd->type == FD_TYPE_DIR) {
-            int res = clone_file_handle(new_task->fd_table[fd].fd->file_handle);
-            if (res < 0) return res;
-        }
     }
 
     // Switch to the new page table
