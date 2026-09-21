@@ -1,7 +1,6 @@
 #include "usermode/elf.h"
 #include "memory/mman.h"
 #include "memory/paging.h"
-#include "error.h"
 #include "vfs.h"
 #include <stdint.h>
 

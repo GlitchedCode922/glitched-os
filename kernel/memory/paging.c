@@ -19,7 +19,7 @@ uint64_t* add_hhdm_to(uint64_t* ptr) {
 }
 
 uint64_t* page_table_to_address(uint64_t entry) {
-    return (uint64_t*)(entry & PAGE_MASK & ~FLAGS_NX);
+    return (uint64_t*)(entry & ~FLAGS_MASK);
 }
 
 uintptr_t get_physical_address(uintptr_t virtual_address) {
@@ -279,7 +279,7 @@ int free_page(void *page) {
     }
 
     // Free the page and clear the entry
-    uintptr_t phys = pt[entry.pt_index] & PAGE_MASK;
+    uintptr_t phys = (uintptr_t)page_table_to_address(pt[entry.pt_index]);
     pt[entry.pt_index] = 0;
 
     // Invalidate the TLB for the virtual address
@@ -371,13 +371,19 @@ void* clone_page_tables(void* pml4_address) {
                             for (int l = 0; l < 512; l++) {
                                 if (pt[l] & FLAGS_PRESENT) {
                                     // CoW copy
-                                    uintptr_t phys = pt[l] & PAGE_MASK;
+                                    uintptr_t phys = (uintptr_t)page_table_to_address(pt[l]);
                                     if (pt[l] & FLAGS_RW) {
                                         pt[l] &= ~FLAGS_RW;
                                         pt[l] |= FLAGS_COW;
                                     }
                                     memory_bitmap[phys / PAGE_SIZE]++;
-                                    add_hhdm_to(new_pt)[l] = (phys & PAGE_MASK) | (pt[l] & FLAGS_MASK);
+                                    add_hhdm_to(new_pt)[l] = phys | (pt[l] & FLAGS_MASK);
+                                    uintptr_t va =
+                                        ((uintptr_t)i << 39) |
+                                        ((uintptr_t)j << 30) |
+                                        ((uintptr_t)k << 21) |
+                                        ((uintptr_t)l << 12);
+                                    asm volatile("invlpg (%0)" :: "r"(va) : "memory");
                                 }
                             }
                             add_hhdm_to(new_pd)[k] = ((uintptr_t)new_pt & PAGE_MASK) | (pde & HIGHER_LEVEL_FLAGS);
@@ -460,7 +466,7 @@ int cow_handler(void* faulting_address) {
     }
 
     uint64_t pte = pt[entry.pt_index];
-    uintptr_t phys = pte & PAGE_MASK;
+    uintptr_t phys = (uintptr_t)page_table_to_address(pte);
     uintptr_t page_index = phys / PAGE_SIZE;
     if (pte & FLAGS_COW) {
         if (memory_bitmap[page_index] > 1) {

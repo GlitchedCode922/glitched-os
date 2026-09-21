@@ -165,6 +165,7 @@ void exit(int ret) {
 int fork(iframe_t* iframe) {
     if (last_pid == 2147483647) panic("No PIDs available");
     current_task->iframe = iframe;
+    save_fpu(current_task->fpu_state);
     task_t* new_task = kmalloc(sizeof(task_t));
     *new_task = *current_task;
     new_task->state = STATE_READY;
@@ -175,6 +176,7 @@ int fork(iframe_t* iframe) {
     new_task->kernel_stack = kstack;
     new_task->iframe = new_iframe;
     new_task->fpu_state = kmalloc(fpu_memory_size);
+    memcpy(new_task->fpu_state, current_task->fpu_state, fpu_memory_size);
     new_task->next = current_task->next;
     current_task->next = new_task;
     new_task->next_sibling = current_task->child;
@@ -184,7 +186,9 @@ int fork(iframe_t* iframe) {
     current_task->child = new_task;
     current_task->iframe->rax = new_task->pid;
     new_task->iframe->rax = 0;
-    return new_task->pid;
+    current_task->state = STATE_READY;
+    switch_task();
+    return new_task->pid; // Not reached
 }
 
 static int strlen(char* s) {
@@ -379,7 +383,15 @@ int spawn(char* path, char** argv, char** envp, iframe_t* iframe) {
     if (last_pid == 2147483647) panic("No PIDs available");
 
     current_task->iframe = iframe;
-    return add_task(path, argv, envp, current_task, ++last_pid, iframe);
+    int res = add_task(path, argv, envp, current_task, ++last_pid, iframe);
+    if (res != last_pid) {
+        return res;
+    }
+
+    current_task->iframe->rax = (uint64_t)res;
+    current_task->state = STATE_READY;
+    switch_task();
+    return res; // Unreachable
 }
 
 int execve(char *path, char **argv, char** envp, iframe_t *iframe) {
@@ -503,7 +515,7 @@ int waitpid(int pid, int* wstatus, int options, iframe_t* iframe) {
         task_t* child = get_first_zombie(current_task);
         if (child != NULL) {
             if (wstatus) *wstatus = child->return_code;
-            child->state = STATE_BLOCKED;
+            child->state = STATE_DELETED;
             return child->pid;
         }
         if (options & WNOHANG) return -1;
