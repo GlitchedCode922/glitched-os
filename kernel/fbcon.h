@@ -1,0 +1,45 @@
+#pragma once
+#include <stdint.h>
+#include <stdarg.h>
+#include "drivers/tty.h"
+#include "uapi/fbcon.h" // IWYU pragma: export
+
+#define COLOR(r, g, b) ((uint8_t[]){(r), (g), (b)})
+
+extern uint32_t width;
+extern uint32_t height;
+
+extern tty_t fbcon_tty;
+extern int fbcon_tty_id;
+
+typedef struct {
+    enum {
+        TEXT,
+        ESCAPE,
+        CSI
+    } state;
+    int params[16];
+    int current_param;
+    int param_count;
+    int digit_added;
+} ansi_parser_t;
+
+typedef struct {
+    char c;
+    uint8_t fg[3];
+    uint8_t bg[3];
+    uint8_t padding;
+} character_t;
+
+void fbcon_init();
+void setfont(font_t* font);
+char* colorize_bitmap(uint8_t index, int inv);
+void fbcon_putchar(char c);
+void clear_screen();
+void setbg_color(uint8_t color[3]);
+void setfg_color(uint8_t color[3]);
+void set_cursor_position(uint16_t x, uint16_t y);
+void get_cursor_position(uint16_t *x, uint16_t *y);
+void scroll();
+int64_t fbcon_echo(void* data, const uint8_t* buffer, uint64_t len);
+int64_t fbcon_write(void* data, const uint8_t* buffer, uint64_t len);

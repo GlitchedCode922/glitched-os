@@ -3,7 +3,7 @@
 #include "drivers/timer.h"
 #include "panic.h"
 #include "console.h"
-#include "drivers/ps2_keyboard.h"
+#include "drivers/tty.h"
 #include "usermode/scheduler.h"
 #include "usermode/syscalls.h"
 #include "memory/paging.h"
@@ -164,8 +164,8 @@ void breakpoint_debugger(iframe_t* iframe) {
     kprintf("Breakpoint hit at 0x%x\n", iframe->rip - 1);
     char buffer[4096];
     asm volatile ("sti");
-    termios_t term = console_tty.termios;
-    console_tty.termios.c_lflag = ICANON | ECHO | ECHOE;
+    termios_t term = ttys[console_tty_id]->termios;
+    ttys[console_tty_id]->termios.c_lflag = ICANON | ECHO | ECHOE;
     while (1) {
         kprintf("> ");
         int bytes_read;
@@ -181,7 +181,7 @@ void breakpoint_debugger(iframe_t* iframe) {
         } else if (strcmp(buffer, "continue\n") == 0) {
             // Skip consecutive breakpoints
             while (*(uint8_t*)(iframe->rip) == 0xCC) iframe->rip++;
-            console_tty.termios = term;
+            ttys[console_tty_id]->termios = term;
             return;
         } else {
             kprintf("Invalid command, enter ? or help to see a list of commands\n");

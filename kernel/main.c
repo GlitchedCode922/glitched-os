@@ -1,7 +1,8 @@
+#include "console.h"
 #include "drivers/fbdev.h"
 #include "drivers/rtc.h"
 #include "limine.h"
-#include "console.h"
+#include "fbcon.h"
 #include "panic.h"
 #include "memory/mman.h"
 #include "memory/paging.h"
@@ -65,11 +66,24 @@ static volatile LIMINE_REQUESTS_END_MARKER;
 
 extern volatile struct limine_framebuffer* framebuffer;
 volatile struct limine_framebuffer* framebuffer;
+char rootfs_device[256] = "";
+char console_device[MAX_PATH] = "tty1";
+char init_binary_path[MAX_PATH] = "/bin/init";
+
+static int strncmp(const char *s1, const char *s2, size_t n) {
+    for (size_t i = 0; i < n; i++) {
+        if (s1[i] != s2[i]) {
+            return (unsigned char)s1[i] - (unsigned char)s2[i];
+        }
+        if (s1[i] == '\0') {
+            return 0;
+        }
+    }
+    return 0;
+}
 
 void parse_kernel_cmdline() {
     uint8_t root_readonly = 0;
-    char rootfs_device[256] = "";
-    char init_binary_path[MAX_PATH] = "/bin/init";
     if (cmdline_request.response && cmdline_request.response->cmdline) {
         char* cmdline = cmdline_request.response->cmdline;
         while (*cmdline) {
@@ -77,19 +91,19 @@ void parse_kernel_cmdline() {
                 cmdline++;
                 continue;
             }
-            if (cmdline[0] == 'r' && cmdline[1] == 'o' && cmdline[2] != 'o') {
+            if (strncmp(cmdline, "ro ", 3) == 0) {
                 root_readonly = 1;
                 cmdline += 2;
                 continue;
             }
 
-            if (cmdline[0] == 'r' && cmdline[1] == 'w' && cmdline[2] == ' ') {
+            if (strncmp(cmdline, "rw ", 3) == 0) {
                 root_readonly = 0;
                 cmdline += 2;
                 continue;
             }
 
-            if (cmdline[0] == 'r' && cmdline[1] == 'o' && cmdline[2] == 'o' && cmdline[3] == 't' && cmdline[4] == '=') {
+            if (strncmp(cmdline, "root=", 5) == 0) {
                 cmdline += 5;
                 int i = 0;
                 while (*cmdline != ' ' && *cmdline != '\0' && i < sizeof(rootfs_device) - 1) {
@@ -99,7 +113,7 @@ void parse_kernel_cmdline() {
                 continue;
             }
 
-            if (cmdline[0] == 'i' && cmdline[1] == 'n' && cmdline[2] == 'i' && cmdline[3] == 't' && cmdline[4] == '=') {
+            if (strncmp(cmdline, "init=", 5) == 0) {
                 cmdline += 5;
                 // Read the init binary path
                 int i = 0;
@@ -110,13 +124,21 @@ void parse_kernel_cmdline() {
                 continue;
             }
 
+            if (strncmp(cmdline, "console=", 8) == 0) {
+                cmdline += 8;
+                // Read the console device
+                int i = 0;
+                while (*cmdline != ' ' && *cmdline != '\0' && i < sizeof(console_device) - 1) {
+                    console_device[i++] = *cmdline++;
+                }
+                console_device[i] = '\0';
+                continue;
+            }
+
             panic("Unknown kernel command line argument here: %s", cmdline);
         }
     }
     if (rootfs_device[0] == '\0') panic("Root filesystem not specified");
-    int res = mount_root_filesystem(rootfs_device, 0);
-    if (res < 0) panic("Mounting rootfs failed, error code: %d", res);
-    run_init(init_binary_path);
 }
 
 void kernel_main() {
@@ -132,11 +154,13 @@ void kernel_main() {
     scheduler_init();
     syscall_init();
     register_intree_filesystems();
+    parse_kernel_cmdline();
     framebuffer = framebuffer_request.response->framebuffers[0];
     fbdev_init(&framebuffer_request);
     tty_init();
-    initialize_console();
+    fbcon_init();
     serial_init();
+    console_init(console_device);
     partition_init();
     ata_register();
     free_region(0x0, 0x100000000);
@@ -147,5 +171,7 @@ void kernel_main() {
     init_fpu();
     time_base = rtc_get_timestamp();
 
-    parse_kernel_cmdline();
+    int res = mount_root_filesystem(rootfs_device, 0);
+    if (res < 0) panic("Mounting rootfs failed, error code: %d", res);
+    run_init(init_binary_path);
 }

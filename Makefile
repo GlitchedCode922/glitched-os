@@ -160,4 +160,4 @@ clean:
 	rm -rf build
 
 run: disk-image
-	qemu-system-x86_64 -m 4G -monitor stdio -drive file=build/disk.img,format=raw $(QEMUFLAGS)
+	qemu-system-x86_64 -m 4G -drive file=build/disk.img,format=raw $(QEMUFLAGS)

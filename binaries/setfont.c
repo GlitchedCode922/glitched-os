@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdint.h>
-#include <uapi/console.h>
+#include <uapi/fbcon.h>
 
 #define PSF1_FONT_MAGIC 0x0436
 

@@ -1,5 +1,5 @@
 #include "drivers/ps2_keyboard.h"
-#include "console.h"
+#include "fbcon.h"
 #include "drivers/tty.h"
 #include <stdint.h>
 
@@ -50,27 +50,27 @@ void ps2_interrupt_handler_internal(uint8_t scancode) {
 
     /* Arrow keys */
     if (extended && scancode == 0x48) {
-        tty_char_recv(console_tty_id, '\033');
-        tty_char_recv(console_tty_id, '[');
-        tty_char_recv(console_tty_id, 'A');
+        tty_char_recv(fbcon_tty_id, '\033');
+        tty_char_recv(fbcon_tty_id, '[');
+        tty_char_recv(fbcon_tty_id, 'A');
         return;
     }
     if (extended && scancode == 0x50) {
-        tty_char_recv(console_tty_id, '\033');
-        tty_char_recv(console_tty_id, '[');
-        tty_char_recv(console_tty_id, 'B');
+        tty_char_recv(fbcon_tty_id, '\033');
+        tty_char_recv(fbcon_tty_id, '[');
+        tty_char_recv(fbcon_tty_id, 'B');
         return;
     }
     if (extended && scancode == 0x4B) {
-        tty_char_recv(console_tty_id, '\033');
-        tty_char_recv(console_tty_id, '[');
-        tty_char_recv(console_tty_id, 'D');
+        tty_char_recv(fbcon_tty_id, '\033');
+        tty_char_recv(fbcon_tty_id, '[');
+        tty_char_recv(fbcon_tty_id, 'D');
         return;
     }
     if (extended && scancode == 0x4D) {
-        tty_char_recv(console_tty_id, '\033');
-        tty_char_recv(console_tty_id, '[');
-        tty_char_recv(console_tty_id, 'C');
+        tty_char_recv(fbcon_tty_id, '\033');
+        tty_char_recv(fbcon_tty_id, '[');
+        tty_char_recv(fbcon_tty_id, 'C');
         return;
     }
 
@@ -83,7 +83,7 @@ void ps2_interrupt_handler_internal(uint8_t scancode) {
         else key &= 0x1F;
     }
 
-    tty_char_recv(console_tty_id, key);
+    tty_char_recv(fbcon_tty_id, key);
 }
 
 void ps2_interrupt_handler(uint8_t scancode) {

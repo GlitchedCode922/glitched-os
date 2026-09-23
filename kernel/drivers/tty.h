@@ -15,6 +15,10 @@ typedef struct tty {
     char* name;
 } tty_t;
 
+extern tty_t* ttys[MAX_TTYS];
+extern int tty_count;
+extern int tty_driver_index;
+
 void tty_char_recv(int tty_id, char c);
 int64_t tty_read(int tty_id, uint64_t offset, uint8_t* buffer, uint64_t len);
 int64_t tty_write(int tty_id, uint64_t offset, const uint8_t* buffer, uint64_t len);

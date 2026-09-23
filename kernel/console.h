@@ -1,51 +1,14 @@
 #pragma once
 #include <stdint.h>
 #include <stdarg.h>
-#include "drivers/tty.h"
-#include "uapi/console.h" // IWYU pragma: export
 
-#define COLOR(r, g, b) ((uint8_t[]){(r), (g), (b)})
-
-extern uint32_t width;
-extern uint32_t height;
-
-extern tty_t console_tty;
 extern int console_tty_id;
 
-typedef struct {
-    enum {
-        TEXT,
-        ESCAPE,
-        CSI
-    } state;
-    int params[16];
-    int current_param;
-    int param_count;
-    int digit_added;
-} ansi_parser_t;
-
-typedef struct {
-    char c;
-    uint8_t fg[3];
-    uint8_t bg[3];
-    uint8_t padding;
-} character_t;
-
-void initialize_console();
-void setfont(font_t* font);
-char* colorize_bitmap(uint8_t index, int inv);
+void console_init(const char* device);
 void putchar(char c);
 void puts(const char *str);
-void clear_screen();
 void kprintf(const char *fmt, ...);
 void kvprintf(const char *fmt, va_list args);
 void kprintf_hex(uint64_t value);
 void kprintf_dec(uint64_t value);
 void kprintf_dec_signed(int64_t value);
-void setbg_color(uint8_t color[3]);
-void setfg_color(uint8_t color[3]);
-void set_cursor_position(uint16_t x, uint16_t y);
-void get_cursor_position(uint16_t *x, uint16_t *y);
-void scroll();
-int64_t console_echo(void* data, const uint8_t* buffer, uint64_t len);
-int64_t console_write(void* data, const uint8_t* buffer, uint64_t len);

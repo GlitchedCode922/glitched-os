@@ -50,13 +50,13 @@ operational:
 
 stack_trace_failed:
     panic_state = WAITING_INPUT;
-    kprintf("\nPress Enter to reboot...");
+    kprintf("\nPress any button to reboot...\n");
 
     char c = 0;
     asm volatile ("sti");
     input_disabled = 0;
-    console_tty.termios.c_lflag = 0;
-    while (c != '\n') tty_read(console_tty_id, 0, (uint8_t*)&c, 1);
+    ttys[console_tty_id]->termios.c_lflag = 0;
+    tty_read(console_tty_id, 0, (uint8_t*)&c, 1);
     panic_state = OPERATIONAL;
     reboot();
 }

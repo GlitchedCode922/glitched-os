@@ -7,7 +7,7 @@
 #include "drivers/timer.h"
 #include "memory/paging.h"
 #include "vfs.h"
-#include "console.h"
+#include "fbcon.h"
 #include "power.h"
 #include "panic.h"
 #include "error.h"
