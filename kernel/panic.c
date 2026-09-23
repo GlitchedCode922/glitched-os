@@ -55,8 +55,8 @@ stack_trace_failed:
     char c = 0;
     asm volatile ("sti");
     input_disabled = 0;
-    ttys[console_tty_id]->termios.c_lflag = 0;
-    tty_read(console_tty_id, 0, (uint8_t*)&c, 1);
+    if (tty_count != 0) ttys[console_tty_id]->termios.c_lflag = 0;
+    if (tty_count != 0) tty_read(console_tty_id, 0, (uint8_t*)&c, 1);
     panic_state = OPERATIONAL;
     reboot();
 }

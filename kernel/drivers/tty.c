@@ -20,7 +20,7 @@ void tty_char_recv(int tty_id, char c) {
     if (tty->termios.c_iflag & ISTRIP) c &= 0b01111111;
     if (tty->termios.c_iflag & ICRNL && c == '\r') c = '\n';
     if (tty->termios.c_lflag & ICANON) {
-        if (c == '\x7f') {
+        if (c == '\b' || c == '\x7f') {
             if (tty->line_index > 0) {
                 tty->line_index--;
                 erased = 1;
@@ -44,10 +44,10 @@ void tty_char_recv(int tty_id, char c) {
         tty->read_buffer[tty->write_head++] = c;
         tty->write_head %= 4096;
     }
-    if (tty->termios.c_lflag & ECHOE && tty->termios.c_lflag & ICANON && c == '\x7f') {
+    if (tty->termios.c_lflag & ECHOE && tty->termios.c_lflag & ICANON && (c == '\b' || c == '\x7f')) {
         const uint8_t erase[3] = "\b \b";
         if (erased) {
-            tty->echo(tty, erase, 3);
+            tty->echo(tty->data, erase, 3);
             if (!is_printable(tty->line_buffer[tty->line_index])) {
                 tty->echo(tty->data, erase, 3);
             }

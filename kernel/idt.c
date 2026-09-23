@@ -163,6 +163,10 @@ static int strcmp(char* p1, char* p2) {
 void breakpoint_debugger(iframe_t* iframe) {
     kprintf("Breakpoint hit at 0x%x\n", iframe->rip - 1);
     char buffer[4096];
+    if (tty_count == 0) {
+        while (*(uint8_t*)(iframe->rip) == 0xCC) iframe->rip++;
+        return;
+    }
     asm volatile ("sti");
     termios_t term = ttys[console_tty_id]->termios;
     ttys[console_tty_id]->termios.c_lflag = ICANON | ECHO | ECHOE;

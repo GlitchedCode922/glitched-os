@@ -1,6 +1,7 @@
 #include "console.h"
 #include "drivers/fbdev.h"
 #include "drivers/rtc.h"
+#include "fs/devfs.h"
 #include "limine.h"
 #include "fbcon.h"
 #include "panic.h"
@@ -67,6 +68,7 @@ static volatile LIMINE_REQUESTS_END_MARKER;
 extern volatile struct limine_framebuffer* framebuffer;
 volatile struct limine_framebuffer* framebuffer;
 char rootfs_device[256] = "";
+int console_specified = 0;
 char console_device[MAX_PATH] = "tty1";
 char init_binary_path[MAX_PATH] = "/bin/init";
 
@@ -127,6 +129,7 @@ void parse_kernel_cmdline() {
             if (strncmp(cmdline, "console=", 8) == 0) {
                 cmdline += 8;
                 // Read the console device
+                console_specified = 1;
                 int i = 0;
                 while (*cmdline != ' ' && *cmdline != '\0' && i < sizeof(console_device) - 1) {
                     console_device[i++] = *cmdline++;
@@ -155,12 +158,21 @@ void kernel_main() {
     syscall_init();
     register_intree_filesystems();
     parse_kernel_cmdline();
-    framebuffer = framebuffer_request.response->framebuffers[0];
-    fbdev_init(&framebuffer_request);
     tty_init();
-    fbcon_init();
+    if (framebuffer_request.response && framebuffer_request.response->framebuffer_count > 0) {
+        framebuffer = framebuffer_request.response->framebuffers[0];
+        fbdev_init(&framebuffer_request);
+        fbcon_init();
+    }
     serial_init();
-    console_init(console_device);
+    uint64_t tmp;
+    if (console_specified) {
+        console_init(console_device);
+    } else if (devfs_lookup("tty1", &tmp) >= 0) {
+        console_init("tty1");
+    } else if (devfs_lookup("ttyS0", &tmp) >= 0) {
+        console_init("ttyS0");
+    }
     partition_init();
     ata_register();
     free_region(0x0, 0x100000000);
