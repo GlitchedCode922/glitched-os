@@ -3,6 +3,7 @@
 #include "io/ports.h"
 #include "drivers/block.h"
 #include "error.h"
+#include "memory/paging.h"
 #include "uapi/ioctl.h"
 #include <stdint.h>
 #include <stddef.h>
@@ -431,8 +432,11 @@ int ata_load_eject(int drive, uint8_t load) {
 
 int ata_ioctl(int drive, uint64_t request, uint64_t arg) {
     switch (request) {
-        case HDIO_GET_SMART:
+        case HDIO_GET_SMART: {
+            int res = validate_user_pointer((void*)arg, 512, 1);
+            if (res < 0) return res;
             return ata_get_smart_data(drive, (void*)arg);
+        }
         case HDIO_STANDBY:
             return ata_standby(drive);
         case CDROM_LOAD:

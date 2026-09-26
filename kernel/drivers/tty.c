@@ -2,7 +2,9 @@
 #include <stdint.h>
 #include "error.h"
 #include "drivers/chrdev.h"
+#include "memory/paging.h"
 #include "uapi/ioctl.h"
+#include "uapi/termios.h"
 
 tty_t* ttys[MAX_TTYS];
 int tty_count = 0;
@@ -105,14 +107,19 @@ int tty_ioctl(int tty_id, uint64_t request, uint64_t arg) {
     tty_t* tty = ttys[tty_id];
     void* data_ptr = (void*)arg;
     switch (request) {
-        case TCGETS:
-            if (!data_ptr) return -EINVAL;
+        case TCGETS: {
+            int res = validate_user_pointer(data_ptr, sizeof(termios_t), 1);
+            if (res < 0) return res;
             *(termios_t*)data_ptr = tty->termios;
             return 0;
-        case TCSETS:
+        }
+        case TCSETS: {
+            int res = validate_user_pointer(data_ptr, sizeof(termios_t), 0);
+            if (res < 0) return res;
             if (!data_ptr) return -EINVAL;
             tty->termios = *(termios_t*)data_ptr;
             return 0;
+        }
         default:
             return -ENOTTY;
     }

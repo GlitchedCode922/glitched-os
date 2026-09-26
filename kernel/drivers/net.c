@@ -4,7 +4,9 @@
 #include <stddef.h>
 #include <stdint.h>
 #include "memory/mman.h"
+#include "memory/paging.h"
 #include "uapi/ioctl.h"
+#include "uapi/netif.h"
 #include "vfs.h"
 #include "fs/devfs.h"
 
@@ -181,11 +183,15 @@ int net_ioctl(int if_index, uint64_t request, uint64_t arg) {
     }
     if_info_t* ptr = (if_info_t*)arg;
     if (request == IF_GET_INFO) {
+        int res = validate_user_pointer(ptr, sizeof(if_info_t), 1);
+        if (res < 0) return res;
         memcpy(ptr->mac, net_interfaces[if_index].mac, 6);
         memcpy(ptr->ip, net_interfaces[if_index].ip, 4);
         memcpy(ptr->subnet, net_interfaces[if_index].subnet, 4);
         return 0;
     } else if (request == IF_CONFIGURE) {
+        int res = validate_user_pointer(ptr, sizeof(if_info_t), 0);
+        if (res < 0) return res;
         memcpy(net_interfaces[if_index].ip, ptr->ip, 4);
         memcpy(net_interfaces[if_index].subnet, ptr->subnet, 4);
         return 0;

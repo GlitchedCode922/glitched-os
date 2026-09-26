@@ -2,6 +2,8 @@
 #include "drivers/chrdev.h"
 #include "memory/mman.h"
 #include "error.h"
+#include "memory/paging.h"
+#include "uapi/fb.h"
 #include "uapi/ioctl.h"
 
 static volatile struct limine_framebuffer_response* fb_response;
@@ -76,6 +78,8 @@ int fbdev_ioctl(int minor_number, uint64_t request, uint64_t arg) {
     volatile struct limine_framebuffer* fb = fb_response->framebuffers[minor_number];
     if (request != FB_GET_INFO) return -ENOTTY;
     framebuffer_info_t* buffer = (framebuffer_info_t*)arg;
+    int res = validate_user_pointer(buffer, sizeof(framebuffer_info_t), 1);
+    if (res < 0) return res;
     *buffer = (framebuffer_info_t){
         .width = fb->width,
         .height = fb->height,
