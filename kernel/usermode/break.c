@@ -28,14 +28,10 @@ void* set_brk(void* addr) {
     uintptr_t new_page_end = page_align_up(new_brk);
 
     if (new_page_end > old_page_end) {
-        for (uintptr_t page = old_page_end; page < new_page_end; page += 0x1000) {
-            alloc_page(page, FLAGS_USER | FLAGS_RW);
-            memset((void*)page, 0, 4096);
-        }
+        alloc_region(old_page_end, new_page_end - old_page_end, FLAGS_USER | FLAGS_RW);
+        memset((void*)old_page_end, 0, new_page_end - old_page_end);
     } else if (new_page_end < old_page_end) {
-        for (uintptr_t page = new_page_end; page < old_page_end; page += 0x1000) {
-            free_page((void*)page);
-        }
+        free_region(new_page_end, old_page_end - new_page_end);
     }
 
     current_task->brk = addr;

@@ -145,9 +145,7 @@ void* find_available_va(size_t size) {
 void* kmalloc(size_t size) {
     void* ptr = find_available_va(PAGE_ALIGN(size) / PAGE_SIZE);
     // Allocate memory of the specified size
-    for (int i=0; i < PAGE_ALIGN(size); i += PAGE_SIZE) {
-        alloc_page((uintptr_t)ptr + i, FLAGS_PRESENT | FLAGS_RW);
-    }
+    alloc_region((uintptr_t)ptr, size, FLAGS_PRESENT | FLAGS_RW);
     memset(ptr, 0, size); // Initialize allocated memory to zero
     return ptr;
 }
@@ -178,42 +176,4 @@ void* krealloc(void* ptr, size_t old_size, size_t new_size) {
     kfree(ptr);
 
     return new_ptr;
-}
-
-void* alloc_region(uintptr_t vaddr, size_t size, uint64_t flags) {
-    for (uintptr_t i = vaddr; i < PAGE_ALIGN((vaddr + size)); i += PAGE_SIZE) {
-        // Allocate memory for the segment
-        void* addr = alloc_page(i, flags | FLAGS_PRESENT);
-        if (!addr) {
-            return 0; // Memory allocation failed
-        }
-    }
-    return (void*)vaddr;
-}
-
-void* alloc_mmio_region(uintptr_t vaddr, uintptr_t paddr, size_t size, uint64_t flags) {
-    uintptr_t phys = paddr;
-    for (uintptr_t i = vaddr; i < PAGE_ALIGN((vaddr + size)); i += PAGE_SIZE) {
-        // Allocate memory for the segment
-        void* addr = alloc_mmio_page(i, phys, flags | FLAGS_PRESENT);
-        if (!addr) {
-            return 0; // Memory allocation failed
-        }
-        phys += PAGE_SIZE;
-    }
-    return (void*)vaddr;
-}
-
-void* alloc_zero_region(uintptr_t vaddr, size_t size) {
-    for (uintptr_t i = vaddr; i < PAGE_ALIGN((vaddr + size)); i += PAGE_SIZE) {
-        alloc_zero_page(i);
-    }
-    return (void*)vaddr;
-}
-
-void free_region(uintptr_t vaddr, size_t size) {
-    for (uintptr_t i = vaddr; i < PAGE_ALIGN((vaddr + size)); i += PAGE_SIZE) {
-        // Free the allocated memory for the segment
-        free_page((void*)i);
-    }
 }
