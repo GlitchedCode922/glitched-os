@@ -30,6 +30,8 @@ typedef struct {
 void init_paging(uintptr_t cr3, struct limine_memmap_response *memmap, uintptr_t hhdm);
 void* alloc_page(uintptr_t addr, uint64_t flags);
 void* alloc_mmio_page(uintptr_t vaddr, uintptr_t paddr, uint64_t flags);
+void* alloc_zero_page(uintptr_t vaddr);
+uintptr_t get_available_address();
 uintptr_t get_physical_address(uintptr_t virtual_address);
 int validate_user_pointer(void* ptr, uint64_t len, int write);
 int validate_user_string(const char *str, uint64_t max_len);

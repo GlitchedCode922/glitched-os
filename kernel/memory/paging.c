@@ -11,6 +11,7 @@ struct limine_memmap_response *memory_map = NULL;
 uint32_t* memory_bitmap = NULL;
 uintptr_t first_usable = 0;
 uint64_t usable_page_count = 0;
+uintptr_t zero_page = 0;
 
 #define HIGHER_LEVEL_FLAGS (FLAGS_PRESENT | FLAGS_RW | FLAGS_USER)
 
@@ -77,7 +78,9 @@ void init_paging(uintptr_t cr3, struct limine_memmap_response *memmap, uintptr_t
     memory_bitmap = (uint32_t*)add_hhdm_to((uint64_t*)bitmap_phys);
 
     // Clear the bitmap and mark all pages as used
-    memset(memory_bitmap, 1, memory_bitmap_size);
+    for (int i = 0; i < memory_bitmap_size / 4; i++) {
+        memory_bitmap[i] = 1;
+    }
     // Mark usable segments as free
     for (uintptr_t i = 0; i < memory_map->entry_count; i++) {
         struct limine_memmap_entry *entry = memory_map->entries[i];
@@ -94,6 +97,9 @@ void init_paging(uintptr_t cr3, struct limine_memmap_response *memmap, uintptr_t
         size_t page = addr / PAGE_SIZE;
         memory_bitmap[page] = 1;
     }
+    zero_page = get_available_address();
+    memset(add_hhdm_to((void*)zero_page), 0, 4096);
+    memory_bitmap[zero_page / PAGE_SIZE] = 1;
 }
 
 page_address_t get_page_entry(uintptr_t addr) {
@@ -140,8 +146,7 @@ void* alloc_page(uintptr_t vaddr, uint64_t flags) {
         for (int i = 0; i < 512; i++) new_pdpt_hhdm[i] = 0;
         // install
         pml4[idx.pml4_index] = ((uintptr_t)new_pdpt & PAGE_MASK)
-                              | (flags & HIGHER_LEVEL_FLAGS)
-                              | FLAGS_PRESENT;
+                               | HIGHER_LEVEL_FLAGS;
         pml4e = pml4[idx.pml4_index];
     }
     uint64_t *pdpt = add_hhdm_to(page_table_to_address(pml4e));
@@ -154,8 +159,7 @@ void* alloc_page(uintptr_t vaddr, uint64_t flags) {
         if (!new_pd) panic("alloc_page: cannot allocate PD");
         for (int i = 0; i < 512; i++) new_pd_hhdm[i] = 0;
         pdpt[idx.pdpt_index] = ((uintptr_t)new_pd & PAGE_MASK)
-                              | (flags & HIGHER_LEVEL_FLAGS)
-                              | FLAGS_PRESENT;
+                              | HIGHER_LEVEL_FLAGS;
         pdpte = pdpt[idx.pdpt_index];
     }
     uint64_t *pd = add_hhdm_to(page_table_to_address(pdpte));
@@ -168,8 +172,7 @@ void* alloc_page(uintptr_t vaddr, uint64_t flags) {
         if (!new_pt) panic("alloc_page: cannot allocate PT");
         for (int i = 0; i < 512; i++) new_pt_hhdm[i] = 0;
         pd[idx.pd_index] = ((uintptr_t)new_pt & PAGE_MASK)
-                          | (flags & HIGHER_LEVEL_FLAGS)
-                          | FLAGS_PRESENT;
+                          | HIGHER_LEVEL_FLAGS;
         pde = pd[idx.pd_index];
     }
     uint64_t *pt = add_hhdm_to(page_table_to_address(pde));
@@ -204,8 +207,7 @@ void* alloc_mmio_page(uintptr_t vaddr, uintptr_t paddr, uint64_t flags) {
         for (int i = 0; i < 512; i++) new_pdpt_hhdm[i] = 0;
         // install
         pml4[idx.pml4_index] = ((uintptr_t)new_pdpt & PAGE_MASK)
-                              | (flags & HIGHER_LEVEL_FLAGS)
-                              | FLAGS_PRESENT;
+                              | HIGHER_LEVEL_FLAGS;
         pml4e = pml4[idx.pml4_index];
     }
     uint64_t *pdpt = add_hhdm_to(page_table_to_address(pml4e));
@@ -218,8 +220,7 @@ void* alloc_mmio_page(uintptr_t vaddr, uintptr_t paddr, uint64_t flags) {
         if (!new_pd) panic("alloc_page: cannot allocate PD");
         for (int i = 0; i < 512; i++) new_pd_hhdm[i] = 0;
         pdpt[idx.pdpt_index] = ((uintptr_t)new_pd & PAGE_MASK)
-                              | (flags & HIGHER_LEVEL_FLAGS)
-                              | FLAGS_PRESENT;
+                              | HIGHER_LEVEL_FLAGS;
         pdpte = pdpt[idx.pdpt_index];
     }
     uint64_t *pd = add_hhdm_to(page_table_to_address(pdpte));
@@ -232,8 +233,7 @@ void* alloc_mmio_page(uintptr_t vaddr, uintptr_t paddr, uint64_t flags) {
         if (!new_pt) panic("alloc_page: cannot allocate PT");
         for (int i = 0; i < 512; i++) new_pt_hhdm[i] = 0;
         pd[idx.pd_index] = ((uintptr_t)new_pt & PAGE_MASK)
-                          | (flags & HIGHER_LEVEL_FLAGS)
-                          | FLAGS_PRESENT;
+                          | HIGHER_LEVEL_FLAGS;
         pde = pd[idx.pd_index];
     }
     uint64_t *pt = add_hhdm_to(page_table_to_address(pde));
@@ -247,6 +247,12 @@ void* alloc_mmio_page(uintptr_t vaddr, uintptr_t paddr, uint64_t flags) {
                       | flags
                       | FLAGS_PRESENT;
 
+    return (void*)vaddr;
+}
+
+void* alloc_zero_page(uintptr_t vaddr) {
+    alloc_mmio_page(vaddr, zero_page, FLAGS_USER | FLAGS_COW);
+    memory_bitmap[zero_page / PAGE_SIZE] += 1;
     return (void*)vaddr;
 }
 
