@@ -1,6 +1,7 @@
 #include "drivers/ps2_keyboard.h"
 #include "fbcon.h"
 #include "drivers/tty.h"
+#include "io/8259pic.h"
 #include <stdint.h>
 
 #define KEY_RELEASE 0x80
@@ -27,7 +28,12 @@ uint8_t ctrl_pressed = 0;
 uint8_t alt_pressed = 0;
 uint8_t extended = 0;
 
-uint8_t input_disabled = 0;
+uint8_t input_disabled = 1;
+
+void ps2_init() {
+    input_disabled = 0;
+    pic_enable_irq(1);
+}
 
 void ps2_interrupt_handler_internal(uint8_t scancode) {
     if (scancode == EXTENDED_KEY) {

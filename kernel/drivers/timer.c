@@ -1,5 +1,6 @@
 #include "drivers/timer.h"
 #include "io/ports.h"
+#include "io/8259pic.h"
 #include <stdint.h>
 
 #define PIT_FREQUENCY 1000
@@ -39,6 +40,7 @@ uint64_t get_uptime_milliseconds() {
 void timer_init() {
     pit_set_frequency(PIT_FREQUENCY);
     pit_ticks = 0; // Reset ticks
+    pic_enable_irq(0); // Enable IRQ0 for PIT
 }
 
 int is_leap(int year) {

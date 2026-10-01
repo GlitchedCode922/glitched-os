@@ -160,8 +160,10 @@ void syscall(iframe_t* iframe) {
         }
         ret = validate_user_string((void*)arg2, MAX_PATH);
         if (ret < 0) break;
-        ret = validate_user_string((void*)arg3, 32);
-        if (ret < 0) break;
+        if (arg3) {
+            ret = validate_user_string((void*)arg3, 32);
+            if (ret < 0) break;
+        }
         ret = mount_filesystem((const char*)arg1, (const char*)arg2, (const char*)arg3, arg4);
         break;
     case SYSCALL_UNMOUNT:

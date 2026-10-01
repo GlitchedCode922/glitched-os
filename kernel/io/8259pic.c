@@ -80,9 +80,9 @@ void pic_init() {
     // Remap the PICs to avoid conflicts with other hardware
     pic_remap(32, 40);
 
-    // Enable all IRQs
-    outb(PIC1_DATA, 0x00); // Master PIC
-    outb(PIC2_DATA, 0x00); // Slave PIC
+    // Disable all IRQs
+    outb(PIC1_DATA, 0xFF); // Master PIC
+    outb(PIC2_DATA, 0xFF); // Slave PIC
 }
 
 void irq0_handler(iframe_t* iframe) {
