@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <unistd.h>
+#include <string.h>
 
 int atoi(const char *str) {
     int result = 0;
@@ -34,6 +35,10 @@ int main(int argc, char *argv[]) {
     int flags = 0;
     if (argc >= 5) {
         flags = atoi(argv[4]);
+    }
+
+    if (strcmp(filesystem_type, "auto") == 0) {
+        filesystem_type = NULL;
     }
 
     int result = mount(source, target, filesystem_type, flags);

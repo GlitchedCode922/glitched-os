@@ -229,27 +229,7 @@ int mount_filesystem(const char* source, const char* target, const char* type, i
     int fs_index = -1;
     block_device_t dev = {0};
 
-    if (strcmp(type, "auto") == 0) {
-        if (!source) return -EINVAL;
-        stat_t st;
-        int res = stat(source, &st);
-        if (res < 0) return res;
-        if (st.type != DT_BLOCK) return -ENOTBLK;
-        dev = (block_device_t){
-            .major_number = major(st.rdev),
-            .minor_number = minor(st.rdev),
-        };
-        for (int i = 0; i < filesystem_count; i++) {
-            filesystem_t* fs = &filesystems[i];
-            if (fs->requires_backing && fs->check && fs->check(dev)) {
-                fs_index = i;
-                break;
-            }
-        }
-        if (fs_index == -1) {
-            return -ENOSYS; // Filesystem type not found
-        }
-    } else {
+    if (type) {
         for (int i = 0; i < filesystem_count; i++) {
             if (strcmp(filesystems[i].name, type) == 0) {
                 fs_index = i;
@@ -270,6 +250,26 @@ int mount_filesystem(const char* source, const char* target, const char* type, i
                 .major_number = major(st.rdev),
                 .minor_number = minor(st.rdev),
             };
+        }
+    } else {
+        if (!source) return -EINVAL;
+        stat_t st;
+        int res = stat(source, &st);
+        if (res < 0) return res;
+        if (st.type != DT_BLOCK) return -ENOTBLK;
+        dev = (block_device_t){
+            .major_number = major(st.rdev),
+            .minor_number = minor(st.rdev),
+        };
+        for (int i = 0; i < filesystem_count; i++) {
+            filesystem_t* fs = &filesystems[i];
+            if (fs->requires_backing && fs->check && fs->check(dev)) {
+                fs_index = i;
+                break;
+            }
+        }
+        if (fs_index == -1) {
+            return -ENOSYS; // Filesystem type not found
         }
     }
 
