@@ -127,7 +127,7 @@ int ata_read_sectors(int drive, uint64_t lba, uint8_t *buffer, uint64_t count) {
 
     char to_retry[count];
 
-    for (uint8_t sector = 0; sector < count; sector++) {
+    for (uint64_t sector = 0; sector < count; sector++) {
         to_retry[sector] = 0;
 
         // Wait for BSY to clear and DRQ to set
@@ -145,36 +145,31 @@ int ata_read_sectors(int drive, uint64_t lba, uint8_t *buffer, uint64_t count) {
         }
     }
     // Retry reading sectors that had errors
-    for (uint8_t sector = 0; sector < count; sector++) {
+    for (uint64_t sector = 0; sector < count; sector++) {
         if (to_retry[sector]) {
             // Retry reading the sector
-            outb(bus_port + 2, 1); // Set sector count to 1
-
-            uint32_t retry_lba = lba + sector;
+            uint64_t retry_lba = lba + sector;
 
             while (inb(bus_port + 7) & 0x80);
 
             if (ata_supports_lba48(drive)) {
-                outb(bus_port + 2, (count >> 8) & 0xFF);  // sector count high
-                outb(bus_port + 3, (lba >> 24) & 0xFF);   // LBA low high
-                outb(bus_port + 4, (lba >> 32) & 0xFF);   // LBA mid high
-                outb(bus_port + 5, (lba >> 40) & 0xFF);   // LBA high high
+                outb(bus_port + 2, 0);  // sector count high
+                outb(bus_port + 3, (retry_lba >> 24) & 0xFF);   // LBA low high
+                outb(bus_port + 4, (retry_lba >> 32) & 0xFF);   // LBA mid high
+                outb(bus_port + 5, (retry_lba >> 40) & 0xFF);   // LBA high high
 
-                outb(bus_port + 2, count & 0xFF);         // sector count low
-                outb(bus_port + 3, lba & 0xFF);           // LBA low low
-                outb(bus_port + 4, (lba >> 8) & 0xFF);    // LBA mid low
-                outb(bus_port + 5, (lba >> 16) & 0xFF);   // LBA high low
+                outb(bus_port + 2, 1);         // sector count low
+                outb(bus_port + 3, retry_lba & 0xFF);           // LBA low low
+                outb(bus_port + 4, (retry_lba >> 8) & 0xFF);    // LBA mid low
+                outb(bus_port + 5, (retry_lba >> 16) & 0xFF);   // LBA high low
 
                 // Send extended read sectors command (0x24)
                 outb(bus_port + 7, 0x24);
             } else if (count < 256 && retry_lba < 0xFFFFFFF) {
-                // Set sector count
-                outb(bus_port + 2, count);
-
                 // Set LBA low, mid, high bytes
-                outb(bus_port + 3, (uint8_t)(lba & 0xFF));
-                outb(bus_port + 4, (uint8_t)((lba >> 8) & 0xFF));
-                outb(bus_port + 5, (uint8_t)((lba >> 16) & 0xFF));
+                outb(bus_port + 3, (uint8_t)(retry_lba & 0xFF));
+                outb(bus_port + 4, (uint8_t)((retry_lba >> 8) & 0xFF));
+                outb(bus_port + 5, (uint8_t)((retry_lba >> 16) & 0xFF));
 
                 // Send read sectors command (0x20)
                 outb(bus_port + 7, 0x20);
@@ -250,7 +245,7 @@ int ata_write_sectors(int drive, uint64_t lba, const uint8_t *buffer, uint64_t c
 
     char to_retry[count];
 
-    for (uint8_t sector = 0; sector < count; sector++) {
+    for (uint64_t sector = 0; sector < count; sector++) {
         to_retry[sector] = 0;
 
         // Wait for BSY to clear and DRQ to set
@@ -268,26 +263,23 @@ int ata_write_sectors(int drive, uint64_t lba, const uint8_t *buffer, uint64_t c
         }
     }
     // Retry writing sectors that had errors
-    for (uint8_t sector = 0; sector < count; sector++) {
+    for (uint64_t sector = 0; sector < count; sector++) {
         if (to_retry[sector]) {
             // Retry writing the sector
-
-            outb(bus_port + 2, 1); // Set sector count to 1
-
-            uint32_t retry_lba = lba + sector;
+            uint64_t retry_lba = lba + sector;
 
             while (inb(bus_port + 7) & 0x80);
 
             if (ata_supports_lba48(drive)) {
-                outb(bus_port + 2, 0);                    // sector count high
-                outb(bus_port + 3, (lba >> 24) & 0xFF);   // LBA low high
-                outb(bus_port + 4, (lba >> 32) & 0xFF);   // LBA mid high
-                outb(bus_port + 5, (lba >> 40) & 0xFF);   // LBA high high
+                outb(bus_port + 2, 0);                          // sector count high
+                outb(bus_port + 3, (retry_lba >> 24) & 0xFF);   // LBA low high
+                outb(bus_port + 4, (retry_lba >> 32) & 0xFF);   // LBA mid high
+                outb(bus_port + 5, (retry_lba >> 40) & 0xFF);   // LBA high high
 
-                outb(bus_port + 2, 1);                    // sector count low
-                outb(bus_port + 3, lba & 0xFF);           // LBA low low
-                outb(bus_port + 4, (lba >> 8) & 0xFF);    // LBA mid low
-                outb(bus_port + 5, (lba >> 16) & 0xFF);   // LBA high low
+                outb(bus_port + 2, 1);                          // sector count low
+                outb(bus_port + 3, retry_lba & 0xFF);           // LBA low low
+                outb(bus_port + 4, (retry_lba >> 8) & 0xFF);    // LBA mid low
+                outb(bus_port + 5, (retry_lba >> 16) & 0xFF);   // LBA high low
 
                 // Send extended write sectors command (0x34)
                 outb(bus_port + 7, 0x34);
@@ -296,9 +288,9 @@ int ata_write_sectors(int drive, uint64_t lba, const uint8_t *buffer, uint64_t c
                 outb(bus_port + 2, 1);
 
                 // Set LBA low, mid, high bytes
-                outb(bus_port + 3, (uint8_t)(lba & 0xFF));
-                outb(bus_port + 4, (uint8_t)((lba >> 8) & 0xFF));
-                outb(bus_port + 5, (uint8_t)((lba >> 16) & 0xFF));
+                outb(bus_port + 3, (uint8_t)(retry_lba & 0xFF));
+                outb(bus_port + 4, (uint8_t)((retry_lba >> 8) & 0xFF));
+                outb(bus_port + 5, (uint8_t)((retry_lba >> 16) & 0xFF));
 
                 // Send write sectors command (0x30)
                 outb(bus_port + 7, 0x30);
@@ -360,7 +352,7 @@ int ata_get_smart_data(int drive, uint8_t* buffer) {
 
 int ata_supports_lba48(int drive) {
     if (devices[drive].exists == 0) return 0;
-    return (devices[drive].identify[83] & 0x0400) == 0; // Check bit 10 of word 83 in IDENTIFY data
+    return devices[drive].identify[83] & 0x0400; // Check bit 10 of word 83 in IDENTIFY data
 }
 
 int64_t ata_get_drive_size(int drive) {
