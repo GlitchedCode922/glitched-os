@@ -3,6 +3,7 @@
 #include "panic.h"
 #include "drivers/ps2_keyboard.h"
 #include "drivers/tty.h"
+#include "error.h"
 #include <stdarg.h>
 #include <stdint.h>
 
@@ -56,7 +57,7 @@ stack_trace_failed:
     asm volatile ("sti");
     input_disabled = 0;
     if (tty_count != 0) ttys[console_tty_id]->termios.c_lflag = 0;
-    if (tty_count != 0) tty_read(console_tty_id, 0, (uint8_t*)&c, 1);
+    if (tty_count != 0) while (tty_read(console_tty_id, 0, (uint8_t*)&c, 1) == -EAGAIN);
     panic_state = OPERATIONAL;
     reboot();
 }
