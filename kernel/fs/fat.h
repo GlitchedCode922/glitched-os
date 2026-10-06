@@ -71,6 +71,7 @@ typedef struct __attribute__((packed)) {
 typedef struct {
     block_device_t backing;
     bpb_t bpb;
+    uint32_t* fat;
     fsinfo_t fsinfo;
     uint8_t read_only;
     uint32_t fat_size;

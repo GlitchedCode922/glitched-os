@@ -59,6 +59,13 @@ void* fat_mount(block_device_t device, int flags) {
     uint32_t max_clusters = data_sectors / data->bpb.sectors_per_cluster;
     data->last_free = data->fsinfo.next_free_cluster >= 2 && data->fsinfo.next_free_cluster < max_clusters ? data->fsinfo.next_free_cluster : 2;
     data->read_only = flags & FLAG_READ_ONLY;
+    data->fat = kmalloc(data->fat_size * data->bpb.bytes_per_sector);
+    int res = read_sectors(data->backing, data->bpb.reserved_sectors, (uint8_t*)data->fat, data->fat_size);
+    if (res < 0) {
+        kfree(data->fat);
+        kfree(data);
+        return NULL;
+    }
     return data;
 }
 
@@ -79,18 +86,12 @@ fsinfo_t fat_get_fsinfo() {
 }
 
 uint32_t read_fat(uint32_t cluster) {
-    uint32_t fat_offset = cluster * 4;
-    uint32_t fat_sector = data->bpb.reserved_sectors + (fat_offset / data->bpb.bytes_per_sector);
-    uint32_t ent_offset = fat_offset % data->bpb.bytes_per_sector;
-
-    uint8_t sector_buffer[512];
-    read_sectors(data->backing, fat_sector, sector_buffer, 1);
-
-    return *(uint32_t*)&sector_buffer[ent_offset];
+    return data->fat[cluster];
 }
 
 void write_fat(uint32_t cluster, uint32_t content) {
     // Update all FAT copies
+    data->fat[cluster] = content;
     uint32_t fat_offset = cluster * 4;
     uint32_t fat_sector = data->bpb.reserved_sectors + (fat_offset / data->bpb.bytes_per_sector);
     uint32_t ent_offset = fat_offset % data->bpb.bytes_per_sector;
