@@ -56,7 +56,7 @@ void syscall(iframe_t* iframe) {
     asm volatile("sti");
     switch (syscall_number) {
     case SYSCALL_EXIT:
-        exit((int)arg1);
+        exit(iframe, (int)arg1);
         break;
     case SYSCALL_CREATE_FILE:
         ret = validate_user_string((const char*)arg1, MAX_PATH);

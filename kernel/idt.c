@@ -205,7 +205,7 @@ void interrupt_handler(iframe_t* iframe) {
         decode_pfec_flags(error_code, flags);
         if (iframe->cs == USER_CS) {
             kprintf("Page fault in process with PID %d at address 0x%x, error code: 0x%x\n%s", current_task->pid, cr2, error_code, flags);
-            exit(-vector);
+            exit(iframe, -vector);
         } else {
             panic_int(iframe->rbp, "Page fault in kernel at address: 0x%x, error code: 0x%x\n%s", cr2, error_code, flags);
         }
@@ -213,7 +213,7 @@ void interrupt_handler(iframe_t* iframe) {
         // General protection fault
         if (iframe->cs == USER_CS) {
             kprintf("#GP in process with PID %d, error code: 0x%x\n", current_task->pid, error_code);
-            exit(-vector);
+            exit(iframe, -vector);
         } else {
             panic_int(iframe->rbp, "#GP in kernel, error code: 0x%x\n", error_code);
         }
@@ -224,7 +224,7 @@ void interrupt_handler(iframe_t* iframe) {
     } else if (vector < 32) {
         if (iframe->cs == USER_CS) {
             kprintf("%s in process with PID %d, error code: 0x%x\n", exception_names[vector], current_task->pid, error_code);
-            exit(-vector);
+            exit(iframe, -vector);
         } else {
             panic_int(iframe->rbp, "%s in kernel, error code: 0x%x\n", exception_names[vector], error_code);
         }

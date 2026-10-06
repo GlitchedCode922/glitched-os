@@ -53,7 +53,7 @@ extern int64_t ticks_remaining;
 void scheduler_init();
 void run_init(char* path);
 void run_next(iframe_t* iframe);
-void exit(int ret);
+void exit(iframe_t* iframe, int ret);
 int fork(iframe_t* iframe);
 int spawn(char* path, char** argv, char** envp, iframe_t* iframe);
 int execve(char* path, char** argv, char** envp, iframe_t* iframe);
