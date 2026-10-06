@@ -27,7 +27,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    char dest_path[2048];
+    char dest_path[4096];
 
     if (stat(argv[2], &st_dest) == 0 && st_dest.type == DT_DIR) {
         // Separate the filename from the source path
@@ -60,26 +60,26 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    char buffer[8192];
-    FILE* fp_read = fopen(argv[1], "r");
-
-    if (fp_read == NULL) {
+    char buffer[65536];
+    int fd_read = open(argv[1], O_RDONLY);
+    if (fd_read < 0) {
         perror(argv[1]);
         return 1;
     }
 
-    FILE* fp_write = fopen(dest_path, "w");
-    if (fp_write < 0) {
+    int fd_write = open(dest_path, O_WRONLY | O_CREAT | O_TRUNC);
+    if (fd_write < 0) {
         perror(dest_path);
         return 1;
     }
-    int64_t bytes_read, bytes_written;
-    while ((bytes_read = fread(buffer, 1, sizeof(buffer), fp_read)) != 0) {
+
+    ssize_t bytes_read, bytes_written;
+    while ((bytes_read = read(fd_read, buffer, sizeof(buffer))) != 0) {
         if (bytes_read < 0) {
             perror("Error reading from source file");
             return 1;
         }
-        bytes_written = fwrite(buffer, 1, bytes_read, fp_write);
+        bytes_written = write(fd_write, buffer, bytes_read);
         if (bytes_written < 0) {
             perror("Error writing to destination file");
             return 1;
@@ -93,8 +93,8 @@ int main(int argc, char** argv) {
         perror("Error deleting source file");
         return 1;
     }
-    fclose(fp_read);
-    fclose(fp_write);
+    close(fd_read);
+    close(fd_write);
 
     return 0;
 }
