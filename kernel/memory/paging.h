@@ -31,7 +31,7 @@ typedef struct {
 void init_paging(uintptr_t cr3, struct limine_memmap_response *memmap, uintptr_t hhdm);
 void* alloc_region(uintptr_t vaddr, size_t size, uint64_t flags);
 void* alloc_mmio_region(uintptr_t vaddr, uintptr_t paddr, size_t size, uint64_t flags);
-void* alloc_zero_region(uintptr_t vaddr, size_t size);
+void* alloc_zero_region(uintptr_t vaddr, size_t size, uint64_t flags);
 uintptr_t get_available_address();
 uintptr_t get_physical_address(uintptr_t virtual_address);
 int validate_user_pointer(void* ptr, uint64_t len, int write);

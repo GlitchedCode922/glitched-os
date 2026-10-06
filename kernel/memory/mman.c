@@ -123,7 +123,7 @@ void kfree(void *ptr) {
 }
 
 void* find_available_va(size_t size) {
-    for (int i = 0; i <= map_index; i++) {
+    for (uint64_t i = 0; i < map_index; i++) {
         if (map[i].free && map[i].pages >= size) {
             if (map[i].pages > size) {
                 map[map_index].free = 1;
@@ -158,7 +158,7 @@ void* krealloc(void* ptr, size_t old_size, size_t new_size) {
     if (ptr == NULL) {
         return kmalloc(new_size);
     }
-    
+
     if (new_size == 0) {
         kfree(ptr);
         return NULL;

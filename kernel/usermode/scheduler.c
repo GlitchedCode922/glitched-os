@@ -105,7 +105,7 @@ void run_init(char* path) {
     }
     init_task.parent = &init_task;
     init_task.brk = init_task.initial_brk;
-    alloc_zero_region(0x10000000000, 4096 * 128);
+    alloc_zero_region(0x10000000000, 4096 * 128, FLAGS_USER | FLAGS_RW);
     void* kstack = (char*)kmalloc(4096 * 32) + 4096 * 32;
     init_task.kernel_stack = kstack;
     tss.rsp0 = (uint64_t)kstack;
@@ -321,7 +321,7 @@ int add_task(char* path, char** argv, char** envp, task_t* parent, int pid, ifra
     new_task->brk = new_task->initial_brk;
 
     // Allocate user stack
-    alloc_zero_region(0x10000000000, 4096 * 128);
+    alloc_zero_region(0x10000000000, 4096 * 128, FLAGS_USER | FLAGS_RW);
     uintptr_t user_stack = 0x10000000000 + 4096 * 128;
 
     // Temporary array for string addresses on user stack
