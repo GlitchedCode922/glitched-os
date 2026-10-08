@@ -73,7 +73,7 @@ int main() {
 
     if_info_t if_info;
     // Get MAC address of the network card
-    int if_fd = open("/dev/eth0", O_RDONLY);
+    int if_fd = open("/dev/net/eth0", O_RDONLY);
     res = ioctl(if_fd, IF_GET_INFO, &if_info);
     if (res < 0) {
         perror("ioctl");
@@ -199,8 +199,8 @@ int main() {
     memcpy(if_info.ip, ip, 4);
     memcpy(if_info.subnet, subnet_mask, 4);
     ioctl(if_fd, IF_CONFIGURE, &if_info);
-    add_route(ip, (uint8_t[4]){0, 0, 0, 0}, subnet_mask, "/dev/eth0");
-    add_route((uint8_t[4]){0, 0, 0, 0}, router_ip, (uint8_t[4]){0, 0, 0, 0}, "/dev/eth0");
+    add_route(ip, (uint8_t[4]){0, 0, 0, 0}, subnet_mask, "/dev/net/eth0");
+    add_route((uint8_t[4]){0, 0, 0, 0}, router_ip, (uint8_t[4]){0, 0, 0, 0}, "/dev/net/eth0");
 
     return 0;
 }

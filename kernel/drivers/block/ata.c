@@ -4,13 +4,14 @@
 #include "drivers/block.h"
 #include "error.h"
 #include "memory/paging.h"
+#include "fs/devfs.h"
 #include "uapi/ioctl.h"
 #include <stdint.h>
 #include <stddef.h>
 
 static ata_device_t devices[4] = {0};
-static char* ata_dev_names[4] = {"sda", "sdb", "sdc", "sdd"};
-static char* atapi_dev_names[4] = {"sr0", "sr1", "sr2", "sr3"};
+static char* ata_dev_names[4] = {"block/sda", "block/sdb", "block/sdc", "block/sdd"};
+static char* atapi_dev_names[4] = {"block/sr0", "block/sr1", "block/sr2", "block/sr3"};
 
 void scan_for_devices() {
     devices[0] = detect_device(PRIMARY_BUS, 0xA0);
@@ -477,6 +478,7 @@ void ata_register() {
                 .name = name,
                 .is_partition = 0,
             };
+            devfs_create_directory("block");
             register_block_device(&device);
         }
     }

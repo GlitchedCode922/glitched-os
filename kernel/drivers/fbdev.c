@@ -1,5 +1,6 @@
 #include "drivers/fbdev.h"
 #include "drivers/chrdev.h"
+#include "fs/devfs.h"
 #include "memory/mman.h"
 #include "error.h"
 #include "memory/paging.h"
@@ -43,15 +44,15 @@ void fbdev_init(volatile struct limine_framebuffer_request *req) {
     if (driver_index <= 0) return;
     for (int i = 0; i < fb_response->framebuffer_count; i++) {
         char* name = kmalloc(64);
-        name[0] = 'f';
-        name[1] = 'b';
-        itoa(i, name + 2);
+        memcpy(name, "graphics/fb", 12);
+        itoa(i, name + 11);
         char_device_t dev = {
             .major_number = driver_index,
             .minor_number = i,
             .name = name,
         };
-        register_char_device(&dev);
+        devfs_create_directory("graphics");
+        devfs_mknod(name, DT_CHAR, makedev(driver_index, i));
     }
 }
 

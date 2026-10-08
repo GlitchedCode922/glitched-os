@@ -1,5 +1,6 @@
 #include "drivers/nulldev.h"
 #include "drivers/chrdev.h"
+#include "fs/devfs.h"
 #include "memory/mman.h"
 #include "error.h"
 #include <stdint.h>
@@ -46,7 +47,7 @@ int register_null_devices() {
         .minor_number = 1,
         .name = "zero",
     };
-    register_char_device(&null_device);
-    register_char_device(&zero_device);
+    devfs_mknod(null_device.name, DT_CHAR, makedev(driver, 0));
+    devfs_mknod(zero_device.name, DT_CHAR, makedev(driver, 1));
     return 0;
 }

@@ -19,4 +19,3 @@ int64_t char_read(char_device_t device, uint64_t offset, uint8_t *buffer, uint64
 int64_t char_write(char_device_t device, uint64_t offset, const uint8_t *buffer, uint64_t size);
 int char_ioctl(char_device_t device, uint64_t request, uint64_t arg);
 int register_char_driver(char_driver_t *driver);
-int register_char_device(char_device_t *device);

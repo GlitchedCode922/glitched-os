@@ -1,6 +1,7 @@
 #include "drivers/tty.h"
 #include <stdint.h>
 #include "error.h"
+#include "fs/devfs.h"
 #include "drivers/chrdev.h"
 #include "memory/paging.h"
 #include "uapi/ioctl.h"
@@ -145,7 +146,7 @@ int register_tty(tty_t *tty) {
             .minor_number = tty_count,
             .name = tty->name,
         };
-        register_char_device(&dev);
+        devfs_mknod(dev.name, DT_CHAR, makedev(tty_driver_index, tty_count));
     }
     return tty_count++;
 }

@@ -1,6 +1,4 @@
 #include "drivers/chrdev.h"
-#include "fs/devfs.h"
-#include "vfs.h"
 #include "error.h"
 #include <stdint.h>
 
@@ -12,17 +10,6 @@ int register_char_driver(char_driver_t *driver) {
     driver->present = 1;
     char_drivers[++char_driver_count] = *driver;
     return char_driver_count;
-}
-
-int register_char_device(char_device_t *device) {
-    if (device->name) {
-        devfs_mknod(
-            device->name,
-            DT_CHAR,
-            makedev(device->major_number, device->minor_number)
-        );
-    }
-    return 0;
 }
 
 int64_t char_read(char_device_t device, uint64_t offset, uint8_t *buffer, uint64_t size) {

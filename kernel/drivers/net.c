@@ -138,9 +138,9 @@ int register_net_interface(int driver, int driver_local_index) {
     memset(iface->ip, 0, 4);
     memset(iface->subnet, 0, 4);
     // Generate a default name like "eth0", "eth1", etc.
-    char default_name[32] = "eth";
+    char default_name[32] = "net/eth";
     // Append the interface count to the name
-    int len = 3;
+    int len = 7;
     if (net_interface_count < 10) {
         default_name[len++] = '0' + net_interface_count;
     } else if (net_interface_count < 100) {
@@ -148,6 +148,7 @@ int register_net_interface(int driver, int driver_local_index) {
         default_name[len++] = '0' + (net_interface_count % 10);
     }
     default_name[len] = '\0';
+    devfs_create_directory("net");
     devfs_mknod(default_name, DT_CHAR, makedev(net_driver_index, net_interface_count));
 
     // Initialize MAC address to zero

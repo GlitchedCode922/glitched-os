@@ -68,7 +68,7 @@ static volatile LIMINE_REQUESTS_END_MARKER;
 
 extern volatile struct limine_framebuffer* framebuffer;
 volatile struct limine_framebuffer* framebuffer;
-char rootfs_device[256] = "";
+char rootfs_device[MAX_PATH] = "";
 int console_specified = 0;
 char console_device[MAX_PATH] = "tty1";
 char init_binary_path[MAX_PATH] = "/bin/init";
