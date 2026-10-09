@@ -30,12 +30,14 @@ uint8_t extended = 0;
 
 uint8_t input_disabled = 1;
 
-void ps2_init() {
+void keyboard_init() {
     input_disabled = 0;
     pic_enable_irq(1);
 }
 
-void ps2_interrupt_handler_internal(uint8_t scancode) {
+void keyboard_interrupt_handler(uint8_t scancode) {
+    if (input_disabled) return;
+    input_disabled++;
     if (scancode == EXTENDED_KEY) {
         extended = 2;
     } else {
@@ -47,41 +49,41 @@ void ps2_interrupt_handler_internal(uint8_t scancode) {
         if (scancode == 0x2A || scancode == 0x36) shifted = 0;
         else if (scancode == 0x1D) ctrl_pressed = 0;
         else if (scancode == 0x38) alt_pressed = 0;
-        return;
+        goto end;
     }
 
-    if (scancode == 0x2A || scancode == 0x36) { shifted = 1; return; }
-    if (scancode == 0x1D) { ctrl_pressed = 1; return; }
-    if (scancode == 0x38) { alt_pressed = 1; return; }
+    if (scancode == 0x2A || scancode == 0x36) { shifted = 1; goto end; }
+    if (scancode == 0x1D) { ctrl_pressed = 1; goto end; }
+    if (scancode == 0x38) { alt_pressed = 1; goto end; }
 
     /* Arrow keys */
     if (extended && scancode == 0x48) {
         tty_char_recv(fbcon_tty_id, '\033');
         tty_char_recv(fbcon_tty_id, '[');
         tty_char_recv(fbcon_tty_id, 'A');
-        return;
+        goto end;
     }
     if (extended && scancode == 0x50) {
         tty_char_recv(fbcon_tty_id, '\033');
         tty_char_recv(fbcon_tty_id, '[');
         tty_char_recv(fbcon_tty_id, 'B');
-        return;
+        goto end;
     }
     if (extended && scancode == 0x4B) {
         tty_char_recv(fbcon_tty_id, '\033');
         tty_char_recv(fbcon_tty_id, '[');
         tty_char_recv(fbcon_tty_id, 'D');
-        return;
+        goto end;
     }
     if (extended && scancode == 0x4D) {
         tty_char_recv(fbcon_tty_id, '\033');
         tty_char_recv(fbcon_tty_id, '[');
         tty_char_recv(fbcon_tty_id, 'C');
-        return;
+        goto end;
     }
 
     char key = shifted ? scancode_shift_map[scancode] : scancode_map[scancode];
-    if (!key) return;
+    if (!key) goto end;
 
     if (ctrl_pressed) {
         if (key == ' ') key = '\0';
@@ -90,11 +92,6 @@ void ps2_interrupt_handler_internal(uint8_t scancode) {
     }
 
     tty_char_recv(fbcon_tty_id, key);
-}
-
-void ps2_interrupt_handler(uint8_t scancode) {
-    if (input_disabled) return;
-    input_disabled++;
-    ps2_interrupt_handler_internal(scancode);
+end: 
     input_disabled--;
 }

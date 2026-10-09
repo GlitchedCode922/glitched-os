@@ -105,7 +105,7 @@ void irq1_handler() {
 
     uint8_t scancode = inb(0x60); // Read scancode from keyboard data port
 
-    ps2_interrupt_handler(scancode);
+    keyboard_interrupt_handler(scancode);
 
     pic_send_eoi(1); // Send EOI to PIC for IRQ1
 }

@@ -19,6 +19,7 @@
 #include "drivers/fpu.h"
 #include "drivers/timer.h"
 #include "io/pci.h"
+#include "io/ps2.h"
 #include "drivers/serial.h"
 #include "usermode/scheduler.h"
 #include "usermode/syscalls.h"
@@ -167,6 +168,7 @@ void kernel_main() {
     }
     serial_init();
     ps2_init();
+    keyboard_init();
     uint64_t tmp;
     if (console_specified) {
         console_init(console_device);
