@@ -6,5 +6,5 @@
 
 extern uint8_t input_disabled;
 
-void keyboard_init();
-void keyboard_interrupt_handler(uint8_t scancode);
+void ps2_keyboard_init();
+void ps2_keyboard_handler(uint8_t scancode);

@@ -141,7 +141,7 @@ int64_t read(int fd, void *buffer, size_t size) {
         }
         if (bytes_read > 0) file_description->offset += bytes_read;
     } else if (file_description->type == FD_TYPE_PIPE) {
-        bytes_read = pipe_read(file_description->pipe, buffer, size);
+        bytes_read = pipe_read(file_description->pipe, buffer, size, 1);
     }
     return bytes_read;
 }
@@ -160,7 +160,7 @@ int64_t write(int fd, const void *buffer, size_t size) {
         bytes_written = write_file(file_description->file_handle, buffer, file_description->offset, size);
         if (bytes_written > 0) file_description->offset += bytes_written;
     } else if (file_description->type == FD_TYPE_PIPE) {
-        bytes_written = pipe_write(file_description->pipe, buffer, size);
+        bytes_written = pipe_write(file_description->pipe, buffer, size, 1);
     }
     return bytes_written;
 }

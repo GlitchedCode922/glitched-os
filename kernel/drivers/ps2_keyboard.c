@@ -30,12 +30,12 @@ uint8_t extended = 0;
 
 uint8_t input_disabled = 1;
 
-void keyboard_init() {
+void ps2_keyboard_init() {
     input_disabled = 0;
     pic_enable_irq(1);
 }
 
-void keyboard_interrupt_handler(uint8_t scancode) {
+void ps2_keyboard_handler(uint8_t scancode) {
     if (input_disabled) return;
     input_disabled++;
     if (scancode == EXTENDED_KEY) {
@@ -92,6 +92,6 @@ void keyboard_interrupt_handler(uint8_t scancode) {
     }
 
     tty_char_recv(fbcon_tty_id, key);
-end: 
+end:
     input_disabled--;
 }

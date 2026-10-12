@@ -37,17 +37,7 @@ int register_null_devices() {
     int driver = register_char_driver(&null_driver);
     if (driver < 0) return driver;
     if (driver == 0) return -1;
-    char_device_t null_device = {
-        .major_number = driver,
-        .minor_number = 0,
-        .name = "null",
-    };
-    char_device_t zero_device = {
-        .major_number = driver,
-        .minor_number = 1,
-        .name = "zero",
-    };
-    devfs_mknod(null_device.name, DT_CHAR, makedev(driver, 0));
-    devfs_mknod(zero_device.name, DT_CHAR, makedev(driver, 1));
+    devfs_mknod("null", DT_CHAR, makedev(driver, 0));
+    devfs_mknod("zero", DT_CHAR, makedev(driver, 1));
     return 0;
 }

@@ -10,7 +10,6 @@
 #include "drivers/block/ata.h"
 #include "drivers/partitions.h"
 #include "drivers/nulldev.h"
-#include "drivers/ps2_keyboard.h"
 #include "vfs.h"
 #include "gdt.h"
 #include "idt.h"
@@ -168,7 +167,6 @@ void kernel_main() {
     }
     serial_init();
     ps2_init();
-    keyboard_init();
     uint64_t tmp;
     if (console_specified) {
         console_init(console_device);

@@ -1,9 +1,9 @@
 #include "io/ports.h"
 #include "io/8259pic.h"
 #include "io/pci.h"
+#include "io/ps2.h"
 #include "usermode/scheduler.h"
 #include "drivers/timer.h"
-#include "drivers/ps2_keyboard.h"
 #include "drivers/serial.h"
 #include <stdint.h>
 
@@ -83,6 +83,7 @@ void pic_init() {
     // Disable all IRQs
     outb(PIC1_DATA, 0xFF); // Master PIC
     outb(PIC2_DATA, 0xFF); // Slave PIC
+    pic_enable_irq(2);
 }
 
 void irq0_handler(iframe_t* iframe) {
@@ -102,11 +103,7 @@ void irq0_handler(iframe_t* iframe) {
 
 void irq1_handler() {
     // Handle IRQ1 (keyboard interrupt)
-
-    uint8_t scancode = inb(0x60); // Read scancode from keyboard data port
-
-    keyboard_interrupt_handler(scancode);
-
+    ps2_handler(0);
     pic_send_eoi(1); // Send EOI to PIC for IRQ1
 }
 
@@ -127,6 +124,12 @@ void irq7_handler() {
     if(isr & (1 << 7)) {
         spurious_interrupts++;
     }
+}
+
+void irq12_handler() {
+    // Handle IRQ12 (mouse interrupt)
+    ps2_handler(1);
+    pic_send_eoi(12); // Send EOI to PIC for IRQ12
 }
 
 void irq15_handler() {
@@ -155,6 +158,9 @@ void irq_handler(int irq, iframe_t* iframe) {
             break;
         case 7:
             irq7_handler();
+            break;
+        case 12:
+            irq12_handler();
             break;
         case 15:
             irq15_handler();

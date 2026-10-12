@@ -21,7 +21,7 @@ void remove_pipe_writer(pipe_t* pipe) {
     if (pipe->reader_count == 0 && pipe->writer_count == 0) kfree(pipe);
 }
 
-int64_t pipe_read(pipe_t* pipe, void* buffer, uint64_t len) {
+int64_t pipe_read(pipe_t* pipe, void* buffer, uint64_t len, uint8_t blocking) {
     uint64_t max_bytes = 0;
     if (pipe->write_head >= pipe->read_head) {
         while (pipe->write_head == pipe->read_head) {
@@ -46,7 +46,7 @@ int64_t pipe_read(pipe_t* pipe, void* buffer, uint64_t len) {
     }
 }
 
-int64_t pipe_write(pipe_t* pipe, const void* buffer, uint64_t len) {
+int64_t pipe_write(pipe_t* pipe, const void* buffer, uint64_t len, uint8_t blocking) {
     int64_t max_bytes = (pipe->read_head - pipe->write_head - 1 + PIPE_SIZE) % PIPE_SIZE;
     int64_t remaining = 0;
     if (len > max_bytes) {
@@ -73,7 +73,7 @@ int64_t pipe_write(pipe_t* pipe, const void* buffer, uint64_t len) {
             if (pipe->reader_count == 0) return -EPIPE;
             yield_current();
         }
-        return len + pipe_write(pipe, buffer + len, remaining);
+        return len + pipe_write(pipe, buffer + len, remaining, blocking);
     }
     return len;
 }
