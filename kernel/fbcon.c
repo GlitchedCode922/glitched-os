@@ -360,8 +360,8 @@ int64_t fbcon_write(void* data, const uint8_t* buffer, uint64_t len) {
                     case 'H':
                     case 'f':
                         set_cursor_position(
-                            ansi_parser.params[1] ? ansi_parser.params[1] - 1 : 0
-                            ansi_parser.params[0] ? ansi_parser.params[0] - 1 : 0,
+                            ansi_parser.params[1] ? ansi_parser.params[1] - 1 : 0,
+                            ansi_parser.params[0] ? ansi_parser.params[0] - 1 : 0
                         );
                         break;
                     case 'J':
