@@ -1,4 +1,5 @@
 #include "usermode/scheduler.h"
+#include "idt.h"
 #include "uapi/vvar.h"
 #include "usermode/fd.h"
 #include "usermode/syscalls.h"
@@ -10,6 +11,7 @@
 #include "gdt.h"
 #include "panic.h"
 #include "error.h"
+#include <stddef.h>
 #include <stdint.h>
 
 extern void jump_to_user(void* rip, void* rsp);
@@ -65,6 +67,9 @@ void gc_tasks() {
     }
 }
 
+extern const uint8_t sigtramp_start[];
+extern const uint8_t sigtramp_end[];
+
 void scheduler_init() {
     asm volatile(
         "mov %%cr3, %0"
@@ -83,6 +88,11 @@ void scheduler_init() {
     idle_task.is_kworker = 1;
     vvar_paddr = allocate_physical_page();
     vvar_vaddr = (vvar_t*)add_hhdm_to((uint64_t*)vvar_paddr);
+    uint64_t sigtramp_size = sigtramp_end - sigtramp_start;
+    if (sigtramp_size > sizeof(vvar_vaddr->signal_trampoline)) {
+        panic("Signal trampoline too large");
+    }
+    memcpy(vvar_vaddr->signal_trampoline, sigtramp_start, sigtramp_size);
 }
 
 vvar_t* get_vvar_addr() {
@@ -120,9 +130,53 @@ void run_init(char* path) {
     init_task.kernel_stack = kstack;
     tss.rsp0 = (uint64_t)kstack;
     init_task.fpu_state = kmalloc(fpu_memory_size);
+    init_task.signal_interrupted_fpu_state = kmalloc(fpu_memory_size);
     current_task = &init_task;
     scheduler_initialized = 1;
     jump_to_user(addr, (char*)0x10000000000 + 4096 * 128 - 16);
+}
+
+void deliver_signals() {
+    if (!current_task->pending_signals) return;
+    if (current_task->in_signal) return;
+    for (int i = 0; i < 32; i++) {
+        if (!(current_task->pending_signals & (1 << i))) continue;
+        current_task->pending_signals &= ~(1 << i);
+        sigaction_t* action = &current_task->signal_handlers[i];
+        if (action->handler == SIG_DFL) {
+            if (signal_default_actions[i] == SIGNAL_TERMINATE) {
+                exit(current_task->iframe, -i);
+            }
+        } else if (action->handler != SIG_IGN) {
+            current_task->signal_interrupted_iframe = *current_task->iframe;
+            memcpy(
+                current_task->signal_interrupted_fpu_state,
+                current_task->fpu_state, fpu_memory_size
+            );
+            current_task->iframe->rip = (uintptr_t)action->handler;
+            current_task->iframe->rdi = i;
+            current_task->iframe->rsp &= ~15;
+            current_task->iframe->rsp -= sizeof(uintptr_t);
+            *(uintptr_t*)(current_task->iframe->rsp) =
+                0x10000000000 + 4096 * 128 + offsetof(vvar_t, signal_trampoline);
+            current_task->in_signal = 1;
+        }
+    }
+}
+
+void sigreturn() {
+    if (!current_task->in_signal) return;
+    current_task->in_signal = 0;
+    *current_task->iframe = current_task->signal_interrupted_iframe;
+    memcpy(
+        current_task->fpu_state,
+        current_task->signal_interrupted_fpu_state,
+        fpu_memory_size
+    );
+    deliver_signals();
+    restore_fpu(current_task->fpu_state);
+    current_task->iframe->rflags |= 0x200;
+    context_switch(current_task->iframe);
 }
 
 static void switch_task() {
@@ -138,8 +192,9 @@ static void switch_task() {
         :: "r"(current_task->cr3)
     );
     change_pml4(current_task->cr3);
-    restore_fpu(current_task->fpu_state);
     tss.rsp0 = (uint64_t)current_task->kernel_stack;
+    deliver_signals();
+    restore_fpu(current_task->fpu_state);
     current_task->iframe->rflags |= 0x200;
     context_switch(current_task->iframe);
 }
@@ -186,7 +241,12 @@ int fork(iframe_t* iframe) {
     new_task->kernel_stack = kstack;
     new_task->iframe = new_iframe;
     new_task->fpu_state = kmalloc(fpu_memory_size);
+    new_task->signal_interrupted_fpu_state = kmalloc(fpu_memory_size);
     memcpy(new_task->fpu_state, current_task->fpu_state, fpu_memory_size);
+    memcpy(
+        new_task->signal_interrupted_fpu_state,
+        current_task->signal_interrupted_fpu_state, fpu_memory_size
+    );
 
     // Increment file description refcounts
     for (int fd = 0; fd < MAX_FDS; fd++) {
@@ -280,6 +340,7 @@ int add_task(char* path, char** argv, char** envp, task_t* parent, int pid, ifra
     task_t* new_task = kmalloc(sizeof(task_t));
     *new_task = *current_task;
     new_task->state = STATE_READY;
+    new_task->in_signal = 0;
     new_task->cr3 = clone_page_tables(base_pml4);
 
     // Increment file description refcounts
@@ -380,6 +441,7 @@ int add_task(char* path, char** argv, char** envp, task_t* parent, int pid, ifra
     new_task->kernel_stack = kstack;
     new_task->iframe = new_iframe;
     new_task->fpu_state = kmalloc(fpu_memory_size);
+    new_task->signal_interrupted_fpu_state = kmalloc(fpu_memory_size);
 
     // Link task tree
     new_task->next = parent->next;
@@ -513,7 +575,7 @@ task_t* get_first_zombie(task_t* task) {
 int waitpid(int pid, int* wstatus, int options, iframe_t* iframe) {
     if (pid > 0) {
         task_t* child = get_child(current_task, pid);
-        if (child == NULL) return -EINVAL;
+        if (child == NULL) return -ESRCH;
         if (child->state == STATE_ZOMBIE) {
             if (wstatus) *wstatus = child->return_code;
             child->state = STATE_DELETED;
@@ -541,6 +603,33 @@ int waitpid(int pid, int* wstatus, int options, iframe_t* iframe) {
     }
 
     return -1; // Unreachable
+}
+
+int kill(int pid, int sig) {
+    if (sig < 1 || sig > 31) return -EINVAL;
+    task_t* task = &init_task;
+    do {
+        if (task->pid == pid) {
+            if (task->state == STATE_DELETED) return -ESRCH;
+            task->pending_signals |= (1 << sig);
+            return 0;
+        }
+        task = task->next;
+    } while (task != &init_task);
+    return -ESRCH;
+}
+
+int raise(int sig) {
+    if (sig < 1 || sig > 31) return -EINVAL;
+    current_task->pending_signals |= (1 << sig);
+    return 0;
+}
+
+int sigaction(int sig, const sigaction_t *new, sigaction_t *old) {
+    if (sig < 1 || sig > 31) return -EINVAL;
+    if (old) *old = current_task->signal_handlers[sig];
+    if (new) current_task->signal_handlers[sig] = *new;
+    return 0;
 }
 
 void check_blocked_tasks(int reduce_ticks) {

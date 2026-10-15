@@ -3,6 +3,7 @@
 #include "uapi/vvar.h" // IWYU pragma: export
 #include "idt.h"
 #include "vfs.h"
+#include "uapi/signals.h" // IWYU pragma: export
 #include <stdint.h>
 
 typedef enum {
@@ -26,14 +27,19 @@ typedef enum {
 typedef struct Task {
     void* kernel_stack;
     iframe_t* iframe;
+    iframe_t signal_interrupted_iframe;
     int pid;
+    uint8_t in_signal;
     process_state_t state;
     void* cr3;
     void* initial_brk;
     void* brk;
     void* fpu_state;
+    void* signal_interrupted_fpu_state;
     char wd[MAX_PATH];
     fd_t fd_table[MAX_FDS];
+    sigaction_t signal_handlers[32];
+    uint32_t pending_signals;
     int64_t time_slice;
     block_reason_t block_reason;
     uint64_t blocked_ticks;
@@ -47,6 +53,23 @@ typedef struct Task {
     struct Task* child;
 } task_t;
 
+#define SIGNAL_TERMINATE 0
+#define SIGNAL_IGNORE 1
+
+static const uint8_t signal_default_actions[] = {
+    [SIGINT]  = SIGNAL_TERMINATE,
+    [SIGILL]  = SIGNAL_TERMINATE,
+    [SIGABRT] = SIGNAL_TERMINATE,
+    [SIGFPE]  = SIGNAL_TERMINATE,
+    [SIGKILL] = SIGNAL_TERMINATE,
+    [SIGUSR1] = SIGNAL_TERMINATE,
+    [SIGSEGV] = SIGNAL_TERMINATE,
+    [SIGUSR2] = SIGNAL_TERMINATE,
+    [SIGPIPE] = SIGNAL_TERMINATE,
+    [SIGTERM] = SIGNAL_TERMINATE,
+    [SIGCHLD] = SIGNAL_IGNORE,
+};
+
 extern uint8_t scheduler_initialized;
 extern task_t* current_task;
 extern int64_t ticks_remaining;
@@ -56,6 +79,7 @@ extern vvar_t* vvar_vaddr;
 void scheduler_init();
 void run_init(char* path);
 void run_next(iframe_t* iframe);
+void deliver_signals();
 void exit(iframe_t* iframe, int ret);
 vvar_t* get_vvar_addr();
 int fork(iframe_t* iframe);
@@ -67,6 +91,10 @@ void sleep_current(uint64_t ms);
 void kworker_exit();
 void sleep(uint64_t ms, iframe_t* iframe);
 int waitpid(int pid, int* wstatus, int options, iframe_t* iframe);
+int kill(int pid, int sig);
+int raise(int sig);
+int sigaction(int sig, const sigaction_t* new, sigaction_t* old);
+void sigreturn();
 int getpid();
 int getppid();
 void check_blocked_tasks(int reduce_ticks);

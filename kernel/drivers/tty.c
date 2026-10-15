@@ -1,4 +1,5 @@
 #include "drivers/tty.h"
+#include "usermode/scheduler.h"
 #include <stdint.h>
 #include "error.h"
 #include "fs/devfs.h"
@@ -47,6 +48,8 @@ void tty_char_recv(int tty_id, char c) {
         tty->read_buffer[tty->write_head++] = c;
         tty->write_head %= 4096;
     }
+    // Debugging
+    if (c == 0x03) raise(SIGINT);
     if (tty->termios.c_lflag & ECHOE && tty->termios.c_lflag & ICANON && (c == '\b' || c == '\x7f')) {
         const uint8_t erase[3] = "\b \b";
         if (erased) {

@@ -1,6 +1,6 @@
 #include "idt.h"
+#include "drivers/fpu.h"
 #include "io/8259pic.h"
-#include "drivers/timer.h"
 #include "panic.h"
 #include "console.h"
 #include "drivers/tty.h"
@@ -95,6 +95,18 @@ const char* exception_names[32] = {
     "VMM communication exception",    // 29
     "Security exception",             // 30
     "Unhandled exception"             // 31
+};
+
+const int exception_signals[32] = {
+    [0]  = SIGFPE,       // Division by zero
+    [5]  = SIGSEGV,      // Bound range exceeded
+    [6]  = SIGILL,       // Invalid opcode
+    [13] = SIGSEGV,      // General protection fault
+    [14] = SIGSEGV,      // Page fault
+    [16] = SIGFPE,       // x87 floating-point exception
+    [19] = SIGFPE,       // SIMD floating-point exception
+    [20] = SIGSEGV,      // Virtualization exception
+    [21] = SIGSEGV       // Control protection exception
 };
 
 idt_entry_t idt[IDT_ENTRY_COUNT];
@@ -194,6 +206,10 @@ void breakpoint_debugger(iframe_t* iframe) {
 }
 
 void interrupt_handler(iframe_t* iframe) {
+    if (iframe->cs == USER_CS) {
+        current_task->iframe = iframe;
+        save_fpu(current_task->fpu_state);
+    }
     uint64_t vector = iframe->vector;
     uint64_t error_code = iframe->error_code;
     if (vector == 14) {
@@ -205,7 +221,7 @@ void interrupt_handler(iframe_t* iframe) {
         decode_pfec_flags(error_code, flags);
         if (iframe->cs == USER_CS) {
             kprintf("Page fault in process with PID %d at address 0x%x, error code: 0x%x\n%s", current_task->pid, cr2, error_code, flags);
-            exit(iframe, -vector);
+            raise(SIGSEGV);
         } else {
             panic_int(iframe->rbp, "Page fault in kernel at address: 0x%x, error code: 0x%x\n%s", cr2, error_code, flags);
         }
@@ -213,7 +229,7 @@ void interrupt_handler(iframe_t* iframe) {
         // General protection fault
         if (iframe->cs == USER_CS) {
             kprintf("#GP in process with PID %d, error code: 0x%x\n", current_task->pid, error_code);
-            exit(iframe, -vector);
+            raise(SIGSEGV);
         } else {
             panic_int(iframe->rbp, "#GP in kernel, error code: 0x%x\n", error_code);
         }
@@ -224,15 +240,21 @@ void interrupt_handler(iframe_t* iframe) {
     } else if (vector < 32) {
         if (iframe->cs == USER_CS) {
             kprintf("%s in process with PID %d, error code: 0x%x\n", exception_names[vector], current_task->pid, error_code);
-            exit(iframe, -vector);
+            if (exception_signals[vector]) {
+                raise(exception_signals[vector]);
+            } else {
+                exit(iframe, - (32 + vector));
+            }
         } else {
             panic_int(iframe->rbp, "%s in kernel, error code: 0x%x\n", exception_names[vector], error_code);
         }
     } else if (vector == 128) {
         syscall(iframe);
+        return;
     } else {
         irq_handler(vector - 32, iframe);
     }
+    if (iframe->cs == USER_CS) deliver_signals();
 }
 
 void idt_set_entry(int vec, void (*isr)(), uint16_t selector, uint8_t type_attr, uint8_t ist){

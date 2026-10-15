@@ -1,4 +1,6 @@
 #include "usermode/syscalls.h"
+#include "idt.h"
+#include "uapi/signals.h"
 #include "uapi/syscalls.h"
 #include "usermode/fd.h"
 #include "usermode/break.h"
@@ -6,6 +8,7 @@
 #include "net/icmp.h"
 #include "net/ip.h"
 #include "drivers/timer.h"
+#include "drivers/fpu.h"
 #include "memory/paging.h"
 #include "vfs.h"
 #include "fbcon.h"
@@ -53,6 +56,8 @@ void syscall(iframe_t* iframe) {
     uint64_t arg4 = iframe->r10;
     uint64_t arg5 = iframe->r8;
     uint64_t arg6 = iframe->r9;
+    current_task->iframe = iframe;
+    save_fpu(current_task->fpu_state);
     int64_t ret = 0;
     asm volatile("sti");
     switch (syscall_number) {
@@ -293,6 +298,28 @@ void syscall(iframe_t* iframe) {
     case SYSCALL_GET_VVAR_ADDR:
         ret = (uint64_t)get_vvar_addr();
         break;
+    case SYSCALL_KILL:
+        ret = kill(arg1, arg2);
+        break;
+    case SYSCALL_RAISE:
+        ret = raise(arg1);
+        break;
+    case SYSCALL_SIGACTION:
+        if (arg2) {
+            ret = validate_user_pointer((void*)arg2, sizeof(sigaction_t), 0);
+            if (ret < 0) break;
+        }
+        if (arg3) {
+            ret = validate_user_pointer((void*)arg3, sizeof(sigaction_t), 1);
+            if (ret < 0) break;
+        }
+        ret = sigaction(arg1, (const sigaction_t*)arg2, (sigaction_t*)arg3);
+        break;
+    case SYSCALL_SIGRETURN:
+        sigreturn();
+        // Unreachable if successful
+        ret = -EINVAL;
+        break;
     default:
         // Invalid syscall, return an error code
         ret = -ENOSYS;
@@ -300,5 +327,7 @@ void syscall(iframe_t* iframe) {
     iframe->rax = (uint64_t)ret;
     if (ticks_remaining <= 0 && iframe->cs == USER_CS) {
         run_next(iframe); // Next task
+    } else if (iframe->cs == USER_CS) {
+        deliver_signals();
     }
 }

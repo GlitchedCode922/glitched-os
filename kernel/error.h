@@ -29,3 +29,4 @@
 #define EMSGSIZE 90
 #define EFAULT 14
 #define EPIPE 32
+#define ESRCH 3
