@@ -1,5 +1,6 @@
 #pragma once
 #include "usermode/fd.h"
+#include "uapi/vvar.h" // IWYU pragma: export
 #include "idt.h"
 #include "vfs.h"
 #include <stdint.h>
@@ -49,11 +50,14 @@ typedef struct Task {
 extern uint8_t scheduler_initialized;
 extern task_t* current_task;
 extern int64_t ticks_remaining;
+extern uintptr_t vvar_paddr;
+extern vvar_t* vvar_vaddr;
 
 void scheduler_init();
 void run_init(char* path);
 void run_next(iframe_t* iframe);
 void exit(iframe_t* iframe, int ret);
+vvar_t* get_vvar_addr();
 int fork(iframe_t* iframe);
 int spawn(char* path, char** argv, char** envp, iframe_t* iframe);
 int execve(char* path, char** argv, char** envp, iframe_t* iframe);

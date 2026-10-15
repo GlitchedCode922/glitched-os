@@ -5,14 +5,15 @@
 */
 
 #include <time.h>
-#include <syscall.h>
+#include <uapi/vvar.h>
 
 #ifndef REGTEST
 
 /* See comments in _PDCLIB_config.h on the semantics of time_t. */
 
+extern vvar_t* vvar;
 time_t time( time_t * timer ) {
-    time_t t = syscall(SYSCALL_GET_TIME, 0, 0, 0, 0, 0, 0);
+    time_t t = vvar->boot_time + vvar->uptime_ms / 1000;
     if (timer) {
         *timer = t;
     }

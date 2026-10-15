@@ -1,4 +1,5 @@
 #include "usermode/scheduler.h"
+#include "uapi/vvar.h"
 #include "usermode/fd.h"
 #include "usermode/syscalls.h"
 #include "usermode/elf.h"
@@ -22,6 +23,8 @@ int last_pid = 1;
 uint8_t scheduler_initialized = 0;
 int64_t ticks_remaining = PROCESS_TICKS;
 void* base_pml4;
+uintptr_t vvar_paddr;
+vvar_t* vvar_vaddr;
 
 void idle() {
     while (1) asm volatile("hlt");
@@ -78,6 +81,12 @@ void scheduler_init() {
     idle_task.iframe->rsp = (uint64_t)idle_task.kernel_stack - sizeof(iframe_t);
     idle_task.iframe->ss = 0x10;
     idle_task.is_kworker = 1;
+    vvar_paddr = allocate_physical_page();
+    vvar_vaddr = (vvar_t*)add_hhdm_to((uint64_t*)vvar_paddr);
+}
+
+vvar_t* get_vvar_addr() {
+    return (vvar_t*)(0x10000000000 + 4096 * 128);
 }
 
 task_t* get_next_task() {
@@ -106,6 +115,7 @@ void run_init(char* path) {
     init_task.parent = &init_task;
     init_task.brk = init_task.initial_brk;
     alloc_zero_region(0x10000000000, 4096 * 128, FLAGS_USER | FLAGS_RW);
+    alloc_mmio_region(0x10000000000 + 4096 * 128, vvar_paddr, sizeof(vvar_t), FLAGS_USER);
     void* kstack = (char*)kmalloc(4096 * 32) + 4096 * 32;
     init_task.kernel_stack = kstack;
     tss.rsp0 = (uint64_t)kstack;
@@ -323,6 +333,7 @@ int add_task(char* path, char** argv, char** envp, task_t* parent, int pid, ifra
     // Allocate user stack
     alloc_zero_region(0x10000000000, 4096 * 128, FLAGS_USER | FLAGS_RW);
     uintptr_t user_stack = 0x10000000000 + 4096 * 128;
+    alloc_mmio_region(0x10000000000 + 4096 * 128, vvar_paddr, sizeof(vvar_t), FLAGS_USER);
 
     // Temporary array for string addresses on user stack
     uintptr_t argv_ptrs[argc];

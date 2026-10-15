@@ -183,7 +183,7 @@ void kernel_main() {
     register_null_devices();
     enumerate_pci();
     init_fpu();
-    time_base = rtc_get_timestamp();
+    vvar_vaddr->boot_time = rtc_get_timestamp();
     timer_init();
 
     int res = mount_root_filesystem(rootfs_device, 0);

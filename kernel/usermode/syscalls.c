@@ -1,4 +1,5 @@
 #include "usermode/syscalls.h"
+#include "uapi/syscalls.h"
 #include "usermode/fd.h"
 #include "usermode/break.h"
 #include "usermode/scheduler.h"
@@ -288,6 +289,9 @@ void syscall(iframe_t* iframe) {
         break;
     case SYSCALL_FTRUNCATE:
         ret = ftruncate(arg1, arg2);
+        break;
+    case SYSCALL_GET_VVAR_ADDR:
+        ret = (uint64_t)get_vvar_addr();
         break;
     default:
         // Invalid syscall, return an error code

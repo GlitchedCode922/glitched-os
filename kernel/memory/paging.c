@@ -15,14 +15,6 @@ uintptr_t zero_page = 0;
 
 #define HIGHER_LEVEL_FLAGS (FLAGS_PRESENT | FLAGS_RW | FLAGS_USER)
 
-uint64_t* add_hhdm_to(uint64_t* ptr) {
-    return (uint64_t*)((uintptr_t)ptr + (uintptr_t)hhdm_base);
-}
-
-uint64_t* page_table_to_address(uint64_t entry) {
-    return (uint64_t*)(entry & ~FLAGS_MASK);
-}
-
 uintptr_t get_physical_address(uintptr_t virtual_address) {
     page_address_t entry = get_page_entry(virtual_address);
 
@@ -123,13 +115,13 @@ uintptr_t get_available_address() {
     panic("Out of memory: No available address found");
 }
 
-void* allocate_page_table() {
+uintptr_t allocate_physical_page() {
     uintptr_t addr = get_available_address();
     size_t page = addr / PAGE_SIZE;
     memory_bitmap[page]++;
 
     memset(add_hhdm_to((uint64_t*)addr), 0, PAGE_SIZE);
-    return (void*)addr;
+    return addr;
 }
 
 void* alloc_region(uintptr_t vaddr, size_t size, uint64_t flags) {
@@ -150,7 +142,7 @@ void* alloc_region(uintptr_t vaddr, size_t size, uint64_t flags) {
         if (pml4_changed) {
             pml4e = pml4[idx.pml4_index];
             if (!(pml4e & FLAGS_PRESENT)) {
-                uint64_t *new_pdpt = allocate_page_table();
+                uint64_t *new_pdpt = (uint64_t*)allocate_physical_page();
                 uint64_t *new_pdpt_hhdm = add_hhdm_to(new_pdpt);
                 if (!new_pdpt) panic("alloc_region: cannot allocate PDPT");
                 // clear entries
@@ -168,7 +160,7 @@ void* alloc_region(uintptr_t vaddr, size_t size, uint64_t flags) {
         if (pdpt_changed) {
             pdpte = pdpt[idx.pdpt_index];
             if (!(pdpte & FLAGS_PRESENT)) {
-                uint64_t *new_pd = allocate_page_table();
+                uint64_t *new_pd = (uint64_t*)allocate_physical_page();
                 uint64_t *new_pd_hhdm = add_hhdm_to(new_pd);
                 if (!new_pd) panic("alloc_region: cannot allocate PD");
                 for (int i = 0; i < 512; i++) new_pd_hhdm[i] = 0;
@@ -184,7 +176,7 @@ void* alloc_region(uintptr_t vaddr, size_t size, uint64_t flags) {
         if (pd_changed) {
             pde = pd[idx.pd_index];
             if (!(pde & FLAGS_PRESENT)) {
-                uint64_t *new_pt = allocate_page_table();
+                uint64_t *new_pt = (uint64_t*)allocate_physical_page();
                 uint64_t *new_pt_hhdm = add_hhdm_to(new_pt);
                 if (!new_pt) panic("alloc_region: cannot allocate PT");
                 for (int i = 0; i < 512; i++) new_pt_hhdm[i] = 0;
@@ -245,7 +237,7 @@ void* alloc_mmio_region(uintptr_t vaddr, uintptr_t paddr, size_t size, uint64_t 
         if (pml4_changed) {
             pml4e = pml4[idx.pml4_index];
             if (!(pml4e & FLAGS_PRESENT)) {
-                uint64_t *new_pdpt = allocate_page_table();
+                uint64_t *new_pdpt = (uint64_t*)allocate_physical_page();
                 uint64_t *new_pdpt_hhdm = add_hhdm_to(new_pdpt);
                 if (!new_pdpt) panic("alloc_region: cannot allocate PDPT");
                 // clear entries
@@ -263,7 +255,7 @@ void* alloc_mmio_region(uintptr_t vaddr, uintptr_t paddr, size_t size, uint64_t 
         if (pdpt_changed) {
             pdpte = pdpt[idx.pdpt_index];
             if (!(pdpte & FLAGS_PRESENT)) {
-                uint64_t *new_pd = allocate_page_table();
+                uint64_t *new_pd = (uint64_t*)allocate_physical_page();
                 uint64_t *new_pd_hhdm = add_hhdm_to(new_pd);
                 if (!new_pd) panic("alloc_region: cannot allocate PD");
                 for (int i = 0; i < 512; i++) new_pd_hhdm[i] = 0;
@@ -279,7 +271,7 @@ void* alloc_mmio_region(uintptr_t vaddr, uintptr_t paddr, size_t size, uint64_t 
         if (pd_changed) {
             pde = pd[idx.pd_index];
             if (!(pde & FLAGS_PRESENT)) {
-                uint64_t *new_pt = allocate_page_table();
+                uint64_t *new_pt = (uint64_t*)allocate_physical_page();
                 uint64_t *new_pt_hhdm = add_hhdm_to(new_pt);
                 if (!new_pt) panic("alloc_region: cannot allocate PT");
                 for (int i = 0; i < 512; i++) new_pt_hhdm[i] = 0;
@@ -339,7 +331,7 @@ void* alloc_zero_region(uintptr_t vaddr, size_t size, uint64_t flags) {
         if (pml4_changed) {
             pml4e = pml4[idx.pml4_index];
             if (!(pml4e & FLAGS_PRESENT)) {
-                uint64_t *new_pdpt = allocate_page_table();
+                uint64_t *new_pdpt = (uint64_t*)allocate_physical_page();
                 uint64_t *new_pdpt_hhdm = add_hhdm_to(new_pdpt);
                 if (!new_pdpt) panic("alloc_region: cannot allocate PDPT");
                 // clear entries
@@ -357,7 +349,7 @@ void* alloc_zero_region(uintptr_t vaddr, size_t size, uint64_t flags) {
         if (pdpt_changed) {
             pdpte = pdpt[idx.pdpt_index];
             if (!(pdpte & FLAGS_PRESENT)) {
-                uint64_t *new_pd = allocate_page_table();
+                uint64_t *new_pd = (uint64_t*)allocate_physical_page();
                 uint64_t *new_pd_hhdm = add_hhdm_to(new_pd);
                 if (!new_pd) panic("alloc_region: cannot allocate PD");
                 for (int i = 0; i < 512; i++) new_pd_hhdm[i] = 0;
@@ -373,7 +365,7 @@ void* alloc_zero_region(uintptr_t vaddr, size_t size, uint64_t flags) {
         if (pd_changed) {
             pde = pd[idx.pd_index];
             if (!(pde & FLAGS_PRESENT)) {
-                uint64_t *new_pt = allocate_page_table();
+                uint64_t *new_pt = (uint64_t*)allocate_physical_page();
                 uint64_t *new_pt_hhdm = add_hhdm_to(new_pt);
                 if (!new_pt) panic("alloc_region: cannot allocate PT");
                 for (int i = 0; i < 512; i++) new_pt_hhdm[i] = 0;
@@ -512,7 +504,7 @@ void free_region(uintptr_t vaddr, size_t size) {
 }
 
 void* clone_page_tables(void* pml4_address) {
-    uint64_t* new_pml4 = allocate_page_table();
+    uint64_t* new_pml4 = (uint64_t*)allocate_physical_page();
     uint64_t* old_pml4 = add_hhdm_to(pml4_address);
 
     for (int i = 0; i < 512; i++) {
@@ -526,19 +518,19 @@ void* clone_page_tables(void* pml4_address) {
 
         if (pml4e & FLAGS_PRESENT) {
             uint64_t* pdpt = add_hhdm_to(page_table_to_address(pml4e));
-            uint64_t* new_pdpt = allocate_page_table();
+            uint64_t* new_pdpt = (uint64_t*)allocate_physical_page();
 
             for (int j = 0; j < 512; j++) {
                 uint64_t pdpte = pdpt[j];
                 if (pdpte & FLAGS_PRESENT) {
                     uint64_t* pd = add_hhdm_to(page_table_to_address(pdpte));
-                    uint64_t* new_pd = allocate_page_table();
+                    uint64_t* new_pd = (uint64_t*)allocate_physical_page();
 
                     for (int k = 0; k < 512; k++) {
                         uint64_t pde = pd[k];
                         if (pde & FLAGS_PRESENT) {
                             uint64_t* pt = add_hhdm_to(page_table_to_address(pde));
-                            uint64_t* new_pt = allocate_page_table();
+                            uint64_t* new_pt = (uint64_t*)allocate_physical_page();
 
                             for (int l = 0; l < 512; l++) {
                                 if (pt[l] & FLAGS_PRESENT) {

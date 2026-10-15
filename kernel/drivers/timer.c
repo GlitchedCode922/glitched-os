@@ -1,19 +1,11 @@
 #include "drivers/timer.h"
 #include "io/ports.h"
 #include "io/8259pic.h"
+#include "usermode/scheduler.h"
 #include <stdint.h>
 
-#define PIT_FREQUENCY 1000
-
-uint64_t pit_ticks = 0;
-uint64_t time_base = 0;
-
 void pit_tick() {
-    pit_ticks++;
-}
-
-uint64_t pit_get_ticks() {
-    return pit_ticks;
+    vvar_vaddr->uptime_ms++;
 }
 
 void pit_set_frequency(uint32_t frequency) {
@@ -26,20 +18,20 @@ void pit_set_frequency(uint32_t frequency) {
 }
 
 uint64_t get_time() {
-    return time_base + get_uptime_seconds();
+    return vvar_vaddr->boot_time + vvar_vaddr->uptime_ms / 1000;
 }
 
 uint64_t get_uptime_seconds() {
-    return pit_ticks / PIT_FREQUENCY;
+    return vvar_vaddr->uptime_ms / 1000;
 }
 
 uint64_t get_uptime_milliseconds() {
-    return (pit_ticks * 1000) / PIT_FREQUENCY;
+    return vvar_vaddr->uptime_ms;
 }
 
 void timer_init() {
-    pit_set_frequency(PIT_FREQUENCY);
-    pit_ticks = 0; // Reset ticks
+    pit_set_frequency(1000);
+    vvar_vaddr->uptime_ms = 0;
     pic_enable_irq(0); // Enable IRQ0 for PIT
 }
 

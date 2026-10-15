@@ -251,7 +251,6 @@ void idt_load(idt_ptr_t* idt_ptr) {
 }
 
 void idt_init() {
-    timer_init();
     pic_init();
     // Initialize IDT entries for each ISR
     idt_set_entry(0, isr0, KERNEL_CS, 0x8E, 0);

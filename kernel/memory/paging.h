@@ -28,12 +28,22 @@ typedef struct {
     uint16_t pt_index;
 } page_address_t;
 
+extern void* hhdm_base;
+static inline uint64_t* add_hhdm_to(uint64_t* ptr) {
+    return (uint64_t*)((uintptr_t)ptr + (uintptr_t)hhdm_base);
+}
+
+static inline uint64_t* page_table_to_address(uint64_t entry) {
+    return (uint64_t*)(entry & ~FLAGS_MASK);
+}
+
 void init_paging(uintptr_t cr3, struct limine_memmap_response *memmap, uintptr_t hhdm);
 void* alloc_region(uintptr_t vaddr, size_t size, uint64_t flags);
 void* alloc_mmio_region(uintptr_t vaddr, uintptr_t paddr, size_t size, uint64_t flags);
 void* alloc_zero_region(uintptr_t vaddr, size_t size, uint64_t flags);
 uintptr_t get_available_address();
 uintptr_t get_physical_address(uintptr_t virtual_address);
+uintptr_t allocate_physical_page();
 int validate_user_pointer(void* ptr, uint64_t len, int write);
 int validate_user_string(const char *str, uint64_t max_len);
 int free_page(void* page);
