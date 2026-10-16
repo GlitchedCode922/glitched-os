@@ -24,7 +24,8 @@ int main(int argc, char** argv, char** envp) {
         printf("$ ");
         fflush(stdout);
         char command_buffer[1024] = {0};
-        fgets(command_buffer, sizeof(command_buffer), stdin);
+        char* res = fgets(command_buffer, sizeof(command_buffer), stdin);
+        if (res == NULL) return 0;
         char *command = command_buffer;
         char *args[512] = {0};
         int arg_idx = 0;

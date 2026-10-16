@@ -12,9 +12,30 @@ int main() {
     if (console_fd > STDERR_FILENO) {
         close(console_fd);
     }
-    pid_t sh = spawn("/bin/sh", (const char*[]){"/bin/sh", NULL}, (const char*[]){NULL});
-    if (sh <= 0) printf("Error running shell at /bin/sh");
+
     while (1) {
-        wait(NULL);
+        pid_t sh = spawn(
+            "/bin/sh",
+            (const char *[]){"/bin/sh", NULL},
+            (const char *[]){NULL}
+        );
+
+        if (sh <= 0) {
+            printf("init: failed to start shell\n");
+            sleep(1);
+            continue;
+        }
+
+        int status;
+        pid_t pid;
+
+        do {
+            pid = wait(&status);
+        } while (pid > 0 && pid != sh);
+
+        if (pid < 0) {
+            printf("init: wait failed\n");
+            return 1;
+        }
     }
 }

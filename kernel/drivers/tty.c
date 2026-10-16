@@ -23,14 +23,24 @@ void tty_char_recv(int tty_id, char c) {
     int erased = 0;
     if (tty->termios.c_iflag & ISTRIP) c &= 0b01111111;
     if (tty->termios.c_iflag & ICRNL && c == '\r') c = '\n';
-    int signal_char = 0;
+    int skip_input = 0;
     if (tty->termios.c_lflag & ISIG) {
         if (c == 0x03) {
             if (tty->foreground_pgid > 0) kill(-tty->foreground_pgid, SIGINT);
-            signal_char = 1;
+            skip_input = 1;
         }
     }
-    if (tty->termios.c_lflag & ICANON && !signal_char) {
+    if (tty->termios.c_lflag & ICANON && c == 0x04) {
+        for (int i = 0; i < tty->line_index; i++) {
+            if ((tty->write_head + 1) % 4096 == tty->read_head) return;
+            tty->read_buffer[tty->write_head++] = tty->line_buffer[i];
+            tty->write_head %= 4096;
+        }
+        if (tty->line_index == 0) tty->eof = 1;
+        tty->line_index = 0;
+        skip_input = 1;
+    }
+    if (tty->termios.c_lflag & ICANON && !skip_input) {
         if (c == '\b' || c == '\x7f') {
             if (tty->line_index > 0) {
                 tty->line_index--;
@@ -50,7 +60,7 @@ void tty_char_recv(int tty_id, char c) {
             tty->line_buffer[tty->line_index] = c;
             tty->line_index++;
         }
-    } else if (!signal_char) {
+    } else if (!skip_input) {
         if ((tty->write_head + 1) % 4096 == tty->read_head) return;
         tty->read_buffer[tty->write_head++] = c;
         tty->write_head %= 4096;
@@ -79,6 +89,10 @@ int64_t tty_read(int tty_id, uint64_t offset, uint8_t *buffer, uint64_t len) {
     if (tty_id < 0) return -EINVAL;
     if (tty_id >= tty_count) return -EINVAL;
     tty_t* tty = ttys[tty_id];
+    if (tty->eof && tty->read_head == tty->write_head) {
+        tty->eof = 0;
+        return 0;
+    }
     if (tty->read_head == tty->write_head) return -EAGAIN;
     uint64_t bytes_read = 0;
     for (bytes_read = 0; bytes_read < len; bytes_read++) {
