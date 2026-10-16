@@ -5,12 +5,13 @@
 */
 
 #include <stdlib.h>
+#include <signal.h>
 
 #ifndef REGTEST
 
-void abort( void )
-{
-    exit( EXIT_FAILURE );
+void abort( void ) {
+    raise(SIGABRT);
+    exit(EXIT_FAILURE); // Unreachable
 }
 
 #endif
