@@ -12,6 +12,7 @@ typedef struct tty {
     int write_head;
     char line_buffer[1024];
     int line_index;
+    int foreground_pgid;
     char* name;
 } tty_t;
 

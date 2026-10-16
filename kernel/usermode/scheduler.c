@@ -607,16 +607,53 @@ int waitpid(int pid, int* wstatus, int options, iframe_t* iframe) {
 
 int kill(int pid, int sig) {
     if (sig < 1 || sig > 31) return -EINVAL;
-    task_t* task = &init_task;
-    do {
-        if (task->pid == pid) {
-            if (task->state == STATE_DELETED) return -ESRCH;
-            task->pending_signals |= (1 << sig);
-            return 0;
-        }
-        task = task->next;
-    } while (task != &init_task);
-    return -ESRCH;
+    int found = 0;
+    if (pid > 0) {
+        task_t* task = &init_task;
+        do {
+            if (task->pid == pid) {
+                if (task->state != STATE_DELETED) {
+                    task->pending_signals |= (1 << sig);
+                    found = 1;
+                }
+            }
+            task = task->next;
+        } while (task != &init_task);
+    } else if (pid == 0) {
+        task_t* task = &init_task;
+        do {
+            if (task->pgid == current_task->pgid) {
+                if (task->state != STATE_DELETED) {
+                    task->pending_signals |= (1 << sig);
+                    found = 1;
+                }
+            }
+            task = task->next;
+        } while (task != &init_task);
+    } else if (pid == -1) {
+        task_t* task = &init_task;
+        do {
+            if (task != &init_task && task != current_task) {
+                if (task->state != STATE_DELETED) {
+                    task->pending_signals |= (1 << sig);
+                    found = 1;
+                }
+            }
+            task = task->next;
+        } while (task != &init_task);
+    } else if (pid < -1) {
+        task_t* task = &init_task;
+        do {
+            if (task->pgid == -pid) {
+                if (task->state != STATE_DELETED) {
+                    task->pending_signals |= (1 << sig);
+                    found = 1;
+                }
+            }
+            task = task->next;
+        } while (task != &init_task);
+    }
+    return found ? 0 : -ESRCH;
 }
 
 int raise(int sig) {
@@ -693,4 +730,60 @@ int getpid() {
 int getppid() {
     if (current_task == &init_task) return 0;
     return current_task->parent->pid;
+}
+
+int getpgid(int pid) {
+    if (pid == 0) pid = current_task->pid;
+    task_t* i = &init_task;
+    do {
+        if (i->pid == pid) return i->pgid;
+        i = i->next;
+    } while (i != &init_task);
+    return -ESRCH;
+}
+
+int setpgid(int pid, int pgid) {
+    if (pid == 0) pid = current_task->pid;
+    if (pgid == 0) pgid = pid;
+    task_t* target;
+    if (pid != current_task->pid) {
+        target = get_child(current_task, pid);
+    } else {
+        target = current_task;
+    }
+    if (!target) return -ESRCH;
+    if (target->sid != current_task->sid) return -EPERM;
+    if (pid != pgid) {
+        int exists = 0;
+        task_t* i = &init_task;
+        do {
+            if (i->pgid == pgid && i->state != STATE_DELETED) {
+                exists = 1;
+                break;
+            }
+            i = i->next;
+        } while (i != &init_task);
+        if (!exists) return -ESRCH;
+        if (i->sid != target->sid) return -EPERM;
+    }
+    if (target->pgid == target->pid && pgid != target->pgid) return -EPERM;
+    target->pgid = pgid;
+    return 0;
+}
+
+int getsid(int pid) {
+    if (pid == 0) pid = current_task->pid;
+    task_t* i = &init_task;
+    do {
+        if (i->pid == pid) return i->sid;
+        i = i->next;
+    } while (i != &init_task);
+    return -ESRCH;
+}
+
+int setsid() {
+    if (current_task->pgid == current_task->pid) return -EPERM;
+    current_task->sid = current_task->pid;
+    current_task->pgid = current_task->pid;
+    return current_task->sid;
 }

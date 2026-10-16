@@ -1,10 +1,25 @@
 #include <stddef.h>
 #include <stdio.h>
-#include <string.h>
 #include <unistd.h>
-#include <stdint.h>
+#include <string.h>
+#include <termios.h>
 
 int main(int argc, char** argv, char** envp) {
+    setsid();
+    termios_t old_termios;
+    termios_t new_termios;
+    int res = tcgetattr(STDIN_FILENO, &old_termios);
+    if (res < 0) {
+        perror("tcgetattr");
+        return 1;
+    }
+    new_termios = old_termios;
+    new_termios.c_lflag |= ICANON | ISIG | ECHO | ECHOE | ECHOCTL;
+    res = tcsetattr(STDIN_FILENO, &new_termios);
+    if (res < 0) {
+        perror("tcsetattr");
+        return 1;
+    }
     while (1) {
         printf("$ ");
         fflush(stdout);
@@ -59,9 +74,12 @@ int main(int argc, char** argv, char** envp) {
             int ret;
             pid_t p = spawn(program_in_bin, (const char**)args, (const char**)envp);
             if (p > 0) {
+                setpgid(p, p);
+                tcsetpgrp(STDIN_FILENO, p);
                 waitpid(p, &ret, 0);
+                tcsetpgrp(STDIN_FILENO, 0);
                 if (ret != 0) {
-                    printf("Command exited with error code %d\n", (int64_t)ret);
+                    printf("Command exited with error code %d\n", ret);
                 }
             } else {
                 perror("Error");
@@ -72,12 +90,20 @@ int main(int argc, char** argv, char** envp) {
         int ret;
         pid_t p = spawn(args[0], (const char**)args, (const char**)envp);
         if (p > 0) {
+            setpgid(p, p);
+            tcsetpgrp(STDIN_FILENO, p);
             waitpid(p, &ret, 0);
+            tcsetpgrp(STDIN_FILENO, 0);
             if (ret != 0) {
-                printf("Command exited with error code %d\n", (int64_t)ret);
+                printf("Command exited with error code %d\n", ret);
             }
         } else {
             perror("Error");
         }
+    }
+    res = tcsetattr(STDIN_FILENO, &old_termios);
+    if (res < 0) {
+        perror("tcsetattr");
+        return 1;
     }
 }

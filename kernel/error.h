@@ -30,3 +30,4 @@
 #define EFAULT 14
 #define EPIPE 32
 #define ESRCH 3
+#define EPERM 1

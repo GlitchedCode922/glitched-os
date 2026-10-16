@@ -12,6 +12,7 @@
 #define ECHO 0x2
 #define ECHOE 0x4
 #define ECHOCTL 0x8
+#define ISIG 0x10
 
 #define MAX_TTYS 256
 

@@ -23,7 +23,14 @@ void tty_char_recv(int tty_id, char c) {
     int erased = 0;
     if (tty->termios.c_iflag & ISTRIP) c &= 0b01111111;
     if (tty->termios.c_iflag & ICRNL && c == '\r') c = '\n';
-    if (tty->termios.c_lflag & ICANON) {
+    int signal_char = 0;
+    if (tty->termios.c_lflag & ISIG) {
+        if (c == 0x03) {
+            if (tty->foreground_pgid > 0) kill(-tty->foreground_pgid, SIGINT);
+            signal_char = 1;
+        }
+    }
+    if (tty->termios.c_lflag & ICANON && !signal_char) {
         if (c == '\b' || c == '\x7f') {
             if (tty->line_index > 0) {
                 tty->line_index--;
@@ -43,13 +50,11 @@ void tty_char_recv(int tty_id, char c) {
             tty->line_buffer[tty->line_index] = c;
             tty->line_index++;
         }
-    } else {
+    } else if (!signal_char) {
         if ((tty->write_head + 1) % 4096 == tty->read_head) return;
         tty->read_buffer[tty->write_head++] = c;
         tty->write_head %= 4096;
     }
-    // Debugging
-    if (c == 0x03) raise(SIGINT);
     if (tty->termios.c_lflag & ECHOE && tty->termios.c_lflag & ICANON && (c == '\b' || c == '\x7f')) {
         const uint8_t erase[3] = "\b \b";
         if (erased) {
@@ -124,6 +129,10 @@ int tty_ioctl(int tty_id, uint64_t request, uint64_t arg) {
             tty->termios = *(termios_t*)data_ptr;
             return 0;
         }
+        case TCSETPGRP:
+            if ((int)arg < 0) return -EINVAL;
+            tty->foreground_pgid = arg;
+            return 0;
         default:
             return -ENOTTY;
     }

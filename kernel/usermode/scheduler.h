@@ -29,6 +29,8 @@ typedef struct Task {
     iframe_t* iframe;
     iframe_t signal_interrupted_iframe;
     int pid;
+    int pgid;
+    int sid;
     uint8_t in_signal;
     process_state_t state;
     void* cr3;
@@ -53,8 +55,8 @@ typedef struct Task {
     struct Task* child;
 } task_t;
 
-#define SIGNAL_TERMINATE 0
-#define SIGNAL_IGNORE 1
+#define SIGNAL_IGNORE 0
+#define SIGNAL_TERMINATE 1
 
 static const uint8_t signal_default_actions[] = {
     [SIGINT]  = SIGNAL_TERMINATE,
@@ -98,3 +100,7 @@ void sigreturn();
 int getpid();
 int getppid();
 void check_blocked_tasks(int reduce_ticks);
+int getpgid(int pid);
+int setpgid(int pid, int pgid);
+int getsid(int pid);
+int setsid();

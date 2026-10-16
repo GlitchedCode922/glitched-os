@@ -320,6 +320,18 @@ void syscall(iframe_t* iframe) {
         // Unreachable if successful
         ret = -EINVAL;
         break;
+    case SYSCALL_GETPGID:
+        ret = getpgid(arg1);
+        break;
+    case SYSCALL_SETPGID:
+        ret = setpgid(arg1, arg2);
+        break;
+    case SYSCALL_GETSID:
+        ret = getsid(arg1);
+        break;
+    case SYSCALL_SETSID:
+        ret = setsid();
+        break;
     default:
         // Invalid syscall, return an error code
         ret = -ENOSYS;
