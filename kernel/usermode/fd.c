@@ -161,6 +161,7 @@ int64_t write(int fd, const void *buffer, size_t size) {
         if (bytes_written > 0) file_description->offset += bytes_written;
     } else if (file_description->type == FD_TYPE_PIPE) {
         bytes_written = pipe_write(file_description->pipe, buffer, size, 1);
+        if (bytes_written == -EPIPE) raise(SIGPIPE);
     }
     return bytes_written;
 }
