@@ -1,5 +1,6 @@
 #include "usermode/scheduler.h"
 #include "idt.h"
+#include "uapi/signals.h"
 #include "uapi/vvar.h"
 #include "usermode/fd.h"
 #include "usermode/syscalls.h"
@@ -213,6 +214,7 @@ void exit(iframe_t* iframe, int ret) {
     release_process_fds();
     current_task->state = STATE_ZOMBIE;
     current_task->return_code = ret;
+    current_task->parent->pending_signals |= (1 << SIGCHLD);
 
     // Reparent children
     task_t* c = current_task->child;
