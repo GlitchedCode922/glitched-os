@@ -1,7 +1,6 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <sys/types.h>
-#include <uapi/fd.h> // IWYU pragma: export
 #include <uapi/dirent.h> // IWYU pragma: export
 
 #define STDIN_FILENO 0
@@ -11,7 +10,6 @@
 ssize_t read(int fd, void* buffer, size_t size);
 ssize_t write(int fd, const void* buffer, size_t size);
 int readdir(int fd, dirent_t* out);
-int open(const char* path, uint16_t flags, ...);
 int close(int fd);
 ssize_t lseek(int fd, off_t offset, int type);
 ssize_t tell(int fd);

@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <uapi/netif.h>
+#include <fcntl.h>
 
 static int parse_ip(char* string, uint8_t ip[4]) {
     for (int i = 0; i < 4; i++) {

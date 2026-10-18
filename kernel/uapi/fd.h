@@ -11,3 +11,11 @@
 #define O_EXCL 0x80
 #define O_TRUNC 0x100
 #define O_ACCESS 0x03
+
+#define F_GETFD         0
+#define F_SETFD         1
+#define F_GETFL         2
+#define F_SETFL         3
+#define F_DUPFD         4
+#define F_DUPFD_CLOEXEC 5
+#define FD_CLOEXEC O_CLOEXEC

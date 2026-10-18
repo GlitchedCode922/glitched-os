@@ -21,12 +21,12 @@ void remove_pipe_writer(pipe_t* pipe) {
     if (pipe->reader_count == 0 && pipe->writer_count == 0) kfree(pipe);
 }
 
-int64_t pipe_read(pipe_t* pipe, void* buffer, uint64_t len, uint8_t blocking) {
+int64_t pipe_read(pipe_t* pipe, void* buffer, uint64_t len) {
     uint64_t max_bytes = 0;
     if (pipe->write_head >= pipe->read_head) {
-        while (pipe->write_head == pipe->read_head) {
+        if (pipe->write_head == pipe->read_head) {
             if (pipe->writer_count == 0) return 0;
-            yield_current();
+            return -EAGAIN;
         }
         max_bytes = pipe->write_head - pipe->read_head;
         if (len > max_bytes) len = max_bytes;
@@ -47,33 +47,34 @@ int64_t pipe_read(pipe_t* pipe, void* buffer, uint64_t len, uint8_t blocking) {
 }
 
 int64_t pipe_write(pipe_t* pipe, const void* buffer, uint64_t len, uint8_t blocking) {
-    int64_t max_bytes = (pipe->read_head - pipe->write_head - 1 + PIPE_SIZE) % PIPE_SIZE;
-    int64_t remaining = 0;
-    if (len > max_bytes) {
-        remaining = len - max_bytes;
-        len -= remaining;
-    }
+    if (len == 0) return 0;
     if (pipe->reader_count == 0) return -EPIPE;
-    if (pipe->read_head > pipe->write_head) {
-        memcpy(pipe->buffer + pipe->write_head, buffer, len);
-        pipe->write_head += len;
-    } else {
-        int64_t first_part_length = len < PIPE_SIZE - pipe->write_head ? len : PIPE_SIZE - pipe->write_head;
-        memcpy(pipe->buffer + pipe->write_head, buffer, first_part_length);
-        pipe->write_head = (pipe->write_head + first_part_length) % PIPE_SIZE;
-        if (first_part_length == len) goto write_end;
-        memcpy(pipe->buffer, buffer + first_part_length, len - first_part_length);
-        pipe->write_head = (pipe->write_head + len - first_part_length) % PIPE_SIZE;
-    }
-    write_end:
-    if (remaining) {
-        int64_t available = (pipe->read_head - pipe->write_head - 1 + PIPE_SIZE) % PIPE_SIZE;
-        while (!available) {
-            available = (pipe->read_head - pipe->write_head - 1 + PIPE_SIZE) % PIPE_SIZE;
-            if (pipe->reader_count == 0) return -EPIPE;
+
+    const uint8_t* src = buffer;
+    uint64_t written = 0;
+
+    while (written < len) {
+        if (pipe->reader_count == 0) return written ? (int64_t)written : -EPIPE;
+
+        uint64_t available = (pipe->read_head - pipe->write_head - 1 + PIPE_SIZE) % PIPE_SIZE;
+        if (available == 0) {
+            if (!blocking) return written ? (int64_t)written : -EAGAIN;
             yield_current();
+            continue;
         }
-        return len + pipe_write(pipe, buffer + len, remaining, blocking);
+
+        uint64_t chunk = len - written;
+        if (chunk > available) chunk = available;
+
+        uint64_t first = PIPE_SIZE - pipe->write_head;
+        if (first > chunk) first = chunk;
+
+        memcpy(pipe->buffer + pipe->write_head, src + written, first);
+        if (chunk > first) memcpy(pipe->buffer, src + written + first, chunk - first);
+
+        pipe->write_head = (pipe->write_head + chunk) % PIPE_SIZE;
+        written += chunk;
     }
-    return len;
+
+    return (int64_t)written;
 }

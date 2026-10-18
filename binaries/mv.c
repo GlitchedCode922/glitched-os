@@ -4,6 +4,7 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 
 int main(int argc, char** argv) {
     if (argc != 3) {

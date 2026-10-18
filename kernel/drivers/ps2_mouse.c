@@ -25,7 +25,7 @@ int set_sample_rate(uint8_t rate) {
 }
 
 int64_t mousedev_read(int minor, uint64_t offset, uint8_t* buffer, uint64_t count) {
-    return pipe_read(mouse_pipe, buffer, count, 0);
+    return pipe_read(mouse_pipe, buffer, count);
 }
 
 int64_t mousedev_write(int minor, uint64_t offset, const uint8_t* buffer, uint64_t count) {

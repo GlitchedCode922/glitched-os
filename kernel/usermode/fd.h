@@ -13,6 +13,8 @@
 #define SEEK_CUR 1
 #define SEEK_END 2
 
+#define FCNTL_MUTABLE (O_APPEND | O_NONBLOCK)
+
 enum {
     FD_TYPE_FILE = 0,
     FD_TYPE_DIR = 1,
@@ -45,7 +47,7 @@ int fstat(int fd, stat_t* stat);
 int ftruncate(int fd, uint64_t new_size);
 int fd_open(const char* path, uint16_t flags);
 int fd_close(int fd);
-int dup(int fd);
+int fcntl(int fd, int cmd, int flags);
 int dup2(int fd, int new_fd);
 void release_process_fds();
 int fd_socket(int domain, int type, int protocol);

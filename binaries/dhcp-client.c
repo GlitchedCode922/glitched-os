@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <uapi/netif.h>
+#include <fcntl.h>
 
 #define DHCP_CLIENT_PORT 68
 #define DHCP_SERVER_PORT 67

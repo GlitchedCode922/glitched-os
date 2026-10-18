@@ -14,5 +14,5 @@ typedef struct {
 pipe_t* create_pipe();
 void remove_pipe_reader(pipe_t* pipe);
 void remove_pipe_writer(pipe_t* pipe);
-int64_t pipe_read(pipe_t* pipe, void* buffer, uint64_t len, uint8_t blocking);
+int64_t pipe_read(pipe_t* pipe, void* buffer, uint64_t len);
 int64_t pipe_write(pipe_t* pipe, const void* buffer, uint64_t len, uint8_t blocking);

@@ -198,8 +198,8 @@ void syscall(iframe_t* iframe) {
     case SYSCALL_SEEK:
         ret = seek((int)arg1, (size_t)arg2, (int)arg3);
         break;
-    case SYSCALL_DUP:
-        ret = dup((int)arg1);
+    case SYSCALL_FCNTL:
+        ret = fcntl(arg1, arg2, arg3);
         break;
     case SYSCALL_DUP2:
         ret = dup2((int)arg1, (int)arg2);

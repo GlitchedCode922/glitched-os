@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <uapi/fbcon.h>
+#include <fcntl.h>
 
 #define PSF1_FONT_MAGIC 0x0436
 

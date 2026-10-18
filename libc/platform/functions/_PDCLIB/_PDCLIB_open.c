@@ -13,7 +13,7 @@
 #include "pdclib/_PDCLIB_glue.h"
 
 #include <errno.h>
-#include <unistd.h>
+#include <fcntl.h>
 
 _PDCLIB_fd_t _PDCLIB_open( const char * const filename, unsigned int mode )
 {

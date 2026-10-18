@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 int main() {
     mount(NULL, "/dev", "devfs", 0);

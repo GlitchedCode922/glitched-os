@@ -1,3 +1,4 @@
+#include "uapi/fd.h"
 #include <syscall.h>
 #include <errno.h>
 #include <unistd.h>
@@ -59,7 +60,7 @@ ssize_t tell(int fd) {
 }
 
 int dup(int fd) {
-    int res = syscall(SYSCALL_DUP, (uint64_t)fd, 0, 0, 0, 0, 0);
+    int res = syscall(SYSCALL_FCNTL, (uint64_t)fd, F_DUPFD, 0, 0, 0, 0);
     if (res < 0) {
         errno = -res;
         return -1;

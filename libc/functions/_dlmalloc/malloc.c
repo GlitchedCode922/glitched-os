@@ -530,12 +530,9 @@ MAX_RELEASE_CHECK_RATE   default: 4095 unless not HAVE_MMAP
 #define DLMALLOC_EXPORT extern
 #endif
 
-#define LACKS_FCNTL_H
 #define LACKS_SYS_PARAM_H
 #define LACKS_SYS_MMAN_H
-#define LACKS_SYS_TYPES_H
 #define LACKS_SCHED_H
-#define LACKS_TIME_H
 
 #define USE_LOCKS 0
 #define ABORT abort()

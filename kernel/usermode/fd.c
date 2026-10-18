@@ -141,7 +141,13 @@ int64_t read(int fd, void *buffer, size_t size) {
         }
         if (bytes_read > 0) file_description->offset += bytes_read;
     } else if (file_description->type == FD_TYPE_PIPE) {
-        bytes_read = pipe_read(file_description->pipe, buffer, size, 1);
+        while (1) {
+            bytes_read = pipe_read(file_description->pipe, buffer, size);
+            if (file_description->flags & O_NONBLOCK || bytes_read != -EAGAIN) {
+                break;
+            }
+            yield_current();
+        }
     }
     return bytes_read;
 }
@@ -160,7 +166,7 @@ int64_t write(int fd, const void *buffer, size_t size) {
         bytes_written = write_file(file_description->file_handle, buffer, file_description->offset, size);
         if (bytes_written > 0) file_description->offset += bytes_written;
     } else if (file_description->type == FD_TYPE_PIPE) {
-        bytes_written = pipe_write(file_description->pipe, buffer, size, 1);
+        bytes_written = pipe_write(file_description->pipe, buffer, size, file_description->flags & O_NONBLOCK);
         if (bytes_written == -EPIPE) raise(SIGPIPE);
     }
     return bytes_written;
@@ -206,19 +212,50 @@ int ftruncate(int fd, uint64_t new_size) {
     return truncate(file_description->file_handle, new_size);
 }
 
-int dup(int fd) {
+static int dup(int fd, int minfd, int flags) {
     if (fd < 0 || fd >= MAX_FDS || current_task->fd_table[fd].fd == NULL) {
         return -EBADF;
     }
-    for (int i = 0; i < MAX_FDS; i++) {
+    if (minfd < 0 || minfd >= MAX_FDS) {
+        return -EINVAL;
+    }
+
+    for (int i = minfd; i < MAX_FDS; i++) {
         if (current_task->fd_table[i].fd == NULL) {
             current_task->fd_table[i] = current_task->fd_table[fd];
-            current_task->fd_table[i].flags = 0;
+            current_task->fd_table[i].flags = flags;
             current_task->fd_table[fd].fd->refcount++;
             return i;
         }
     }
     return -EMFILE;
+}
+
+int fcntl(int fd, int cmd, int flags) {
+    if (fd < 0 || fd >= MAX_FDS || current_task->fd_table[fd].fd == NULL) {
+        return -EBADF;
+    }
+    switch (cmd) {
+        case F_GETFD:
+            return current_task->fd_table[fd].flags;
+        case F_SETFD:
+            current_task->fd_table[fd].flags = flags;
+            return 0;
+        case F_GETFL:
+            return current_task->fd_table[fd].fd->flags;
+        case F_SETFL: {
+            int old_flags = current_task->fd_table[fd].fd->flags;
+            int new_flags = (old_flags & ~FCNTL_MUTABLE) | (flags & FCNTL_MUTABLE);
+            current_task->fd_table[fd].fd->flags = new_flags;
+            return 0;
+        }
+        case F_DUPFD:
+            return dup(fd, flags, 0);
+        case F_DUPFD_CLOEXEC:
+            return dup(fd, flags, FD_CLOEXEC);
+        default:
+            return -EINVAL;
+    }
 }
 
 int dup2(int fd, int new_fd) {
