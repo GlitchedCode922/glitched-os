@@ -42,6 +42,7 @@ typedef struct Task {
     fd_t fd_table[MAX_FDS];
     sigaction_t signal_handlers[32];
     uint32_t pending_signals;
+    uint32_t signal_mask;
     int64_t time_slice;
     block_reason_t block_reason;
     uint64_t blocked_ticks;
@@ -119,6 +120,7 @@ int kill(int pid, int sig);
 int raise(int sig);
 int sigaction(int sig, const sigaction_t* new, sigaction_t* old);
 void sigreturn();
+int sigprocmask(int how, const uint32_t* set, uint32_t* old_set);
 int getpid();
 int getppid();
 void check_blocked_tasks(int reduce_ticks);

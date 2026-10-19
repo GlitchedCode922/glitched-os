@@ -138,15 +138,16 @@ void run_init(char* path) {
 }
 
 void deliver_signals() {
-    if (!current_task->pending_signals) return;
+    uint32_t deliverable = current_task->pending_signals & ~current_task->signal_mask;
+    if (!deliverable) return;
     if (current_task->in_signal) return;
-    for (int i = 0; i < 32; i++) {
-        if (!(current_task->pending_signals & (1 << i))) continue;
+    for (int i = 0; i < 31; i++) {
+        if (!(deliverable & (1 << i))) continue;
         current_task->pending_signals &= ~(1 << i);
-        sigaction_t* action = &current_task->signal_handlers[i];
+        sigaction_t* action = &current_task->signal_handlers[i + 1];
         if (action->handler == SIG_DFL) {
-            if (signal_default_actions[i] == SIGNAL_TERMINATE) {
-                exit(current_task->iframe, -i);
+            if (signal_default_actions[i + 1] == SIGNAL_TERMINATE) {
+                exit(current_task->iframe, - i - 1);
             }
         } else if (action->handler != SIG_IGN) {
             current_task->signal_interrupted_iframe = *current_task->iframe;
@@ -155,7 +156,7 @@ void deliver_signals() {
                 current_task->fpu_state, fpu_memory_size
             );
             current_task->iframe->rip = (uintptr_t)action->handler;
-            current_task->iframe->rdi = i;
+            current_task->iframe->rdi = i + 1;
             current_task->iframe->rsp &= ~15;
             current_task->iframe->rsp -= sizeof(uintptr_t);
             *(uintptr_t*)(current_task->iframe->rsp) =
@@ -178,6 +179,27 @@ void sigreturn() {
     restore_fpu(current_task->fpu_state);
     current_task->iframe->rflags |= 0x200;
     context_switch(current_task->iframe);
+}
+
+int sigprocmask(int how, const uint32_t* set, uint32_t* oldset) {
+    uint32_t new_mask;
+    if (oldset) *oldset = current_task->signal_mask;
+    if (!set) return 0;
+    switch (how) {
+        case SIG_BLOCK:
+            new_mask = current_task->signal_mask | *set;
+            break;
+        case SIG_UNBLOCK:
+            new_mask = current_task->signal_mask & ~*set;
+            break;
+        case SIG_SETMASK:
+            new_mask = *set;
+            break;
+        default:
+            return -EINVAL;
+    }
+    current_task->signal_mask = new_mask & ~((1 << (SIGSTOP - 1)) | (1 << (SIGKILL - 1)));
+    return 0;
 }
 
 static void switch_task() {
@@ -214,7 +236,7 @@ void exit(iframe_t* iframe, int ret) {
     release_process_fds();
     current_task->state = STATE_ZOMBIE;
     current_task->return_code = ret;
-    current_task->parent->pending_signals |= (1 << SIGCHLD);
+    current_task->parent->pending_signals |= (1 << (SIGCHLD - 1));
 
     // Reparent children
     task_t* c = current_task->child;
@@ -615,7 +637,7 @@ int kill(int pid, int sig) {
         do {
             if (task->pid == pid) {
                 if (task->state != STATE_DELETED) {
-                    task->pending_signals |= (1 << sig);
+                    task->pending_signals |= (1 << (sig - 1));
                     found = 1;
                 }
             }
@@ -626,7 +648,7 @@ int kill(int pid, int sig) {
         do {
             if (task->pgid == current_task->pgid) {
                 if (task->state != STATE_DELETED) {
-                    task->pending_signals |= (1 << sig);
+                    task->pending_signals |= (1 << (sig - 1));
                     found = 1;
                 }
             }
@@ -637,7 +659,7 @@ int kill(int pid, int sig) {
         do {
             if (task != &init_task && task != current_task) {
                 if (task->state != STATE_DELETED) {
-                    task->pending_signals |= (1 << sig);
+                    task->pending_signals |= (1 << (sig - 1));
                     found = 1;
                 }
             }
@@ -648,7 +670,7 @@ int kill(int pid, int sig) {
         do {
             if (task->pgid == -pid) {
                 if (task->state != STATE_DELETED) {
-                    task->pending_signals |= (1 << sig);
+                    task->pending_signals |= (1 << (sig - 1));
                     found = 1;
                 }
             }
@@ -660,7 +682,7 @@ int kill(int pid, int sig) {
 
 int raise(int sig) {
     if (sig < 1 || sig > 31) return -EINVAL;
-    current_task->pending_signals |= (1 << sig);
+    current_task->pending_signals |= (1 << (sig - 1));
     return 0;
 }
 

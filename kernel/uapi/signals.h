@@ -39,3 +39,7 @@ typedef struct sigaction {
 #define SIGIO     29
 #define SIGPWR    30
 #define SIGSYS    31
+
+#define SIG_BLOCK 0
+#define SIG_UNBLOCK 1
+#define SIG_SETMASK 2

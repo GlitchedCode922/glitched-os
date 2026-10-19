@@ -16,6 +16,7 @@
 #include "panic.h"
 #include "error.h"
 #include <stdarg.h>
+#include <stddef.h>
 #include <stdint.h>
 
 extern void syscall_entry();
@@ -331,6 +332,17 @@ void syscall(iframe_t* iframe) {
         break;
     case SYSCALL_SETSID:
         ret = setsid();
+        break;
+    case SYSCALL_SIGPROCMASK:
+        if (arg2) {
+            ret = validate_user_pointer((void*)arg2, sizeof(uint32_t), 0);
+            if (ret < 0) break;
+        }
+        if (arg3) {
+            ret = validate_user_pointer((void*)arg3, sizeof(uint32_t), 1);
+            if (ret < 0) break;
+        }
+        ret = sigprocmask(arg1, (const uint32_t*)arg2, (uint32_t*)arg3);
         break;
     default:
         // Invalid syscall, return an error code
