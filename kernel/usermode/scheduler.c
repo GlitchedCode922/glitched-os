@@ -666,6 +666,7 @@ int raise(int sig) {
 
 int sigaction(int sig, const sigaction_t *new, sigaction_t *old) {
     if (sig < 1 || sig > 31) return -EINVAL;
+    if (sig == SIGSTOP || sig == SIGKILL) return -EPERM;
     if (old) *old = current_task->signal_handlers[sig];
     if (new) current_task->signal_handlers[sig] = *new;
     return 0;
