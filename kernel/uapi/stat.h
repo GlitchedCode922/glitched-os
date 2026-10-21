@@ -3,7 +3,7 @@
 
 typedef uint64_t dev_t;
 
-typedef struct {
+typedef struct stat {
     uint64_t size;
     uint64_t ctime;
     uint64_t mtime;
