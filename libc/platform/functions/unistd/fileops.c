@@ -62,7 +62,7 @@ void getcwd(char *buffer, size_t size) {
     syscall(SYSCALL_GETCWD, (uint64_t)buffer, size, 0, 0, 0, 0);
 }
 
-int chdir(char *path) {
+int chdir(const char *path) {
     int res = syscall(SYSCALL_CHDIR, (uint64_t)path, 0, 0, 0, 0, 0);
     if (res < 0) {
         errno = -res;
