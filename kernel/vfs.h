@@ -6,7 +6,7 @@
 #include <stddef.h>
 
 #define FLAG_READ_ONLY 0x01
-#define MAX_PATH 2048
+#define MAX_PATH 4096
 
 typedef struct {
     char name[32];          // Name of the filesystem
