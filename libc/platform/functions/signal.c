@@ -1,5 +1,6 @@
 #include <signal.h>
 #include <stdint.h>
+#include <stddef.h>
 #include <sys/types.h>
 #include <syscall.h>
 #include <errno.h>
@@ -22,6 +23,11 @@ int raise(int sig) {
         return -1;
     }
     return res;
+}
+
+int signal(int sig, void (*handler)(int)) {
+    sigaction_t sa = {.handler = handler};
+    return sigaction(sig, &sa, NULL);
 }
 
 int sigaction(int sig, const sigaction_t *new, sigaction_t *old) {

@@ -7,6 +7,7 @@ typedef int sig_atomic_t;
 
 int kill(pid_t pid, int sig);
 int raise(int sig);
+int signal(int sig, void (*handler)(int));
 int sigaction(int sig, const sigaction_t *new, sigaction_t *old);
 
 typedef uint32_t sigset_t;
