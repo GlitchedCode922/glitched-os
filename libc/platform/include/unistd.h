@@ -29,7 +29,7 @@ void getcwd(char* buffer, size_t size);
 
 pid_t fork();
 pid_t spawn(const char *path, const char **argv, const char **envp);
-int execve(const char *path, const char **argv, const char **envp);
+int execve(const char *path, char* const argv[], char* const envp[]);
 pid_t waitpid(pid_t pid, int *wstatus, int options);
 pid_t wait(int *wstatus);
 

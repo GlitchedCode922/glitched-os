@@ -21,7 +21,7 @@ pid_t spawn(const char* path, const char** argv, const char** envp) {
     return res;
 }
 
-int execve(const char* path, const char** argv, const char** envp) {
+int execve(const char* path, char* const argv[], char* const envp[]) {
     int res = syscall(SYSCALL_EXECVE, (uint64_t)path, (uint64_t)argv, (uint64_t)envp, 0, 0, 0);
     if (res < 0) {
         errno = -res;
