@@ -9,4 +9,5 @@
 #define FB_GET_INFO 7
 #define IF_GET_INFO 8
 #define IF_CONFIGURE 9
-#define TCSETPGRP 10
+#define TCGETPGRP 10
+#define TCSETPGRP 11

@@ -42,10 +42,13 @@ int umount(const char *path);
 
 void* sbrk(intptr_t increment);
 
+pid_t getpid();
+pid_t getppid();
 pid_t getpgrp();
 pid_t getpgid(pid_t pid);
 int setpgrp();
 int setpgid(pid_t pid, pid_t pgid);
 pid_t getsid(pid_t pid);
 pid_t setsid();
+int tcgetpgrp(int fd);
 int tcsetpgrp(int fd, pid_t pgid);

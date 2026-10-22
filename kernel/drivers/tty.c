@@ -143,6 +143,8 @@ int tty_ioctl(int tty_id, uint64_t request, uint64_t arg) {
             tty->termios = *(termios_t*)data_ptr;
             return 0;
         }
+        case TCGETPGRP:
+            return tty->foreground_pgid;
         case TCSETPGRP:
             if ((int)arg < 0) return -EINVAL;
             tty->foreground_pgid = arg;
