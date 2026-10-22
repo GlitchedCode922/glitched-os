@@ -32,6 +32,11 @@ int execve(const char *path, char* const argv[], char* const envp[]);
 pid_t waitpid(pid_t pid, int *wstatus, int options);
 pid_t wait(int *wstatus);
 
+#define WIFEXITED(s)   ((s) >= 0)
+#define WIFSIGNALED(s) ((s) <  0)
+#define WEXITSTATUS(s) (s)
+#define WTERMSIG(s)    (-(s))
+
 void yield();
 void sleep(uint64_t ms);
 
