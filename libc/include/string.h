@@ -4,6 +4,7 @@
    Permission is granted to use, modify, and / or redistribute at will.
 */
 
+#include "pdclib/_PDCLIB_config.h"
 #ifndef _PDCLIB_STRING_H
 #define _PDCLIB_STRING_H _PDCLIB_STRING_H
 
@@ -186,6 +187,11 @@ _PDCLIB_PUBLIC char * strerror( int errnum );
 /* Returns the length of the string s (excluding terminating '\0').
 */
 _PDCLIB_PUBLIC size_t strlen( const char * s );
+
+
+/* Creates a copy of a string in the heap.
+*/
+_PDCLIB_PUBLIC char* strdup(const char* s);
 
 /* Annex K -- Bounds-checking interfaces */
 
