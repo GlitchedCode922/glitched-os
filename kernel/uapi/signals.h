@@ -5,7 +5,10 @@
 #define SIG_IGN ((void (*)(int))1)
 
 typedef struct sigaction {
-    void (*handler)(int);
+    union {
+        void (*handler)(int);
+        void (*sa_handler)(int);
+    };
 } sigaction_t;
 
 #define SIGHUP     1

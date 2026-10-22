@@ -9,7 +9,15 @@ enum {
     DT_CHAR = 4,
 };
 
-typedef struct {
-    char name[256];
-    uint32_t type;
+#define POSIX_COMPAT_UNION(type, name1, name2) \
+    union { \
+        type name1; \
+        type name2; \
+    }
+
+typedef struct dirent {
+    POSIX_COMPAT_UNION(char, name[256], d_name[256]);
+    POSIX_COMPAT_UNION(uint32_t, type, d_type);
 } __attribute__((packed)) dirent_t;
+
+#undef POSIX_COMPAT_UNION

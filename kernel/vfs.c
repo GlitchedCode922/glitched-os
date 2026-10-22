@@ -6,6 +6,8 @@
 #include "fs/ramfs.h"
 #include "fs/devfs.h"
 #include "memory/mman.h"
+#include "uapi/dirent.h"
+#include "uapi/stat.h"
 #include "usermode/scheduler.h"
 #include "error.h"
 #include <stddef.h>
@@ -566,7 +568,25 @@ int stat_handle(file_handle_t file, stat_t *out) {
     if (!fs->stat) {
         return -ENOSYS;
     }
-    return fs->stat(file.handle, out);
+    int res = fs->stat(file.handle, out);
+    if (res < 0) return res;
+    switch (out->type) {
+        case DT_FILE:
+            out->mode = S_IFREG | 0777;
+            break;
+        case DT_DIR:
+            out->mode = S_IFDIR | 0777;
+            break;
+        case DT_BLOCK:
+            out->mode = S_IFBLK | 0777;
+            break;
+        case DT_CHAR:
+            out->mode = S_IFCHR | 0777;
+            break;
+        default:
+            break;
+    }
+    return res;
 }
 
 int stat(const char *path, stat_t *out) {
@@ -584,7 +604,25 @@ int stat(const char *path, stat_t *out) {
     uint64_t handle;
     int res = fs->lookup(remaining_path, &handle);
     if (res < 0) return res;
-    return fs->stat(handle, out);
+    res = fs->stat(handle, out);
+    if (res < 0) return res;
+    switch (out->type) {
+        case DT_FILE:
+            out->mode = S_IFREG | 0777;
+            break;
+        case DT_DIR:
+            out->mode = S_IFDIR | 0777;
+            break;
+        case DT_BLOCK:
+            out->mode = S_IFBLK | 0777;
+            break;
+        case DT_CHAR:
+            out->mode = S_IFCHR | 0777;
+            break;
+        default:
+            break;
+    }
+    return res;
 }
 
 int mknod(const char *path, uint32_t type, dev_t dev) {
