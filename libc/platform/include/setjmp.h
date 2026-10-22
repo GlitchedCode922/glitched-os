@@ -1,3 +1,4 @@
+#pragma once
 #include <stdint.h>
 #include "pdclib/_PDCLIB_internal.h"
 
