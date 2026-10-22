@@ -9,7 +9,6 @@
 
 ssize_t read(int fd, void* buffer, size_t size);
 ssize_t write(int fd, const void* buffer, size_t size);
-int readdir(int fd, dirent_t* out);
 int close(int fd);
 ssize_t lseek(int fd, off_t offset, int type);
 ssize_t tell(int fd);
