@@ -9,4 +9,5 @@ _start:
     lea rdx, [rsi + rdi * 8 + 8]
 
     and rsp, -16
-    jmp _libc_init_main
+    call _libc_init_main
+    ud2
