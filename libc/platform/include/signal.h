@@ -18,3 +18,5 @@ int sigaddset(sigset_t* set, int sig);
 int sigdelset(sigset_t* set, int sig);
 int sigismember(sigset_t* set, int sig);
 int sigprocmask(int how, const sigset_t* set, sigset_t* old_set);
+
+char* strsignal(int sig);

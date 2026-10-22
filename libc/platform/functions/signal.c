@@ -91,3 +91,16 @@ int sigprocmask(int how, const sigset_t* set, sigset_t* old_set) {
     }
     return res;
 }
+
+char* strsignal(int sig) {
+    switch (sig) {
+        case SIGABRT: return "Aborted";
+        case SIGFPE: return "Floating point exception";
+        case SIGILL: return "Illegal instruction";
+        case SIGINT: return "Keyboard interrupt";
+        case SIGSEGV: return "Segmentation fault";
+        case SIGTERM: return "Terminated";
+        case SIGKILL: return "Killed";
+        default: return "Unknown signal";
+    }
+}
