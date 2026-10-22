@@ -49,8 +49,13 @@ int ftruncate(int fd, uint64_t new_len) {
     return res;
 }
 
-void getcwd(char *buffer, size_t size) {
-    syscall(SYSCALL_GETCWD, (uint64_t)buffer, size, 0, 0, 0, 0);
+char* getcwd(char *buffer, size_t size) {
+    int64_t res = syscall(SYSCALL_GETCWD, (uint64_t)buffer, size, 0, 0, 0, 0);
+    if (res < 0) {
+        errno = -res;
+        return NULL;
+    }
+    return buffer;
 }
 
 int chdir(const char *path) {

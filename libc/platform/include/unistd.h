@@ -22,7 +22,7 @@ int mkdir(const char* path, ...);
 int truncate(const char* path, size_t new_len);
 int ftruncate(int fd, size_t new_len);
 int chdir(const char* path);
-void getcwd(char* buffer, size_t size);
+char* getcwd(char* buffer, size_t size);
 
 #define WNOHANG 0x1
 
