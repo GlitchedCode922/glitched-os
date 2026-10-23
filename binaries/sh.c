@@ -66,30 +66,8 @@ int main(int argc, char** argv, char** envp) {
             continue;
         }
 
-        if (strchr(args[0], '/') == NULL) {
-            // Merge args[0] with /bin
-            char program_in_bin[strlen("/bin/") + strlen(args[0]) + 1];
-            strcpy(program_in_bin, "/bin/");
-            strcat(program_in_bin, args[0]);
-
-            int ret;
-            pid_t p = spawn(program_in_bin, (const char**)args, (const char**)envp);
-            if (p > 0) {
-                setpgid(p, p);
-                tcsetpgrp(STDIN_FILENO, p);
-                waitpid(p, &ret, 0);
-                tcsetpgrp(STDIN_FILENO, 0);
-                if (ret != 0) {
-                    printf("Command exited with error code %d\n", ret);
-                }
-            } else {
-                perror("Error");
-            }
-            continue;
-        }
-
         int ret;
-        pid_t p = spawn(args[0], (const char**)args, (const char**)envp);
+        pid_t p = spawn_p(args[0], args, envp);
         if (p > 0) {
             setpgid(p, p);
             tcsetpgrp(STDIN_FILENO, p);

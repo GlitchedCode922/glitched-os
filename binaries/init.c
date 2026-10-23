@@ -17,8 +17,8 @@ int main() {
     while (1) {
         pid_t sh = spawn(
             "/bin/sh",
-            (const char *[]){"/bin/sh", NULL},
-            (const char *[]){NULL}
+            (char*[]){"/bin/sh", NULL},
+            (char*[]){"PATH=/usr/bin:/bin", NULL}
         );
 
         if (sh <= 0) {

@@ -7,6 +7,8 @@
 #define STDOUT_FILENO 1
 #define STDERR_FILENO 2
 
+extern char** environ;
+
 ssize_t read(int fd, void* buffer, size_t size);
 ssize_t write(int fd, const void* buffer, size_t size);
 int close(int fd);
@@ -27,8 +29,12 @@ char* getcwd(char* buffer, size_t size);
 #define WNOHANG 0x1
 
 pid_t fork();
-pid_t spawn(const char *path, const char **argv, const char **envp);
+pid_t spawn(const char *path, char* const argv[], char* const envp[]);
+pid_t spawn_p(const char *path, char* const argv[], char* const envp[]);
+int execv(const char *path, char* const argv[]);
 int execve(const char *path, char* const argv[], char* const envp[]);
+int execvp(const char *path, char* const argv[]);
+int execvpe(const char *path, char* const argv[], char* const envp[]);
 pid_t waitpid(pid_t pid, int *wstatus, int options);
 pid_t wait(int *wstatus);
 
