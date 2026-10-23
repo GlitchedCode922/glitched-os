@@ -189,9 +189,13 @@ _PDCLIB_PUBLIC char * strerror( int errnum );
 _PDCLIB_PUBLIC size_t strlen( const char * s );
 
 
-/* Creates a copy of a string in the heap.
+/* Creates a copy of s in the heap.
 */
 _PDCLIB_PUBLIC char* strdup(const char* s);
+
+/* Creates a copy of s in the heap, up to n characters.
+*/
+_PDCLIB_PUBLIC char* strndup(const char* s, size_t n);
 
 /* Annex K -- Bounds-checking interfaces */
 
