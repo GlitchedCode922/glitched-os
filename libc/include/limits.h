@@ -39,6 +39,8 @@ extern "C" {
 #define PATH_MAX 4096
 #define NAME_MAX 256
 
+#define PIPE_BUF 8184
+
 /* Extension hook for downstream projects that want to have non-standard
    extensions to standard headers.
 */
