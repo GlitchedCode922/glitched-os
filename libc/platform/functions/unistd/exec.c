@@ -1,3 +1,4 @@
+#include "uapi/spawn.h"
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
@@ -16,8 +17,8 @@ pid_t fork() {
     return res;
 }
 
-pid_t spawn(const char* path, char *const *argv, char *const *envp) {
-    int res = syscall(SYSCALL_SPAWN, (uint64_t)path, (uint64_t)argv, (uint64_t)envp, 0, 0, 0);
+pid_t spawn(const char* path, char *const *argv, char *const *envp, spawn_action_t** actions) {
+    int res = syscall(SYSCALL_SPAWN, (uint64_t)path, (uint64_t)argv, (uint64_t)envp, (uint64_t)actions, 0, 0);
     if (res < 0) {
         errno = -res;
         return -1;
@@ -25,13 +26,13 @@ pid_t spawn(const char* path, char *const *argv, char *const *envp) {
     return res;
 }
 
-pid_t spawn_p(const char *file, char *const *argv, char *const *envp) {
+pid_t spawn_p(const char *file, char *const *argv, char *const *envp, spawn_action_t** actions) {
     if (!file || *file == '\0') {
         errno = ENOENT;
         return -1;
     }
 
-    if (strchr(file, '/')) return spawn(file, argv, envp);
+    if (strchr(file, '/')) return spawn(file, argv, envp, actions);
     const char* path = getenv("PATH");
     if (!path) path = "/usr/bin:/bin";
     size_t file_len = strlen(file);
@@ -63,7 +64,7 @@ pid_t spawn_p(const char *file, char *const *argv, char *const *envp) {
             if (!slash) candidate[off++] = '/';
             memcpy(candidate + off, file, file_len + 1);
         }
-        int res = spawn(candidate, argv, envp);
+        int res = spawn(candidate, argv, envp, actions);
         if (res > 0) return res;
         if (errno == ENOENT || errno == ENOTDIR) {
             if (!colon) break;

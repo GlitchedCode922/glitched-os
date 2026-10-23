@@ -65,26 +65,32 @@ int fd_open(const char *path, uint16_t flags) {
     return -ENFILE;
 }
 
+int close_file_description(file_description_t* file_description) {
+    if (file_description->type == FD_TYPE_FILE || file_description->type == FD_TYPE_DIR) {
+        int res = close(file_description->file_handle);
+        if (res < 0) return res;
+    } else if (file_description->type == FD_TYPE_SOCKET) {
+        int res = socket_close(file_description->socket);
+        if (res < 0) return res;
+    } else if (file_description->type == FD_TYPE_PIPE) {
+        if ((file_description->flags & O_ACCESS) == O_RDONLY) {
+            remove_pipe_reader(file_description->pipe);
+        } else {
+            remove_pipe_writer(file_description->pipe);
+        }
+    }
+    file_description->offset = 0;
+    return 0;
+}
+
 int fd_close(int fd) {
     if (fd < 0 || fd >= MAX_FDS || current_task->fd_table[fd].fd == NULL) {
         return -EBADF;
     }
     file_description_t* file_description = current_task->fd_table[fd].fd;
     if (--file_description->refcount == 0) {
-        if (file_description->type == FD_TYPE_FILE || file_description->type == FD_TYPE_DIR) {
-            int res = close(file_description->file_handle);
-            if (res < 0) return res;
-        } else if (file_description->type == FD_TYPE_SOCKET) {
-            int res = socket_close(file_description->socket);
-            if (res < 0) return res;
-        } else if (file_description->type == FD_TYPE_PIPE) {
-            if ((file_description->flags & O_ACCESS) == O_RDONLY) {
-                remove_pipe_reader(file_description->pipe);
-            } else {
-                remove_pipe_writer(file_description->pipe);
-            }
-        }
-        file_description->offset = 0;
+        int res = close_file_description(file_description);
+        if (res < 0) return res;
     }
     current_task->fd_table[fd].fd = NULL;
     current_task->fd_table[fd].flags = 0;

@@ -67,7 +67,7 @@ int main(int argc, char** argv, char** envp) {
         }
 
         int ret;
-        pid_t p = spawn_p(args[0], args, envp);
+        pid_t p = spawn_p(args[0], args, envp, NULL);
         if (p > 0) {
             setpgid(p, p);
             tcsetpgrp(STDIN_FILENO, p);

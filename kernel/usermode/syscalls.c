@@ -1,6 +1,7 @@
 #include "usermode/syscalls.h"
 #include "idt.h"
 #include "uapi/signals.h"
+#include "uapi/spawn.h"
 #include "uapi/syscalls.h"
 #include "usermode/fd.h"
 #include "usermode/break.h"
@@ -218,7 +219,7 @@ void syscall(iframe_t* iframe) {
     case SYSCALL_SPAWN:
         ret = validate_user_string((void*)arg1, MAX_PATH);
         if (ret < 0) break;
-        ret = spawn((char*)arg1, (char**)arg2, (char**)arg3, iframe);
+        ret = spawn((char*)arg1, (char**)arg2, (char**)arg3, (spawn_action_t**)arg4, iframe);
         break;
     case SYSCALL_PIPE:
         ret = validate_user_pointer((void*)arg1, sizeof(int) * 2, 1);

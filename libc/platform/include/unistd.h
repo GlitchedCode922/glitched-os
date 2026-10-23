@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <sys/types.h>
 #include <uapi/dirent.h> // IWYU pragma: export
+#include <uapi/spawn.h> // IWYU pragma: export
 
 #define STDIN_FILENO 0
 #define STDOUT_FILENO 1
@@ -29,8 +30,8 @@ char* getcwd(char* buffer, size_t size);
 #define WNOHANG 0x1
 
 pid_t fork();
-pid_t spawn(const char *path, char* const argv[], char* const envp[]);
-pid_t spawn_p(const char *path, char* const argv[], char* const envp[]);
+pid_t spawn(const char *path, char* const argv[], char* const envp[], spawn_action_t** spawn_actions);
+pid_t spawn_p(const char *path, char* const argv[], char* const envp[], spawn_action_t** spawn_actions);
 int execv(const char *path, char* const argv[]);
 int execve(const char *path, char* const argv[], char* const envp[]);
 int execvp(const char *path, char* const argv[]);

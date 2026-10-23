@@ -1,6 +1,8 @@
 #include "usermode/scheduler.h"
+#include "drivers/block.h"
 #include "idt.h"
 #include "uapi/signals.h"
+#include "uapi/spawn.h"
 #include "uapi/vvar.h"
 #include "usermode/fd.h"
 #include "usermode/syscalls.h"
@@ -300,7 +302,7 @@ static int strlen(char* s) {
     return len;
 }
 
-int add_task(char* path, char** argv, char** envp, task_t* parent, int pid, iframe_t* iframe) {
+int add_task(char* path, char** argv, char** envp, task_t* parent, int pid, spawn_action_t** actions, iframe_t* iframe) {
     // Copy path to kernel memory
     size_t path_len = strlen(path) + 1;
     char kpath[path_len];
@@ -308,6 +310,7 @@ int add_task(char* path, char** argv, char** envp, task_t* parent, int pid, ifra
 
     int argc = 0;
     int envc = 0;
+    int action_count = 0;
 
     if (!argv) {
         argv = (char*[]){path, NULL};
@@ -343,6 +346,22 @@ int add_task(char* path, char** argv, char** envp, task_t* parent, int pid, ifra
         }
         if (envc == 8192) return -EINVAL;
     }
+    if (!actions) {
+        actions = (spawn_action_t*[]){NULL};
+        action_count = 0;
+    } else {
+        spawn_action_t** p = actions;
+        for (action_count = 0; action_count < 8192; action_count++) {
+            int res = validate_user_pointer(p, sizeof(char*), 0);
+            if (res < 0) return res;
+            spawn_action_t* action = *p;
+            if (action == NULL) break;
+            res = validate_user_pointer(action, sizeof(spawn_action_t), 0);
+            if (res < 0) return res;
+            p++;
+        }
+        if (envc == 8192) return -EINVAL;
+    }
 
     // Copy argv strings to kernel memory
     char* kargv[argc + 1];
@@ -366,11 +385,40 @@ int add_task(char* path, char** argv, char** envp, task_t* parent, int pid, ifra
     new_task->state = STATE_READY;
     new_task->in_signal = 0;
     new_task->cr3 = clone_page_tables(base_pml4);
+    new_task->pid = pid;
+
+    // Execute actions
+    for (int i = 0; i < action_count; i++) {
+        if (actions[i]->action == SPAWN_DUP2) {
+            task_t* old_current = current_task;
+            current_task = new_task;
+            int res = dup2(actions[i]->oldfd, actions[i]->newfd);
+            current_task = old_current;
+            if (res < 0) return res;
+        } else if (actions[i]->action == SPAWN_SIGMASK) {
+            task_t* old_current = current_task;
+            current_task = new_task;
+            int res = sigprocmask(actions[i]->sigmask_how, &actions[i]->sigmask, NULL);
+            current_task = old_current;
+            if (res < 0) return res;
+        } else if (actions[i]->action == SPAWN_SETPGID) {
+            task_t* old_current = current_task;
+            current_task = new_task;
+            int res = setpgid(pid, actions[i]->pgid);
+            current_task = old_current;
+            if (res < 0) return res;
+        } else {
+            return -EINVAL;
+        }
+    }
 
     // Increment file description refcounts
     for (int fd = 0; fd < MAX_FDS; fd++) {
         if (!new_task->fd_table[fd].fd) continue;
         if (new_task->fd_table[fd].flags & O_CLOEXEC) {
+            if (--new_task->fd_table[fd].fd->refcount == 0) {
+                close_file_description(new_task->fd_table[fd].fd);
+            }
             new_task->fd_table[fd].fd = NULL;
             new_task->fd_table[fd].flags = 0;
             continue;
@@ -472,18 +520,17 @@ int add_task(char* path, char** argv, char** envp, task_t* parent, int pid, ifra
     parent->next = new_task;
     new_task->next_sibling = parent->child;
     new_task->child = NULL;
-    new_task->pid = pid;
     new_task->parent = parent;
     parent->child = new_task;
 
     return pid;
 }
 
-int spawn(char* path, char** argv, char** envp, iframe_t* iframe) {
+int spawn(char* path, char** argv, char** envp, spawn_action_t** actions, iframe_t* iframe) {
     if (last_pid == 2147483647) panic("No PIDs available");
 
     current_task->iframe = iframe;
-    int res = add_task(path, argv, envp, current_task, ++last_pid, iframe);
+    int res = add_task(path, argv, envp, current_task, ++last_pid, actions, iframe);
     if (res != last_pid) {
         return res;
     }
@@ -495,7 +542,7 @@ int spawn(char* path, char** argv, char** envp, iframe_t* iframe) {
 }
 
 int execve(char *path, char **argv, char** envp, iframe_t *iframe) {
-    int res = add_task(path, argv, envp, current_task->parent, current_task->pid, iframe);
+    int res = add_task(path, argv, envp, current_task->parent, current_task->pid, NULL, iframe);
     if (res != current_task->pid) {
         return res;
     }

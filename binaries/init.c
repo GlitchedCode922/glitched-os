@@ -18,7 +18,8 @@ int main() {
         pid_t sh = spawn(
             "/bin/sh",
             (char*[]){"/bin/sh", NULL},
-            (char*[]){"PATH=/usr/bin:/bin", NULL}
+            (char*[]){"PATH=/usr/bin:/bin", NULL},
+            NULL
         );
 
         if (sh <= 0) {

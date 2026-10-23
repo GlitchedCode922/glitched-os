@@ -56,3 +56,4 @@ int fd_unbind(int fd);
 int pipe(int fd[2]);
 int64_t fd_recvfrom(int fd, uint8_t* buffer, uint64_t len, int flags, sockaddr_in_t* addr);
 int64_t fd_sendto(int fd, const uint8_t* buffer, uint64_t len, int flags, const sockaddr_in_t* addr);
+int close_file_description(file_description_t* file_description);

@@ -4,6 +4,7 @@
 #include "idt.h"
 #include "vfs.h"
 #include "uapi/signals.h" // IWYU pragma: export
+#include "uapi/spawn.h" // IWYU pragma: export
 #include <stdint.h>
 
 typedef enum {
@@ -108,7 +109,7 @@ void deliver_signals();
 void exit(iframe_t* iframe, int ret);
 vvar_t* get_vvar_addr();
 int fork(iframe_t* iframe);
-int spawn(char* path, char** argv, char** envp, iframe_t* iframe);
+int spawn(char* path, char** argv, char** envp, spawn_action_t** actions, iframe_t* iframe);
 int execve(char* path, char** argv, char** envp, iframe_t* iframe);
 int create_kworker(void (*function)(void*), void* arg);
 void yield_current();
