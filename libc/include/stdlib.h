@@ -189,6 +189,11 @@ _PDCLIB_PUBLIC _PDCLIB_Noreturn void _Exit( int status ) _PDCLIB_NORETURN;
    the hosting OS and its glue function.
 */
 _PDCLIB_PUBLIC char * getenv( const char * name );
+_PDCLIB_PUBLIC int setenv(const char* name, const char* value, int overwrite);
+_PDCLIB_PUBLIC int putenv(char* string);
+
+int __copy_environment();
+extern int environ_copied;
 
 /* If string is a NULL pointer, system() returns nonzero if a command processor
    is available, and zero otherwise. If string is not a NULL pointer, it is

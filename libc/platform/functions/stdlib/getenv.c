@@ -28,8 +28,7 @@ char * getenv( const char * name )
 
     while ( environ[ index ] != NULL )
     {
-        if ( strncmp( environ[ index ], name, len ) == 0 )
-        {
+        if ( strncmp( environ[ index ], name, len ) == 0 && environ[index][len] == '=') {
             return environ[ index ] + len + 1;
         }
 

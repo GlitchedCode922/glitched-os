@@ -41,7 +41,7 @@ errno_t getenv_s( size_t * _PDCLIB_restrict len, char * _PDCLIB_restrict value, 
 
     while ( environ[ index ] != NULL )
     {
-        if ( strncmp( environ[ index ], name, nlen ) == 0 )
+        if ( strncmp( environ[ index ], name, nlen ) == 0 && environ[index][nlen] == '=')
         {
             environ_value = environ[ index ] + nlen + 1;
             vlen = strlen( environ_value );

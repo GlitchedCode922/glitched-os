@@ -3,6 +3,7 @@
 #include <syscall.h>
 
 char** environ;
+int environ_copied = 0;
 vvar_t* vvar;
 extern int main(int argc, char* argv[], char* envp[]);
 
