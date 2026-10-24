@@ -52,6 +52,8 @@ extern struct _PDCLIB_file_t _PDCLIB_serr;
 #define stdout ( &_PDCLIB_sout )
 #define stderr ( &_PDCLIB_serr )
 
+#include <stdint.h>
+
 /* Operations on files */
 
 /* Remove the given file.
@@ -797,7 +799,10 @@ _PDCLIB_PUBLIC void perror( const char * s );
 /* Returns the file descriptor associated with the given stream,
    or -1 if an error occurs. POSIX extension, not part of ISO C.
 */
-int fileno(FILE* stream);
+_PDCLIB_PUBLIC int fileno(FILE* stream);
+
+
+_PDCLIB_PUBLIC int64_t getline(char** lineptr, size_t* n, FILE* stream);
 
 /* Annex K -- Bounds-checking interfaces */
 
