@@ -302,7 +302,7 @@ static int strlen(char* s) {
     return len;
 }
 
-int add_task(char* path, char** argv, char** envp, task_t* parent, int pid, spawn_action_t** actions, iframe_t* iframe) {
+int add_task(char* path, char** argv, char** envp, task_t* parent, int pid, spawn_action_t** actions, task_t** taskptr, iframe_t* iframe) {
     // Copy path to kernel memory
     size_t path_len = strlen(path) + 1;
     char kpath[path_len];
@@ -523,6 +523,7 @@ int add_task(char* path, char** argv, char** envp, task_t* parent, int pid, spaw
     new_task->parent = parent;
     parent->child = new_task;
 
+    if (taskptr) *taskptr = new_task;
     return pid;
 }
 
@@ -530,7 +531,7 @@ int spawn(char* path, char** argv, char** envp, spawn_action_t** actions, iframe
     if (last_pid == 2147483647) panic("No PIDs available");
 
     current_task->iframe = iframe;
-    int res = add_task(path, argv, envp, current_task, ++last_pid, actions, iframe);
+    int res = add_task(path, argv, envp, current_task, ++last_pid, actions, NULL, iframe);
     if (res != last_pid) {
         return res;
     }
@@ -542,11 +543,28 @@ int spawn(char* path, char** argv, char** envp, spawn_action_t** actions, iframe
 }
 
 int execve(char *path, char **argv, char** envp, iframe_t *iframe) {
-    int res = add_task(path, argv, envp, current_task->parent, current_task->pid, NULL, iframe);
+    task_t* new_task;
+    int res = add_task(path, argv, envp, current_task->parent, current_task->pid, NULL, &new_task, iframe);
     if (res != current_task->pid) {
         return res;
     }
     current_task->state = STATE_DELETED;
+    task_t* t = &init_task;
+    do {
+        t = t->next;
+        if (t->blocked_process == current_task) t->blocked_process = new_task;
+    } while (t != &init_task);
+    release_process_fds();
+
+    // Reparent children
+    task_t* c = current_task->child;
+    while (c) {
+        task_t* next = c->next_sibling;
+        c->parent = new_task;
+        c->next_sibling = new_task->child;
+        new_task->child = c;
+        c = next;
+    }
 
     switch_task();
     return 0; // Suppress compiler warning
