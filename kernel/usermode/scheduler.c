@@ -387,6 +387,12 @@ int add_task(char* path, char** argv, char** envp, task_t* parent, int pid, spaw
     new_task->cr3 = clone_page_tables(base_pml4);
     new_task->pid = pid;
 
+    // Increment file description refcounts
+    for (int fd = 0; fd < MAX_FDS; fd++) {
+        if (!new_task->fd_table[fd].fd) continue;
+        new_task->fd_table[fd].fd->refcount++;
+    }
+
     // Execute actions
     for (int i = 0; i < action_count; i++) {
         if (actions[i]->action == SPAWN_DUP2) {
@@ -412,18 +418,15 @@ int add_task(char* path, char** argv, char** envp, task_t* parent, int pid, spaw
         }
     }
 
-    // Increment file description refcounts
+    // Handle O_CLOEXEC
     for (int fd = 0; fd < MAX_FDS; fd++) {
         if (!new_task->fd_table[fd].fd) continue;
-        if (new_task->fd_table[fd].flags & O_CLOEXEC) {
-            if (--new_task->fd_table[fd].fd->refcount == 0) {
-                close_file_description(new_task->fd_table[fd].fd);
-            }
-            new_task->fd_table[fd].fd = NULL;
-            new_task->fd_table[fd].flags = 0;
-            continue;
+        if (!(new_task->fd_table[fd].flags & O_CLOEXEC)) continue;
+        if (--new_task->fd_table[fd].fd->refcount == 0) {
+            close_file_description(new_task->fd_table[fd].fd);
         }
-        new_task->fd_table[fd].fd->refcount++;
+        new_task->fd_table[fd].fd = NULL;
+        new_task->fd_table[fd].flags = 0;
     }
 
     // Switch to the new page table
