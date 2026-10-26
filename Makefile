@@ -43,6 +43,9 @@ KERNEL_OBJECTS = $(patsubst kernel/%.c, build/obj/kernel/%.o, $(KERNEL_C_FILES))
 LIBC_SOURCE = $(shell find libc -name '*.c')
 LIBC_OBJECTS = $(patsubst libc/%.c, build/obj/libc/%.o, $(LIBC_SOURCE))
 
+SHELL_SOURCE = $(shell find shell -name '*.c')
+SHELL_OBJECTS = $(patsubst shell/%.c, build/obj/shell/%.o, $(SHELL_SOURCE))
+
 BINARIES_SOURCE = $(wildcard binaries/*.c)
 BINARIES_OBJECTS = $(patsubst binaries/%, build/obj/binaries/%,$(BINARIES:.c=.o))
 BINARIES = $(basename $(notdir $(BINARIES_SOURCE)))
@@ -57,9 +60,9 @@ GLFS_PACK := glitchfs/build/tools/glfs-pack
 
 .DELETE_ON_ERROR:
 .SECONDARY:
-.PHONY: all clean kernel libc binaries disk-image
+.PHONY: all clean kernel libc binaries shell disk-image
 
-all: kernel libc binaries disk-image
+all: kernel libc binaries shell disk-image
 
 -include $(KERNEL_OBJECTS:.o=.d)
 -include $(LIBC_OBJECTS:.o=.d)
@@ -116,9 +119,18 @@ build/obj/binaries:
 build/binaries:
 	mkdir -p build/binaries
 
+build/obj/shell/%.o: shell/%.c
+	mkdir -p $(basename $@)
+	$(CC) $(CFLAGS) $(BIN_CFLAGS) -Ishell/include -c $< -o $@
+
+build/sh: $(SHELL_OBJECTS) build/crt0.o build/libc.a
+	$(LD) $(LDFLAGS) $(BIN_LDFLAGS) build/crt0.o $(SHELL_OBJECTS) build/libc.a $(LDLIBS) -o $@
+
+shell: build/sh
+
 disk-image: build/disk.img
 
-build/disk.img: build/kernel $(BINARY_TARGETS) limine.conf build/.glitchfs-stamp
+build/disk.img: build/kernel $(BINARY_TARGETS) build/sh limine.conf build/.glitchfs-stamp
 	$(MAKE) -C thirdparty/limine CC=$(HOSTCC)
 	dd if=/dev/zero of=build/disk.img.incomplete bs=1M count=128
 	dd if=/dev/zero of=build/root.img.tmp bs=1M count=111
@@ -143,11 +155,15 @@ build/disk.img: build/kernel $(BINARY_TARGETS) limine.conf build/.glitchfs-stamp
 	mcopy -i build/disk.img.incomplete@@4194304 thirdparty/limine/LICENSE ::/limine
 
 	mkdir -p build/rootfs/bin
+	mkdir -p build/rootfs/share
 	mkdir -p build/rootfs/boot
 	mkdir -p build/rootfs/dev
 	mkdir -p build/rootfs/tmp
 
 	cp build/binaries/* build/rootfs/bin
+	cp build/sh build/rootfs/bin/sh
+	cp build/sh build/rootfs/bin/mrsh
+	cp shell/LICENSE build/rootfs/share/mrsh.license
 	glitchfs/build/tools/glfs-pack build/rootfs build/root.img.tmp
 	dd if=build/root.img.tmp of=build/disk.img.incomplete bs=1M seek=16 count=111 conv=notrunc
 	rm -f build/root.img.tmp

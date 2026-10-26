@@ -1,0 +1,1784 @@
+diff --git a/.builds/alpine.yml b/.builds/alpine.yml
+deleted file mode 100644
+index 7587220..0000000
+--- a/.builds/alpine.yml
++++ /dev/null
+@@ -1,29 +0,0 @@
+-image: alpine/edge
+-packages:
+-  - gcc
+-  - clang
+-  - meson
+-  - dash
+-sources:
+-  - https://git.sr.ht/~emersion/mrsh
+-tasks:
+-  - setup: |
+-      cd mrsh
+-      CC=gcc meson build-gcc -Dreference-shell=dash
+-      CC=clang meson build-clang -Dreference-shell=dash
+-  - build-gcc: |
+-      cd mrsh
+-      ninja -C build-gcc
+-  - build-clang: |
+-      cd mrsh
+-      ninja -C build-clang
+-  - test-gcc: |
+-      cd mrsh
+-      ninja -C build-gcc test
+-  - test-clang: |
+-      cd mrsh
+-      ninja -C build-clang test
+-triggers:
+-  - action: email
+-    condition: failure
+-    to: "<contact@emersion.fr>"
+diff --git a/.builds/archlinux.yml b/.builds/archlinux.yml
+deleted file mode 100644
+index 2ad6949..0000000
+--- a/.builds/archlinux.yml
++++ /dev/null
+@@ -1,29 +0,0 @@
+-image: archlinux
+-packages:
+-  - gcc
+-  - meson
+-  - readline
+-sources:
+-  - https://git.sr.ht/~emersion/mrsh
+-tasks:
+-  - setup: |
+-      cd mrsh
+-      meson build -Db_sanitize=address,undefined -Dauto_features=enabled
+-  - build: |
+-      cd mrsh
+-      ninja -C build
+-  - test: |
+-      cd mrsh
+-      ninja -C build test
+-  - build-release: |
+-      cd mrsh
+-      meson configure build --buildtype release
+-      ninja -C build
+-  - build-minimal: |
+-      cd mrsh
+-      meson configure build -Dauto_features=disabled
+-      ninja -C build
+-triggers:
+-  - action: email
+-    condition: failure
+-    to: "<contact@emersion.fr>"
+diff --git a/.builds/freebsd.yml b/.builds/freebsd.yml
+deleted file mode 100644
+index 9d09417..0000000
+--- a/.builds/freebsd.yml
++++ /dev/null
+@@ -1,21 +0,0 @@
+-image: freebsd/latest
+-packages:
+-  - meson
+-  - libedit
+-  - pkgconf
+-sources:
+-  - https://git.sr.ht/~emersion/mrsh
+-tasks:
+-  - setup: |
+-      cd mrsh
+-      meson build -Dauto_features=enabled -Dreadline-provider=editline
+-  - build: |
+-      cd mrsh
+-      ninja -C build
+-  - test: |
+-      cd mrsh
+-      ninja -C build test
+-triggers:
+-  - action: email
+-    condition: failure
+-    to: "<contact@emersion.fr>"
+diff --git a/Makefile b/Makefile
+deleted file mode 100644
+index e4e636e..0000000
+--- a/Makefile
++++ /dev/null
+@@ -1,105 +0,0 @@
+-.POSIX:
+-.SUFFIXES:
+-OUTDIR=.build
+-include $(OUTDIR)/config.mk
+-
+-INCLUDE=-Iinclude
+-
+-public_includes=\
+-		include/mrsh/arithm.h \
+-		include/mrsh/array.h \
+-		include/mrsh/ast.h \
+-		include/mrsh/buffer.h \
+-		include/mrsh/builtin.h \
+-		include/mrsh/entry.h \
+-		include/mrsh/hashtable.h \
+-		include/mrsh/parser.h \
+-		include/mrsh/shell.h
+-
+-tests=\
+-		test/args.sh \
+-		test/arithm.sh \
+-		test/async.sh \
+-		test/case.sh \
+-		test/command.sh \
+-		test/for.sh \
+-		test/function.sh \
+-		test/if.sh \
+-		test/loop.sh \
+-		test/pipeline.sh \
+-		test/read.sh \
+-		test/readonly.sh \
+-		test/redir.sh \
+-		test/return.sh \
+-		test/subshell.sh \
+-		test/syntax.sh \
+-		test/ulimit.sh \
+-		test/word.sh
+-
+-include $(OUTDIR)/cppcache
+-
+-.SUFFIXES: .c .o
+-
+-.c.o:
+-	@mkdir -p $$(dirname "$@")
+-	@printf 'CC\t$@\n'
+-	@touch $(OUTDIR)/cppcache
+-	@grep $< $(OUTDIR)/cppcache >/dev/null || \
+-		$(CPP) $(INCLUDE) -MM -MT $@ $< >> $(OUTDIR)/cppcache
+-	@$(CC) -c $(CFLAGS) $(INCLUDE) -o $@ $<
+-
+-$(OUTDIR)/libmrsh.a: $(libmrsh_objects)
+-	@printf 'AR\t$@\n'
+-	@$(AR) -csr $@ $(libmrsh_objects)
+-
+-libmrsh.so.$(SOVERSION): $(OUTDIR)/libmrsh.a
+-	@printf 'LD\t$@\n'
+-	@$(CC) -shared $(LDFLAGS) -o $@ $(OUTDIR)/libmrsh.a
+-
+-$(OUTDIR)/mrsh.pc:
+-	@printf 'MKPC\t$@\n'
+-	@PREFIX=$(PREFIX) ./mkpc $@
+-
+-mrsh: $(OUTDIR)/libmrsh.a $(mrsh_objects)
+-	@printf 'CCLD\t$@\n'
+-	@$(CC) -o $@ $(LDFLAGS) $(mrsh_objects) -L$(OUTDIR) -lmrsh $(LIBS)
+-
+-highlight: $(OUTDIR)/libmrsh.a $(highlight_objects)
+-	@printf 'CCLD\t$@\n'
+-	@$(CC) -o $@ $(LDFLAGS) $(highlight_objects) -L$(OUTDIR) -lmrsh $(LIBS)
+-
+-check: mrsh $(tests)
+-	@for t in $(tests); do \
+-		printf '%-30s... ' "$$t" && \
+-		MRSH=./mrsh REF_SH=$${REF_SH:-sh} ./test/harness.sh $$t >/dev/null && \
+-		echo OK || echo FAIL; \
+-	done
+-
+-install: mrsh libmrsh.so.$(SOVERSION) $(OUTDIR)/mrsh.pc
+-	mkdir -p $(BINDIR) $(LIBDIR) $(INCDIR)/mrsh $(PCDIR)
+-	install -m755 mrsh $(BINDIR)/mrsh
+-	install -m755 libmrsh.so.$(SOVERSION) $(LIBDIR)/libmrsh.so.$(SOVERSION)
+-	for inc in $(public_includes); do \
+-		install -m644 $$inc $(INCDIR)/mrsh/$$(basename $$inc); \
+-	done
+-	install -m644 $(OUTDIR)/mrsh.pc $(PCDIR)/mrsh.pc
+-
+-uninstall:
+-	rm -f $(BINDIR)/mrsh
+-	rm -f $(LIBDIR)/libmrsh.so.$(SOVERSION)
+-	for inc in $(public_includes); do \
+-		rm -f $(INCDIR)/mrsh/$$(basename $$inc); \
+-	done
+-	rm -f $(PCDIR)/mrsh.pc
+-
+-clean:
+-	rm -rf \
+-		$(libmrsh_objects) \
+-		$(mrsh_objects) \
+-		$(highlight_objects) \
+-		mrsh highlight libmrsh.so.$(SOVERSION) $(OUTDIR)/mrsh.pc
+-
+-mrproper: clean
+-	rm -rf $(OUTDIR)
+-
+-.PHONY: all install clean check
+diff --git a/builtin/builtin.c b/builtin/builtin.c
+index 1080115..6da2a6a 100644
+--- a/builtin/builtin.c
++++ b/builtin/builtin.c
+@@ -41,12 +41,12 @@ static const struct builtin builtins[] = {
+ 	{ "return", builtin_return, true },
+ 	{ "set", builtin_set, true },
+ 	{ "shift", builtin_shift, true },
+-	{ "times", builtin_times, true },
++//	{ "times", builtin_times, true },
+ 	{ "trap", builtin_trap, true },
+ 	{ "true", builtin_true, false },
+ 	{ "type", builtin_type, false },
+-	{ "ulimit", builtin_ulimit, false },
+-	{ "umask", builtin_umask, false },
++//	{ "ulimit", builtin_ulimit, false },
++//	{ "umask", builtin_umask, false },
+ 	{ "unalias", builtin_unalias, false },
+ 	{ "unset", builtin_unset, true },
+ 	{ "wait", builtin_wait, false },
+diff --git a/builtin/exec.c b/builtin/exec.c
+index f987730..03f9a35 100644
+--- a/builtin/exec.c
++++ b/builtin/exec.c
+@@ -22,10 +22,6 @@ int builtin_exec(struct mrsh_state *state, int argc, char *argv[]) {
+ 		fprintf(stderr, "exec: %s: command not found\n", argv[_mrsh_optind]);
+ 		return 127;
+ 	}
+-	if (access(path, X_OK) != 0) {
+-		fprintf(stderr, "exec: %s: not executable\n", path);
+-		return 126;
+-	}
+ 
+ 	execv(path, &argv[_mrsh_optind]);
+ 	perror("exec");
+diff --git a/builtin/times.c b/builtin/times.c
+deleted file mode 100644
+index a03ffdd..0000000
+--- a/builtin/times.c
++++ /dev/null
+@@ -1,41 +0,0 @@
+-#include <errno.h>
+-#include <mrsh/builtin.h>
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <string.h>
+-#include <sys/times.h>
+-#include <unistd.h>
+-#include "builtin.h"
+-
+-static const char times_usage[] = "usage: times\n";
+-
+-int builtin_times(struct mrsh_state *state, int argc, char *argv[]) {
+-	if (argc > 1) {
+-		fprintf(stderr, times_usage);
+-		return 1;
+-	}
+-
+-	struct tms buf;
+-	long clk_tck = sysconf(_SC_CLK_TCK);
+-	if (clk_tck == -1) {
+-		perror("sysconf");
+-		return 1;
+-	}
+-
+-	if (times(&buf) == (clock_t)-1) {
+-		perror("times");
+-		return 1;
+-	}
+-
+-	printf("%dm%fs %dm%fs\n%dm%fs %dm%fs\n",
+-			(int)(buf.tms_utime / clk_tck / 60),
+-			((double) buf.tms_utime) / clk_tck,
+-			(int)(buf.tms_stime / clk_tck / 60),
+-			((double) buf.tms_stime) / clk_tck,
+-			(int)(buf.tms_cutime / clk_tck / 60),
+-			((double) buf.tms_cutime) / clk_tck,
+-			(int)(buf.tms_cstime / clk_tck / 60),
+-			((double)buf.tms_cstime) / clk_tck);
+-
+-	return 0;
+-}
+diff --git a/builtin/ulimit.c b/builtin/ulimit.c
+deleted file mode 100644
+index ef620f1..0000000
+--- a/builtin/ulimit.c
++++ /dev/null
+@@ -1,61 +0,0 @@
+-#define _POSIX_C_SOURCE 200809L
+-#include <errno.h>
+-#include <inttypes.h>
+-#include <limits.h>
+-#include <mrsh/shell.h>
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <string.h>
+-#include <sys/resource.h>
+-#include <sys/time.h>
+-#include "builtin.h"
+-#include "mrsh_getopt.h"
+-
+-static const char ulimit_usage[] = "usage: ulimit [-f] [blocks]\n";
+-
+-int builtin_ulimit(struct mrsh_state *state, int argc, char *argv[]) {
+-	_mrsh_optind = 0;
+-	int opt;
+-	while ((opt = _mrsh_getopt(argc, argv, ":f")) != -1) {
+-		if (opt == 'f') {
+-			// Nothing here
+-		} else {
+-			fprintf(stderr, "%s", ulimit_usage);
+-			return 1;
+-		}
+-	}
+-
+-	if (_mrsh_optind == argc - 1) {
+-		char *arg = argv[_mrsh_optind];
+-		char *end;
+-		long int new_limit = strtol(arg, &end, 10);
+-		if (end == arg || end[0] != '\0') {
+-			fprintf(stderr, "ulimit: invalid argument: %s\n", arg);
+-			return 1;
+-		}
+-		struct rlimit new = {
+-			.rlim_cur = new_limit * 512,
+-			.rlim_max = new_limit * 512
+-		};
+-		if (setrlimit(RLIMIT_FSIZE, &new) != 0) {
+-			perror("setrlimit");
+-			return 1;
+-		}
+-	} else if (_mrsh_optind == argc) {
+-		struct rlimit old = { 0 };
+-		if (getrlimit(RLIMIT_FSIZE, &old) != 0) {
+-			perror("getrlimit");
+-			return 1;
+-		}
+-		if (old.rlim_max == RLIM_INFINITY) {
+-			printf("unlimited\n");
+-		} else {
+-			printf("%" PRIuMAX "\n", (uintmax_t)(old.rlim_max / 512));
+-		}
+-	} else {
+-		fprintf(stderr, "%s", ulimit_usage);
+-		return 1;
+-	}
+-
+-	return 0;
+-}
+diff --git a/builtin/umask.c b/builtin/umask.c
+deleted file mode 100644
+index da95897..0000000
+--- a/builtin/umask.c
++++ /dev/null
+@@ -1,205 +0,0 @@
+-#define _POSIX_C_SOURCE 200809L
+-#include <mrsh/builtin.h>
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <sys/types.h>
+-#include <sys/stat.h>
+-#include "builtin.h"
+-#include "mrsh_getopt.h"
+-
+-static const char umask_usage[] = "usage: umask [-S] [mode]\n";
+-
+-enum umask_symbolic_state {
+-	UMASK_WHO,
+-	UMASK_PERM,
+-};
+-
+-static mode_t umask_current_mask(void) {
+-	const mode_t default_mode = 0022;
+-
+-	mode_t mask = umask(default_mode);
+-	umask(mask);
+-	return mask;
+-}
+-
+-static bool umask_update_mode(mode_t *mode, char action, mode_t *perm_mask, mode_t *who_mask) {
+-	switch (action) {
+-	case '+':
+-		*mode |= (*who_mask & *perm_mask);
+-		break;
+-	case '=':
+-		*mode = (*mode & ~(*who_mask)) | (*perm_mask & *who_mask);
+-		break;
+-	case '-':
+-		*mode &= (0777 & ~(*who_mask & *perm_mask));
+-		break;
+-	default:
+-		fprintf(stderr, "unknown action -- '%c'\n", action);
+-		return false;
+-	}
+-
+-	*perm_mask = *who_mask = 0;
+-	return true;
+-}
+-
+-static bool umask_mode(mode_t *mode, char *symbolic) {
+-	mode_t tmp_mode = 0777 & ~(umask_current_mask());
+-	enum umask_symbolic_state state = UMASK_WHO;
+-	mode_t who_mask = 0;
+-	mode_t perm_mask = 0;
+-	char action = '\0';
+-
+-	for (char *c = symbolic; *c != '\0'; c++) {
+-		switch (state) {
+-		case UMASK_WHO:
+-			switch (*c) {
+-			case 'u':
+-				who_mask |= S_IRWXU;
+-				break;
+-			case 'g':
+-				who_mask |= S_IRWXG;
+-				break;
+-			case 'o':
+-				who_mask |= S_IRWXO;
+-				break;
+-			case 'a':
+-				who_mask |= (S_IRWXU | S_IRWXG | S_IRWXO);
+-				break;
+-			case '+':
+-			case '-':
+-			case '=':
+-				if (who_mask == 0) {
+-					who_mask |= (S_IRWXU | S_IRWXG | S_IRWXO);
+-				}
+-				action = *c;
+-				state = UMASK_PERM;
+-				break;
+-			default:
+-				fprintf(stderr, "Unknown who -- '%c'\n", *c);
+-				return false;
+-			}
+-
+-			break;
+-
+-		case UMASK_PERM:
+-			switch (*c) {
+-			case 'u':
+-				perm_mask = (tmp_mode & S_IRWXU) | ((tmp_mode & S_IRWXU) >> 3) | ((tmp_mode & S_IRWXU) >> 6);
+-				break;
+-			case 'g':
+-				perm_mask = ((tmp_mode & S_IRWXG) << 3) | (tmp_mode & S_IRWXG) | ((tmp_mode & S_IRWXG) >> 3);
+-				break;
+-			case 'o':
+-				perm_mask = ((tmp_mode & S_IRWXO) << 6) | ((tmp_mode & S_IRWXO) << 3) | (tmp_mode & S_IRWXO);
+-				break;
+-			case 'r':
+-				perm_mask |= (S_IRUSR | S_IRGRP | S_IROTH);
+-				break;
+-			case 'w':
+-				perm_mask |= (S_IWUSR | S_IWGRP | S_IWOTH);
+-				break;
+-			case 'x':
+-				perm_mask |= (S_IXUSR | S_IXGRP | S_IXOTH);
+-				break;
+-			case ',':
+-				state = UMASK_WHO;
+-				if (!umask_update_mode(&tmp_mode, action, &perm_mask, &who_mask)) {
+-					return false;
+-				}
+-				break;
+-			default:
+-				fprintf(stderr, "Invalid permission -- '%c'\n", *c);
+-				return false;
+-			}
+-			break;
+-		}
+-	}
+-
+-	if (state == UMASK_PERM) {
+-		if (!umask_update_mode(&tmp_mode, action, &perm_mask, &who_mask)) {
+-			return false;
+-		}
+-	} else {
+-		fprintf(stderr, "Missing permission from symbolic mode\n");
+-		return false;
+-	}
+-
+-	*mode = 0777 & ~tmp_mode;
+-
+-	return true;
+-}
+-
+-static void umask_modestring(char string[static 4], mode_t mode) {
+-	size_t i = 0;
+-
+-	if (S_IROTH & mode) {
+-		string[i++] = 'r';
+-	}
+-
+-	if (S_IWOTH & mode) {
+-		string[i++] = 'w';
+-	}
+-
+-	if (S_IXOTH & mode) {
+-		string[i++] = 'x';
+-	}
+-}
+-
+-static void umask_print_symbolic(mode_t mask) {
+-	char user[4] = {0};
+-	char group[4] = {0};
+-	char other[4] = {0};
+-	mode_t mode = 0777 & ~mask;
+-
+-	umask_modestring(user, (mode & 0700) >> 6);
+-	umask_modestring(group, (mode & 0070) >> 3);
+-	umask_modestring(other, (mode & 0007));
+-
+-	printf("u=%s,g=%s,o=%s\n", user, group, other);
+-}
+-
+-int builtin_umask(struct mrsh_state *state, int argc, char *argv[]) {
+-	mode_t mode;
+-	bool umask_symbolic = false;
+-
+-	_mrsh_optind = 0;
+-	int opt;
+-
+-	while ((opt = _mrsh_getopt(argc, argv, ":S")) != -1) {
+-		switch (opt) {
+-		case 'S':
+-			umask_symbolic = true;
+-			break;
+-
+-		default:
+-			fprintf(stderr, "Unknown option -- '%c'\n", _mrsh_optopt);
+-			fprintf(stderr, umask_usage);
+-			return 1;
+-		}
+-	}
+-
+-	if (_mrsh_optind == argc) {
+-		mode = umask_current_mask();
+-
+-		if (umask_symbolic) {
+-			umask_print_symbolic(mode);
+-		} else {
+-			printf("%04o\n", mode);
+-		}
+-
+-		return 0;
+-	}
+-
+-	char *endptr;
+-	mode = strtol(argv[_mrsh_optind], &endptr, 8);
+-
+-	if (*endptr != '\0') {
+-		if (!umask_mode(&mode, argv[_mrsh_optind])) {
+-			fprintf(stderr, umask_usage);
+-			return 1;
+-		}
+-	}
+-
+-	umask(mode);
+-	return 0;
+-}
+diff --git a/builtin/wait.c b/builtin/wait.c
+index ef7f3ee..5dbae1e 100644
+--- a/builtin/wait.c
++++ b/builtin/wait.c
+@@ -4,7 +4,7 @@
+ #include <stdlib.h>
+ #include <stdio.h>
+ #include <string.h>
+-#include <sys/wait.h>
++#include <unistd.h>
+ #include "builtin.h"
+ #include "shell/process.h"
+ #include "shell/shell.h"
+diff --git a/configure b/configure
+deleted file mode 100755
+index c0e918e..0000000
+--- a/configure
++++ /dev/null
+@@ -1,302 +0,0 @@
+-#!/bin/sh -e
+-SOVERSION=0.0.0
+-
+-pkg_config=${PKG_CONFIG:-pkg-config}
+-outdir=${OUTDIR:-.build}
+-srcdir=${SRCDIR:-$(dirname "$0")}
+-CC=${CC:-cc}
+-LIBS=
+-
+-use_readline=-1
+-readline=readline
+-
+-static=
+-
+-for arg
+-do
+-	case "$arg" in
+-		--prefix=*)
+-			PREFIX=${arg#*=}
+-			;;
+-		--without-readline)
+-			use_readline=0
+-			;;
+-		--with-readline=*)
+-			use_readline=1
+-			readline=${arg#*=}
+-			;;
+-		--static)
+-			static=$arg
+-			;;
+-		--dynamic)
+-			static=
+-			;;
+-	esac
+-done
+-
+-libmrsh() {
+-	genrules libmrsh \
+-		'arithm.c' \
+-		'array.c' \
+-		'ast_print.c' \
+-		'ast.c' \
+-		'buffer.c' \
+-		'builtin/alias.c' \
+-		'builtin/bg.c' \
+-		'builtin/break.c' \
+-		'builtin/builtin.c' \
+-		'builtin/cd.c' \
+-		'builtin/colon.c' \
+-		'builtin/command.c' \
+-		'builtin/dot.c' \
+-		'builtin/eval.c' \
+-		'builtin/exec.c' \
+-		'builtin/exit.c' \
+-		'builtin/export.c' \
+-		'builtin/false.c' \
+-		'builtin/fg.c' \
+-		'builtin/getopts.c' \
+-		'builtin/hash.c' \
+-		'builtin/jobs.c' \
+-		'builtin/pwd.c' \
+-		'builtin/read.c' \
+-		'builtin/return.c' \
+-		'builtin/set.c' \
+-		'builtin/shift.c' \
+-		'builtin/times.c' \
+-		'builtin/trap.c' \
+-		'builtin/true.c' \
+-		'builtin/type.c' \
+-		'builtin/ulimit.c' \
+-		'builtin/umask.c' \
+-		'builtin/unalias.c' \
+-		'builtin/unset.c' \
+-		'builtin/unspecified.c' \
+-		'builtin/wait.c' \
+-		'getopt.c' \
+-		'hashtable.c' \
+-		'parser/arithm.c' \
+-		'parser/parser.c' \
+-		'parser/program.c' \
+-		'parser/word.c' \
+-		'shell/arithm.c' \
+-		'shell/entry.c' \
+-		'shell/job.c' \
+-		'shell/path.c' \
+-		'shell/process.c' \
+-		'shell/redir.c' \
+-		'shell/shell.c' \
+-		'shell/task/pipeline.c' \
+-		'shell/task/simple_command.c' \
+-		'shell/task/task.c' \
+-		'shell/task/word.c' \
+-		'shell/trap.c' \
+-		'shell/word.c'
+-}
+-
+-mrsh() {
+-	if [ $use_readline -eq 1 ]
+-	then
+-		genrules mrsh \
+-			'main.c' \
+-			'frontend/readline.c'
+-	else
+-		genrules mrsh \
+-			'main.c' \
+-			'frontend/basic.c'
+-	fi
+-}
+-
+-highlight() {
+-	genrules highlight example/highlight.c
+-}
+-
+-genrules() {
+-	target="$1"
+-	shift
+-	printf '# Begin generated rules for %s\n' "$target"
+-	for file in "$@"
+-	do
+-		file="${file%.*}"
+-		printf '%s.o: %s.c\n' "$file" "$file"
+-	done
+-	printf '%s_objects=\\\n' "$target"
+-	n=0
+-	for file in "$@"
+-	do
+-		file="${file%.*}"
+-		n=$((n+1))
+-		if [ $n -eq $# ]
+-		then
+-			printf '\t%s.o\n' "$file"
+-		else
+-			printf '\t%s.o \\\n' "$file"
+-		fi
+-	done
+-	printf '# End generated rules for %s\n' "$target"
+-}
+-
+-append_cflags() {
+-	for flag
+-	do
+-		CFLAGS="$(printf '%s \\\n\t%s' "$CFLAGS" "$flag")"
+-	done
+-}
+-
+-append_ldflags() {
+-	for flag
+-	do
+-		LDFLAGS="$(printf '%s \\\n\t%s' "$LDFLAGS" "$flag")"
+-	done
+-}
+-
+-append_libs() {
+-	for flag
+-	do
+-		LIBS="$(printf '%s \\\n\t%s' "$LIBS" "$flag")"
+-	done
+-}
+-
+-test_cflags() {
+-	[ ! -e "$outdir"/check.c ] && cat <<-EOF > "$outdir"/check.c
+-	int main(void) { return 0; }
+-	EOF
+-	werror=""
+-	case "$CFLAGS" in
+-		*-Werror*)
+-			werror="-Werror"
+-			;;
+-	esac
+-	if $CC $werror "$@" -o /dev/null "$outdir"/check.c >/dev/null 2>&1
+-	then
+-		append_cflags "$@"
+-	else
+-		return 1
+-	fi
+-}
+-
+-test_ldflags() {
+-	[ ! -e "$outdir"/check.c ] && cat <<-EOF > "$outdir"/check.c
+-	int main(void) { return 0; }
+-	EOF
+-	if $CC "$@" -o /dev/null "$outdir"/check.c >/dev/null 2>&1
+-	then
+-		append_ldflags "$@"
+-	else
+-		return 1
+-	fi
+-}
+-
+-mkdir -p "$outdir"
+-
+-if [ -n "$static" ]
+-then
+-	test_ldflags $static
+-fi
+-
+-for flag in \
+-	-g -std=c99 -pedantic -Werror -Wundef -Wlogical-op \
+-	-Wmissing-include-dirs -Wold-style-definition -Wpointer-arith -Winit-self \
+-	-Wfloat-equal -Wstrict-prototypes -Wredundant-decls \
+-	-Wimplicit-fallthrough=2 -Wendif-labels -Wstrict-aliasing=2 -Woverflow \
+-	-Wformat=2 -Wno-missing-braces -Wno-missing-field-initializers \
+-	-Wno-unused-parameter -Wno-unused-result
+-do
+-	printf "Checking for $flag... "
+-	if test_cflags "$flag"
+-	then
+-		echo yes
+-	else
+-		echo no
+-	fi
+-done
+-
+-for flag in -fPIC -Wl,--no-undefined -Wl,--as-needed
+-do
+-	test_ldflags "$flag"
+-done
+-
+-soname=libmrsh.so.$(echo "$SOVERSION" | cut -d. -f1)
+-printf "Checking for specifying soname for shared lib... "
+-if ! \
+-	test_ldflags -Wl,-soname,$soname || \
+-	test_ldflags -Wl,-install_name,$soname
+-then
+-	echo no
+-	echo "Unable to specify soname (is $(uname) supported?)" >&2
+-	exit 1
+-else
+-	echo yes
+-fi
+-
+-printf "Checking for exported symbol restrictions... "
+-if ! \
+-	test_ldflags -Wl,--version-script="libmrsh.gnu.sym" || \
+-	test_ldflags -Wl,-exported_symbols_list,"libmrsh.darwin.sym"
+-then
+-	echo no
+-	echo "Unable to specify exported symbols (is $(uname) supported?)" >&2
+-	exit 1
+-else
+-	echo yes
+-fi
+-
+-if [ $use_readline -eq -1 ]
+-then
+-	printf "Checking for readline... "
+-	if $pkg_config readline
+-	then
+-		readline=readline
+-		use_readline=1
+-		append_cflags -DHAVE_READLINE
+-		# TODO: check for rl_replace_line
+-		append_cflags -DHAVE_READLINE_REPLACE_LINE
+-		echo yes
+-	else
+-		echo no
+-	fi
+-fi
+-if [ $use_readline -eq -1 ]
+-then
+-	printf "Checking for libedit... "
+-	if $pkg_config libedit
+-	then
+-		echo yes
+-		readline=libedit
+-		use_readline=1
+-		append_cflags -DHAVE_EDITLINE
+-	else
+-		echo no
+-	fi
+-fi
+-
+-if [ $use_readline -eq 1 ]
+-then
+-	append_cflags $($pkg_config $static --cflags-only-I $readline)
+-	append_libs $($pkg_config $static --libs $readline)
+-fi
+-
+-printf "Creating %s/config.mk... " "$outdir"
+-cat <<EOF > "$outdir"/config.mk
+-SOVERSION=$SOVERSION
+-CC=$CC
+-PREFIX=${PREFIX:-/usr/local}
+-_INSTDIR=\$(DESTDIR)\$(PREFIX)
+-BINDIR?=${BINDIR:-\$(_INSTDIR)/bin}
+-LIBDIR?=${LIBDIR:-\$(_INSTDIR)/lib}
+-INCDIR?=${INCDIR:-\$(_INSTDIR)/include}
+-MANDIR?=${MANDIR:-\$(_INSTDIR)/share/man}
+-PCDIR?=${PCDIR:-\$(_INSTDIR)/lib/pkgconfig}
+-CFLAGS=${CFLAGS}
+-LDFLAGS=${LDFLAGS}
+-LIBS=${LIBS}
+-SRCDIR=${srcdir}
+-
+-all: mrsh highlight libmrsh.so.\$(SOVERSION) \$(OUTDIR)/mrsh.pc
+-EOF
+-libmrsh >>"$outdir"/config.mk
+-mrsh >>"$outdir"/config.mk
+-highlight >>"$outdir"/config.mk
+-echo done
+-
+-touch "$outdir"/cppcache
+diff --git a/example/highlight.c b/example/highlight.c
+deleted file mode 100644
+index 1768f1d..0000000
+--- a/example/highlight.c
++++ /dev/null
+@@ -1,337 +0,0 @@
+-#include <assert.h>
+-#include <errno.h>
+-#include <mrsh/buffer.h>
+-#include <mrsh/parser.h>
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <string.h>
+-#include <unistd.h>
+-
+-#define READ_SIZE 4096
+-#define FORMAT_STACK_SIZE 64
+-
+-enum format {
+-	FORMAT_RESET = 0,
+-	FORMAT_GREEN = 32,
+-	FORMAT_YELLOW = 33,
+-	FORMAT_BLUE = 34,
+-	FORMAT_CYAN = 36,
+-	FORMAT_DEFAULT = 39,
+-	FORMAT_LIGHT_BLUE = 94,
+-};
+-
+-struct highlight_state {
+-	const char *buf;
+-	size_t offset;
+-
+-	enum format fmt_stack[FORMAT_STACK_SIZE];
+-	size_t fmt_stack_len;
+-};
+-
+-static void highlight(struct highlight_state *state, struct mrsh_position *pos,
+-		enum format fmt) {
+-	assert(pos->offset >= state->offset);
+-
+-	fwrite(&state->buf[state->offset], sizeof(char),
+-		pos->offset - state->offset, stdout);
+-	state->offset = pos->offset;
+-
+-	if (fmt == FORMAT_RESET) {
+-		assert(state->fmt_stack_len > 0);
+-		--state->fmt_stack_len;
+-		if (state->fmt_stack_len > 0) {
+-			fmt = state->fmt_stack[state->fmt_stack_len - 1];
+-		}
+-	} else {
+-		if (state->fmt_stack_len >= FORMAT_STACK_SIZE) {
+-			fprintf(stderr, "format stack overflow\n");
+-			exit(1);
+-		}
+-		state->fmt_stack[state->fmt_stack_len] = fmt;
+-		++state->fmt_stack_len;
+-	}
+-
+-	fprintf(stdout, "%c[%dm", 0x1B, fmt);
+-}
+-
+-static void highlight_str(struct highlight_state *state,
+-		struct mrsh_range *range, enum format fmt) {
+-	highlight(state, &range->begin, fmt);
+-	highlight(state, &range->end, FORMAT_RESET);
+-}
+-
+-static void highlight_char(struct highlight_state *state,
+-		struct mrsh_position *pos, enum format fmt) {
+-	struct mrsh_position next = { .offset = pos->offset + 1 };
+-	highlight(state, pos, fmt);
+-	highlight(state, &next, FORMAT_RESET);
+-}
+-
+-static void highlight_word(struct highlight_state *state,
+-		struct mrsh_word *word, bool cmd_name, bool quoted) {
+-	switch (word->type) {
+-	case MRSH_WORD_STRING:;
+-		struct mrsh_word_string *ws = mrsh_word_get_string(word);
+-		if (!quoted) {
+-			enum format fmt = FORMAT_CYAN;
+-			if (ws->single_quoted) {
+-				fmt = FORMAT_YELLOW;
+-			} else if (cmd_name) {
+-				fmt = FORMAT_BLUE;
+-			}
+-			highlight_str(state, &ws->range, fmt);
+-		}
+-		break;
+-	case MRSH_WORD_PARAMETER:;
+-		struct mrsh_word_parameter *wp = mrsh_word_get_parameter(word);
+-		highlight(state, &wp->dollar_pos, FORMAT_CYAN);
+-		highlight_char(state, &wp->dollar_pos, FORMAT_GREEN);
+-		if (mrsh_position_valid(&wp->lbrace_pos)) {
+-			highlight_char(state, &wp->lbrace_pos, FORMAT_GREEN);
+-		}
+-		if (mrsh_range_valid(&wp->op_range)) {
+-			highlight_str(state, &wp->op_range, FORMAT_GREEN);
+-		}
+-		if (wp->arg != NULL) {
+-			highlight_word(state, wp->arg, false, false);
+-		}
+-		struct mrsh_position end = {0};
+-		if (mrsh_position_valid(&wp->rbrace_pos)) {
+-			highlight_char(state, &wp->rbrace_pos, FORMAT_GREEN);
+-			end.offset = wp->rbrace_pos.offset + 1;
+-		} else {
+-			end = wp->name_range.end;
+-		}
+-		highlight(state, &end, FORMAT_RESET);
+-		break;
+-	case MRSH_WORD_COMMAND:;
+-		struct mrsh_word_command *wc = mrsh_word_get_command(word);
+-		if (wc->back_quoted) {
+-			highlight_char(state, &wc->range.begin, FORMAT_GREEN);
+-		}
+-		// TODO: highlight inside
+-		if (wc->back_quoted) {
+-			struct mrsh_position rquote = {
+-				.offset = wc->range.end.offset - 1,
+-			};
+-			highlight_char(state, &rquote, FORMAT_GREEN);
+-		}
+-		break;
+-	case MRSH_WORD_ARITHMETIC:
+-		abort(); // TODO
+-	case MRSH_WORD_LIST:;
+-		struct mrsh_word_list *wl = mrsh_word_get_list(word);
+-		if (wl->children.len == 0) {
+-			break;
+-		}
+-
+-		if (wl->double_quoted) {
+-			highlight(state, &wl->lquote_pos, FORMAT_YELLOW);
+-		}
+-
+-		for (size_t i = 0; i < wl->children.len; ++i) {
+-			struct mrsh_word *child = wl->children.data[i];
+-			highlight_word(state, child, cmd_name, wl->double_quoted);
+-		}
+-
+-		if (wl->double_quoted) {
+-			struct mrsh_position end = { .offset = wl->rquote_pos.offset + 1 };
+-			highlight(state, &end, FORMAT_RESET);
+-		}
+-		break;
+-	}
+-}
+-
+-static void highlight_simple_command(struct highlight_state *state,
+-		struct mrsh_simple_command *cmd) {
+-	if (cmd->name != NULL) {
+-		highlight_word(state, cmd->name, true, false);
+-	}
+-
+-	for (size_t i = 0; i < cmd->arguments.len; ++i) {
+-		struct mrsh_word *arg = cmd->arguments.data[i];
+-		highlight_word(state, arg, false, false);
+-	}
+-
+-	// TODO: cmd->io_redirects, cmd->assignments
+-}
+-
+-static void highlight_command_list_array(struct highlight_state *state,
+-	struct mrsh_array *array);
+-
+-static void highlight_command(struct highlight_state *state,
+-		struct mrsh_command *cmd) {
+-	switch (cmd->type) {
+-	case MRSH_SIMPLE_COMMAND:;
+-		struct mrsh_simple_command *sc = mrsh_command_get_simple_command(cmd);
+-		highlight_simple_command(state, sc);
+-		break;
+-	case MRSH_BRACE_GROUP:;
+-		struct mrsh_brace_group *bg = mrsh_command_get_brace_group(cmd);
+-		highlight_char(state, &bg->lbrace_pos, FORMAT_GREEN);
+-		highlight_command_list_array(state, &bg->body);
+-		highlight_char(state, &bg->rbrace_pos, FORMAT_GREEN);
+-		break;
+-	case MRSH_SUBSHELL:;
+-		struct mrsh_subshell *s = mrsh_command_get_subshell(cmd);
+-		highlight_char(state, &s->lparen_pos, FORMAT_GREEN);
+-		highlight_command_list_array(state, &s->body);
+-		highlight_char(state, &s->rparen_pos, FORMAT_GREEN);
+-		break;
+-	case MRSH_IF_CLAUSE:;
+-		struct mrsh_if_clause *ic = mrsh_command_get_if_clause(cmd);
+-		highlight_str(state, &ic->if_range, FORMAT_BLUE);
+-		highlight_command_list_array(state, &ic->condition);
+-		highlight_str(state, &ic->then_range, FORMAT_BLUE);
+-		highlight_command_list_array(state, &ic->body);
+-		if (ic->else_part != NULL) {
+-			if (mrsh_range_valid(&ic->else_range)) {
+-				highlight_str(state, &ic->else_range, FORMAT_BLUE);
+-			}
+-			highlight_command(state, ic->else_part);
+-		}
+-		if (mrsh_range_valid(&ic->fi_range)) {
+-			highlight_str(state, &ic->fi_range, FORMAT_BLUE);
+-		}
+-		break;
+-	case MRSH_FOR_CLAUSE:;
+-		struct mrsh_for_clause *fc = mrsh_command_get_for_clause(cmd);
+-		highlight_str(state, &fc->for_range, FORMAT_BLUE);
+-		highlight_str(state, &fc->name_range, FORMAT_CYAN);
+-		if (mrsh_range_valid(&fc->in_range)) {
+-			highlight_str(state, &fc->in_range, FORMAT_BLUE);
+-		}
+-		for (size_t i = 0; i < fc->word_list.len; ++i) {
+-			struct mrsh_word *word = fc->word_list.data[i];
+-			highlight_word(state, word, false, false);
+-		}
+-		highlight_str(state, &fc->do_range, FORMAT_BLUE);
+-		highlight_command_list_array(state, &fc->body);
+-		highlight_str(state, &fc->done_range, FORMAT_BLUE);
+-		break;
+-	case MRSH_LOOP_CLAUSE:;
+-		struct mrsh_loop_clause *lc = mrsh_command_get_loop_clause(cmd);
+-		highlight_str(state, &lc->while_until_range, FORMAT_BLUE);
+-		highlight_command_list_array(state, &lc->condition);
+-		highlight_str(state, &lc->do_range, FORMAT_BLUE);
+-		highlight_command_list_array(state, &lc->body);
+-		highlight_str(state, &lc->done_range, FORMAT_BLUE);
+-		break;
+-	case MRSH_CASE_CLAUSE:;
+-		struct mrsh_case_clause *cc = mrsh_command_get_case_clause(cmd);
+-		highlight_str(state, &cc->case_range, FORMAT_BLUE);
+-		highlight_word(state, cc->word, false, false);
+-		highlight_str(state, &cc->in_range, FORMAT_BLUE);
+-		for (size_t i = 0; i < cc->items.len; ++i) {
+-			struct mrsh_case_item *item = cc->items.data[i];
+-			if (mrsh_position_valid(&item->lparen_pos)) {
+-				highlight_char(state, &item->lparen_pos, FORMAT_GREEN);
+-			}
+-			for (size_t j = 0; j < item->patterns.len; ++j) {
+-				struct mrsh_word *pattern = item->patterns.data[j];
+-				highlight_word(state, pattern, false, false);
+-			}
+-			highlight_char(state, &item->rparen_pos, FORMAT_GREEN);
+-			highlight_command_list_array(state, &item->body);
+-			if (mrsh_range_valid(&item->dsemi_range)) {
+-				highlight_str(state, &item->dsemi_range, FORMAT_GREEN);
+-			}
+-		}
+-		highlight_str(state, &cc->esac_range, FORMAT_BLUE);
+-		break;
+-	case MRSH_FUNCTION_DEFINITION:;
+-		struct mrsh_function_definition *fd =
+-			mrsh_command_get_function_definition(cmd);
+-		highlight_str(state, &fd->name_range, FORMAT_BLUE);
+-		highlight_char(state, &fd->lparen_pos, FORMAT_GREEN);
+-		highlight_char(state, &fd->rparen_pos, FORMAT_GREEN);
+-		highlight_command(state, fd->body);
+-		break;
+-	}
+-}
+-
+-static void highlight_and_or_list(struct highlight_state *state,
+-		struct mrsh_and_or_list *and_or_list) {
+-	switch (and_or_list->type) {
+-	case MRSH_AND_OR_LIST_PIPELINE:;
+-		struct mrsh_pipeline *pl = mrsh_and_or_list_get_pipeline(and_or_list);
+-		if (mrsh_position_valid(&pl->bang_pos)) {
+-			highlight_char(state, &pl->bang_pos, FORMAT_GREEN);
+-		}
+-		for (size_t i = 0; i < pl->commands.len; ++i) {
+-			struct mrsh_command *cmd = pl->commands.data[i];
+-			highlight_command(state, cmd);
+-		}
+-		break;
+-	case MRSH_AND_OR_LIST_BINOP:;
+-		struct mrsh_binop *binop = mrsh_and_or_list_get_binop(and_or_list);
+-		highlight_and_or_list(state, binop->left);
+-		highlight_str(state, &binop->op_range, FORMAT_GREEN);
+-		highlight_and_or_list(state, binop->right);
+-		break;
+-	}
+-}
+-
+-static void highlight_command_list(struct highlight_state *state,
+-		struct mrsh_command_list *list) {
+-	highlight_and_or_list(state, list->and_or_list);
+-	if (mrsh_position_valid(&list->separator_pos)) {
+-		highlight_char(state, &list->separator_pos, FORMAT_GREEN);
+-	}
+-}
+-
+-static void highlight_command_list_array(struct highlight_state *state,
+-		struct mrsh_array *array) {
+-	for (size_t i = 0; i < array->len; ++i) {
+-		struct mrsh_command_list *l = array->data[i];
+-		highlight_command_list(state, l);
+-	}
+-}
+-
+-static void highlight_program(struct highlight_state *state,
+-		struct mrsh_program *prog) {
+-	highlight_command_list_array(state, &prog->body);
+-}
+-
+-int main(int argc, char *argv[]) {
+-	struct mrsh_buffer buf = {0};
+-	while (true) {
+-		char *dst = mrsh_buffer_reserve(&buf, READ_SIZE);
+-		ssize_t n_read = read(STDIN_FILENO, dst, READ_SIZE);
+-		if (n_read < 0) {
+-			perror("read");
+-			return 1;
+-		} else if (n_read == 0) {
+-			break;
+-		}
+-		buf.len += n_read;
+-	}
+-
+-	struct mrsh_parser *parser = mrsh_parser_with_data(buf.data, buf.len);
+-	struct mrsh_program *prog = mrsh_parse_program(parser);
+-	const char *err_msg = mrsh_parser_error(parser, NULL);
+-	if (err_msg != NULL) {
+-		fprintf(stderr, "failed to parse script: %s\n", err_msg);
+-		return 1;
+-	}
+-	if (prog == NULL) {
+-		return 0;
+-	}
+-	mrsh_parser_destroy(parser);
+-
+-	struct highlight_state state = {
+-		.buf = buf.data,
+-	};
+-
+-	struct mrsh_position begin = { .offset = 0 };
+-	highlight(&state, &begin, FORMAT_DEFAULT);
+-
+-	highlight_program(&state, prog);
+-
+-	struct mrsh_position end = { .offset = buf.len };
+-	highlight(&state, &end, FORMAT_RESET);
+-	assert(state.fmt_stack_len == 0);
+-
+-	mrsh_buffer_finish(&buf);
+-	return 0;
+-}
+diff --git a/example/meson.build b/example/meson.build
+deleted file mode 100644
+index cd3919e..0000000
+--- a/example/meson.build
++++ /dev/null
+@@ -1,6 +0,0 @@
+-executable(
+-	'highlight',
+-	files('highlight.c'),
+-	dependencies: [mrsh],
+-	build_by_default: get_option('examples'),
+-)
+diff --git a/frontend/readline.c b/frontend/readline.c
+deleted file mode 100644
+index 19880fd..0000000
+--- a/frontend/readline.c
++++ /dev/null
+@@ -1,84 +0,0 @@
+-// readline/editline interactive line interface
+-#define _POSIX_C_SOURCE 200809L
+-#include <mrsh/parser.h>
+-#include <mrsh/shell.h>
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <string.h>
+-#include <signal.h>
+-#include <unistd.h>
+-#if defined(HAVE_READLINE)
+-#include <readline/history.h>
+-#include <readline/readline.h>
+-#elif defined(HAVE_EDITLINE)
+-#include <editline/readline.h>
+-#include <histedit.h>
+-#endif
+-#include "frontend.h"
+-
+-#if defined(HAVE_READLINE)
+-#if !defined(HAVE_READLINE_REPLACE_LINE)
+-static void rl_replace_line(const char *text,
+-                            int clear_undo) {
+-    return;
+-}
+-#endif
+-
+-static void sigint_handler(int n) {
+-	/* Signal safety is done here on a best-effort basis. rl_redisplay is not
+-	 * signal safe, but under these circumstances it's very likely that the
+-	 * interrupted function will not be affected. */
+-	char newline = '\n';
+-	(void)write(STDOUT_FILENO, &newline, 1);
+-	rl_on_new_line();
+-	rl_replace_line("", 0);
+-	rl_redisplay();
+-}
+-#endif
+-
+-static char *get_history_path(void) {
+-	const char *home = getenv("HOME");
+-	int len = snprintf(NULL, 0, "%s/.mrsh_history", home);
+-	char *path = malloc(len + 1);
+-	if (path == NULL) {
+-		return NULL;
+-	}
+-	snprintf(path, len + 1, "%s/.mrsh_history", home);
+-	return path;
+-}
+-
+-void interactive_init(struct mrsh_state *state) {
+-	rl_initialize();
+-	char *history_path = get_history_path();
+-	read_history(history_path);
+-	free(history_path);
+-}
+-
+-size_t interactive_next(struct mrsh_state *state,
+-		char **line, const char *prompt) {
+-	/* TODO: make SIGINT handling work with editline */
+-#if defined(HAVE_READLINE)
+-	struct sigaction sa = { .sa_handler = sigint_handler }, old;
+-	sigaction(SIGINT, &sa, &old);
+-#endif
+-	char *rline = readline(prompt);
+-#if defined(HAVE_READLINE)
+-	sigaction(SIGINT, &old, NULL);
+-#endif
+-
+-	if (!rline) {
+-		return 0;
+-	}
+-	size_t len = strlen(rline);
+-	if (!(state->options & MRSH_OPT_NOLOG)) {
+-		add_history(rline);
+-		char *history_path = get_history_path();
+-		write_history(history_path);
+-		free(history_path);
+-	}
+-	*line = malloc(len + 2);
+-	strcpy(*line, rline);
+-	strcat(*line, "\n");
+-	free(rline);
+-	return len + 1;
+-}
+diff --git a/include/builtin.h b/include/builtin.h
+index 123c046..ace7fce 100644
+--- a/include/builtin.h
++++ b/include/builtin.h
+@@ -31,12 +31,9 @@ int builtin_read(struct mrsh_state *state, int argc, char *argv[]);
+ int builtin_return(struct mrsh_state *state, int argc, char *argv[]);
+ int builtin_set(struct mrsh_state *state, int argc, char *argv[]);
+ int builtin_shift(struct mrsh_state *state, int argc, char *argv[]);
+-int builtin_times(struct mrsh_state *state, int argc, char *argv[]);
+ int builtin_trap(struct mrsh_state *state, int argc, char *argv[]);
+ int builtin_true(struct mrsh_state *state, int argc, char *argv[]);
+ int builtin_type(struct mrsh_state *state, int argc, char *argv[]);
+-int builtin_ulimit(struct mrsh_state *state, int argc, char *argv[]);
+-int builtin_umask(struct mrsh_state *state, int argc, char *argv[]);
+ int builtin_unalias(struct mrsh_state *state, int argc, char *argv[]);
+ int builtin_unset(struct mrsh_state *state, int argc, char *argv[]);
+ int builtin_wait(struct mrsh_state *state, int argc, char *argv[]);
+diff --git a/meson.build b/meson.build
+deleted file mode 100644
+index 4d918c0..0000000
+--- a/meson.build
++++ /dev/null
+@@ -1,181 +0,0 @@
+-project(
+-	'mrsh',
+-	'c',
+-	version: '0.0.0',
+-	license: 'MIT',
+-	meson_version: '>=0.47.0',
+-	default_options: [
+-		'c_std=c99',
+-		'warning_level=3',
+-		'werror=true',
+-	],
+-)
+-
+-cc = meson.get_compiler('c')
+-
+-add_project_arguments(cc.get_supported_arguments([
+-	'-Wundef',
+-	'-Wlogical-op',
+-	'-Wmissing-include-dirs',
+-	'-Wold-style-definition',
+-	'-Wpointer-arith',
+-	'-Winit-self',
+-	'-Wfloat-equal',
+-	'-Wstrict-prototypes',
+-	'-Wredundant-decls',
+-	'-Wimplicit-fallthrough=2',
+-	'-Wendif-labels',
+-	'-Wstrict-aliasing=2',
+-	'-Woverflow',
+-	'-Wformat=2',
+-	'-Wmissing-prototypes',
+-
+-	'-Wno-missing-braces',
+-	'-Wno-missing-field-initializers',
+-	'-Wno-unused-parameter',
+-	'-Wno-unused-result', # fuck you glibc, and gcc, and the little dog, too
+-	'-Wno-format-overflow', # causes false positives with gcc
+-]), language: 'c')
+-
+-if get_option('readline-provider') == 'readline'
+-	readline = cc.find_library('readline', required: get_option('readline'))
+-	if readline.found()
+-		add_project_arguments('-DHAVE_READLINE', language: 'c')
+-	endif
+-
+-	if cc.has_function('rl_replace_line', prefix: '#include <stdio.h>\n #include <readline/readline.h>', dependencies: [readline])
+-		add_project_arguments('-DHAVE_READLINE_REPLACE_LINE', language: 'c')
+-	endif
+-else # editline
+-	readline = dependency('libedit', required: get_option('readline'))
+-	if readline.found()
+-		add_project_arguments('-DHAVE_EDITLINE', language: 'c')
+-	endif
+-endif
+-
+-mrsh_inc = include_directories('include')
+-
+-install_subdir('include/mrsh', install_dir: get_option('includedir'))
+-
+-libmrsh_gnu_sym_path = join_paths(meson.current_source_dir(), 'libmrsh.gnu.sym')
+-libmrsh_gnu_sym_ldflag = '-Wl,--version-script=' + libmrsh_gnu_sym_path
+-libmrsh_darwin_sym_path = join_paths(meson.current_source_dir(), 'libmrsh.darwin.sym')
+-# On FreeBSD, -Wl,--version-script only works with -shared
+-if cc.links('', name: '-Wl,--version-script', args: ['-shared', libmrsh_gnu_sym_ldflag])
+-	# GNU ld
+-	link_args = [libmrsh_gnu_sym_ldflag]
+-elif host_machine.system() == 'darwin' and cc.has_multi_link_arguments('-Wl,-exported_symbols_list', libmrsh_darwin_sym_path)
+-	# Clang on Darwin
+-	link_args = ['-Wl,-exported_symbols_list', libmrsh_darwin_sym_path]
+-else
+-	error('Linker doesn\'t support --version-script or -exported_symbols_list')
+-endif
+-
+-lib_mrsh = library(
+-	meson.project_name(),
+-	files(
+-		'arithm.c',
+-		'array.c',
+-		'ast_print.c',
+-		'ast.c',
+-		'buffer.c',
+-		'builtin/alias.c',
+-		'builtin/bg.c',
+-		'builtin/break.c',
+-		'builtin/builtin.c',
+-		'builtin/cd.c',
+-		'builtin/colon.c',
+-		'builtin/command.c',
+-		'builtin/dot.c',
+-		'builtin/eval.c',
+-		'builtin/exec.c',
+-		'builtin/exit.c',
+-		'builtin/export.c',
+-		'builtin/false.c',
+-		'builtin/fg.c',
+-		'builtin/getopts.c',
+-		'builtin/hash.c',
+-		'builtin/jobs.c',
+-		'builtin/pwd.c',
+-		'builtin/read.c',
+-		'builtin/return.c',
+-		'builtin/set.c',
+-		'builtin/shift.c',
+-		'builtin/times.c',
+-		'builtin/trap.c',
+-		'builtin/true.c',
+-		'builtin/type.c',
+-		'builtin/ulimit.c',
+-		'builtin/umask.c',
+-		'builtin/unalias.c',
+-		'builtin/unset.c',
+-		'builtin/unspecified.c',
+-		'builtin/wait.c',
+-		'getopt.c',
+-		'hashtable.c',
+-		'parser/arithm.c',
+-		'parser/parser.c',
+-		'parser/program.c',
+-		'parser/word.c',
+-		'shell/arithm.c',
+-		'shell/entry.c',
+-		'shell/job.c',
+-		'shell/path.c',
+-		'shell/process.c',
+-		'shell/redir.c',
+-		'shell/shell.c',
+-		'shell/task/pipeline.c',
+-		'shell/task/simple_command.c',
+-		'shell/task/task.c',
+-		'shell/task/word.c',
+-		'shell/trap.c',
+-		'shell/word.c',
+-	),
+-	include_directories: mrsh_inc,
+-	version: meson.project_version(),
+-	link_args: link_args,
+-	install: true,
+-)
+-
+-mrsh = declare_dependency(
+-	link_with: lib_mrsh,
+-	include_directories: mrsh_inc,
+-)
+-
+-shell_deps = [mrsh]
+-shell_files = [
+-	'main.c'
+-]
+-if readline.found()
+-	shell_deps += [readline]
+-	shell_files += ['frontend/readline.c']
+-else
+-	shell_files += ['frontend/basic.c']
+-endif
+-
+-mrsh_exe = executable(
+-	'mrsh',
+-	files(shell_files),
+-	dependencies: shell_deps,
+-	install: true,
+-)
+-
+-subdir('example')
+-subdir('test')
+-
+-pkgconfig = import('pkgconfig')
+-pkgconfig.generate(
+-	libraries: lib_mrsh,
+-	version: meson.project_version(),
+-	filebase: meson.project_name(),
+-	name: meson.project_name(),
+-	description: 'POSIX shell library',
+-)
+-
+-status = [
+-	'',
+-	'Features:',
+-	'  readline: @0@'.format(readline.found()),
+-	'  examples: @0@'.format(get_option('examples')),
+-]
+-message('\n'.join(status))
+diff --git a/meson_options.txt b/meson_options.txt
+deleted file mode 100644
+index 8459089..0000000
+--- a/meson_options.txt
++++ /dev/null
+@@ -1,35 +0,0 @@
+-option(
+-	'readline',
+-	type: 'feature',
+-	value: 'auto',
+-	description: 'Enable improved interactive interface via readline',
+-)
+-
+-option(
+-	'readline-provider',
+-	type: 'combo',
+-	choices: ['readline', 'editline'],
+-	value: 'readline',
+-	description: 'Provider of the readline library',
+-)
+-
+-option(
+-	'examples',
+-	type: 'boolean',
+-	value: true,
+-	description: 'Build example programs',
+-)
+-
+-option(
+-	'reference-shell',
+-	type: 'string',
+-	value: 'sh',
+-	description: 'Reference shell used in tests',
+-)
+-
+-option(
+-	'test-undefined-behavior',
+-	type: 'boolean',
+-	value: true,
+-	description: 'Run tests that assert undefined behavior fails',
+-)
+diff --git a/mkpc b/mkpc
+deleted file mode 100755
+index 9916e9b..0000000
+--- a/mkpc
++++ /dev/null
+@@ -1,12 +0,0 @@
+-#!/bin/sh
+-cat <<EOF > $1
+-prefix=$PREFIX
+-libdir=\${prefix}/lib
+-includedir=\${prefix}/include
+-
+-Name: mrsh
+-Description: POSIX shell library
+-Version: 0.0.0
+-Libs: -L\${libdir} -lmrsh
+-Cflags: -I\${includedir}
+-EOF
+diff --git a/shell/entry.c b/shell/entry.c
+index 3f22672..5d20d57 100644
+--- a/shell/entry.c
++++ b/shell/entry.c
+@@ -7,6 +7,7 @@
+ #include <string.h>
+ #include <stdlib.h>
+ #include <unistd.h>
++#include <sys/stat.h>
+ #include "builtin.h"
+ #include "parser.h"
+ #include "shell/path.h"
+@@ -57,7 +58,7 @@ char *mrsh_get_ps1(struct mrsh_state *state, int next_history_id) {
+ 		return str;
+ 	}
+ 	char *p = malloc(3);
+-	sprintf(p, "%s", getuid() ? "$ " : "# ");
++	sprintf(p, "%s", "# ");
+ 	return p;
+ }
+ 
+@@ -116,7 +117,8 @@ bool mrsh_populate_env(struct mrsh_state *state, char **environ) {
+ }
+ 
+ static void source_file(struct mrsh_state *state, char *path) {
+-	if (access(path, F_OK) == -1) {
++        stat_t st;
++	if (stat(path, &st) < 0) {
+ 		return;
+ 	}
+ 	char *env_argv[] = { ".", path };
+@@ -149,9 +151,6 @@ void mrsh_source_env(struct mrsh_state *state) {
+ 	if (path == NULL) {
+ 		return;
+ 	}
+-	if (getuid() != geteuid() || getgid() != getegid()) {
+-		return;
+-	}
+ 	path = expand_str(state, path);
+ 	if (path[0] != '/') {
+ 		fprintf(stderr, "Error: $ENV is not an absolute path; "
+diff --git a/shell/job.c b/shell/job.c
+index 46e87f4..1bcb634 100644
+--- a/shell/job.c
++++ b/shell/job.c
+@@ -6,7 +6,6 @@
+ #include <stdlib.h>
+ #include <string.h>
+ #include <sys/types.h>
+-#include <sys/wait.h>
+ #include <unistd.h>
+ #include "shell/job.h"
+ #include "shell/process.h"
+@@ -161,7 +160,7 @@ bool job_set_foreground(struct mrsh_job *job, bool foreground, bool cont) {
+ 		tcsetpgrp(priv->term_fd, job->pgid);
+ 		if (cont) {
+ 			// Restore the job's terminal modes
+-			tcsetattr(priv->term_fd, TCSADRAIN, &job->term_modes);
++			tcsetattr(priv->term_fd, &job->term_modes);
+ 		}
+ 		priv->foreground_job = job;
+ 	}
+@@ -173,7 +172,7 @@ bool job_set_foreground(struct mrsh_job *job, bool foreground, bool cont) {
+ 		// foreground again
+ 		tcgetattr(priv->term_fd, &job->term_modes);
+ 		// Restore the shell’s terminal modes
+-		tcsetattr(priv->term_fd, TCSADRAIN, &priv->term_modes);
++		tcsetattr(priv->term_fd, &priv->term_modes);
+ 		priv->foreground_job = NULL;
+ 	}
+ 
+@@ -222,13 +221,6 @@ static bool _job_wait(struct mrsh_state *state, pid_t pid, int options) {
+ 
+ 	assert(pid > 0 && pid != getpid());
+ 
+-	// We only want to be notified about stopped processes in the main
+-	// shell. Child processes want to block until their own children have
+-	// terminated.
+-	if (!priv->child) {
+-		options |= WUNTRACED;
+-	}
+-
+ 	while (true) {
+ 		// Here it's important to wait for a specific process: we don't want to
+ 		// steal one of our grandchildren's status for one of our children.
+diff --git a/shell/path.c b/shell/path.c
+index 3c2bf65..72e3429 100644
+--- a/shell/path.c
++++ b/shell/path.c
+@@ -7,6 +7,7 @@
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <unistd.h>
++#include <sys/stat.h>
+ #include "shell/path.h"
+ 
+ char *expand_path(struct mrsh_state *state, const char *file, bool exec,
+@@ -26,18 +27,7 @@ char *expand_path(struct mrsh_state *state, const char *file, bool exec,
+ 			return NULL;
+ 		}
+ 	} else {
+-		size_t pathe_size = confstr(_CS_PATH, NULL, 0);
+-		if (pathe_size == 0) {
+-			return NULL;
+-		}
+-		pathe = malloc(pathe_size);
+-		if (pathe == NULL) {
+-			return NULL;
+-		}
+-		if (confstr(_CS_PATH, pathe, pathe_size) != pathe_size) {
+-			free(pathe);
+-			return NULL;
+-		}
++		return NULL;
+ 	}
+ 
+ 	char *path = NULL;
+@@ -54,7 +44,8 @@ char *expand_path(struct mrsh_state *state, const char *file, bool exec,
+ 			goto next;
+ 		}
+ 		snprintf(path, n + 1, "%s%s%s", basedir, slash ? "" : "/", file);
+-		if (access(path, exec ? X_OK : R_OK) != -1) {
++		stat_t st;
++		if (stat(path, &st) >= 0) {
+ 			free(pathe);
+ 			return path;
+ 		}
+diff --git a/shell/process.c b/shell/process.c
+index c3c3432..4c12821 100644
+--- a/shell/process.c
++++ b/shell/process.c
+@@ -5,7 +5,7 @@
+ #include <stdbool.h>
+ #include <stdlib.h>
+ #include <string.h>
+-#include <sys/wait.h>
++#include <unistd.h>
+ #include "shell/process.h"
+ #include "shell/task.h"
+ 
+@@ -73,9 +73,6 @@ void update_process(struct mrsh_state *state, pid_t pid, int stat) {
+ 	if (WIFEXITED(stat) || WIFSIGNALED(stat)) {
+ 		proc->terminated = true;
+ 		proc->stat = stat;
+-	} else if (WIFSTOPPED(stat)) {
+-		proc->stopped = true;
+-		proc->signal = WSTOPSIG(stat);
+ 	} else {
+ 		abort();
+ 	}
+diff --git a/shell/redir.c b/shell/redir.c
+index 00ee494..9166fa1 100644
+--- a/shell/redir.c
++++ b/shell/redir.c
+@@ -5,7 +5,7 @@
+ #include <stdlib.h>
+ #include <string.h>
+ #include <unistd.h>
+-#include <sys/param.h>
++#include <limits.h>
+ #include "shell/redir.h"
+ 
+ static ssize_t write_here_document_line(int fd, struct mrsh_word *line,
+diff --git a/shell/word.c b/shell/word.c
+index df274b7..7b72612 100644
+--- a/shell/word.c
++++ b/shell/word.c
+@@ -3,7 +3,6 @@
+ #include <ctype.h>
+ #include <glob.h>
+ #include <mrsh/buffer.h>
+-#include <pwd.h>
+ #include <stdbool.h>
+ #include <stdlib.h>
+ #include <string.h>
+@@ -41,11 +40,6 @@ static ssize_t expand_tilde_at(struct mrsh_state *state, const char *str,
+ 	const char *dir = NULL;
+ 	if (name == NULL) {
+ 		dir = mrsh_env_get(state, "HOME", NULL);
+-	} else {
+-		struct passwd *pw = getpwnam(name);
+-		if (pw != NULL) {
+-			dir = pw->pw_dir;
+-		}
+ 	}
+ 	free(name);
+ 
