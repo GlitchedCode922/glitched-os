@@ -4,6 +4,7 @@
 #define SPAWN_DUP2 0
 #define SPAWN_SIGMASK 1
 #define SPAWN_SETPGID 2
+#define SPAWN_SETSID 3
 
 typedef struct spawn_action {
     uint64_t action;

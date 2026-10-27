@@ -413,6 +413,12 @@ int add_task(char* path, char** argv, char** envp, task_t* parent, int pid, spaw
             int res = setpgid(pid, actions[i]->pgid);
             current_task = old_current;
             if (res < 0) return res;
+        } else if (actions[i]->action == SPAWN_SETSID) {
+            task_t* old_current = current_task;
+            current_task = new_task;
+            int res = setsid();
+            current_task = old_current;
+            if (res < 0) return res;
         } else {
             return -EINVAL;
         }
