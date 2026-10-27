@@ -21,7 +21,7 @@ extern void jump_to_user(void* rip, void* rsp);
 extern void context_switch(void* iframe);
 
 task_t idle_task = {.pid = 0, .next = &idle_task, .time_slice = PROCESS_TICKS, .wd = "/"};
-task_t init_task = {.pid = 1, .next = &init_task, .time_slice = PROCESS_TICKS, .wd = "/"};
+task_t init_task = {.pid = 1, .pgid = 1, .sid = 1, .next = &init_task, .time_slice = PROCESS_TICKS, .wd = "/"};
 task_t* current_task = &init_task;
 task_t* rr_task = &init_task;
 int last_pid = 1;

@@ -19,7 +19,7 @@ int main() {
             "/bin/sh",
             (char*[]){"/bin/sh", NULL},
             (char*[]){"PATH=/usr/bin:/bin", NULL},
-            NULL
+            (spawn_action_t*[]){&(spawn_action_t){.action = SPAWN_SETSID}, NULL}
         );
 
         if (sh <= 0) {
@@ -27,6 +27,7 @@ int main() {
             sleep(1);
             continue;
         }
+        tcsetpgrp(STDIN_FILENO, sh);
 
         int status;
         pid_t pid;
