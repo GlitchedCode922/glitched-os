@@ -336,10 +336,16 @@ int mount_filesystem(const char* source, const char* target, const char* type, i
     uint64_t handle;
     mountpoint_t* mountpoint = find_mountpoint(target, &handle, NULL);
     if (!mountpoint) return -(int)handle;
-    if (handle == mountpoint->handle) return -EBUSY; // Cannot mount over mountpoint root
+    filesystem_t* fs = &filesystems[mountpoint->type];
+    fs->select(mountpoint->fs_data);
+    if (handle == fs->get_root()) return -EBUSY; // Cannot mount over mountpoint root
 
     mountpoint_t* new_mount = (mountpoint_t*)kmalloc(sizeof(mountpoint_t));
     new_mount->fs_data = filesystems[fs_index].mount(dev, flags);
+    if (new_mount->fs_data == NULL) {
+        kfree(new_mount);
+        return -EIO;
+    }
     new_mount->type = fs_index;
     new_mount->handle = handle;
     new_mount->parent = mountpoint;

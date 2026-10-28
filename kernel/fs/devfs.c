@@ -80,7 +80,7 @@ int devfs_check(block_device_t block) {
 }
 
 void* devfs_mount(block_device_t block, int flags) {
-    return NULL;
+    return ramfs_instance;
 }
 
 int devfs_unmount(void* data) {

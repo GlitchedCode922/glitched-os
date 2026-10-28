@@ -454,7 +454,11 @@ int add_task(char* path, char** argv, char** envp, task_t* parent, int pid, spaw
 
     file_handle_t file;
     res = lookup(kpath, &file);
-    if (res < 0) return res;
+    if (res < 0) {
+        asm volatile("mov %0, %%cr3" :: "r"(current_task->cr3) : "memory");
+        change_pml4(current_task->cr3);
+        return res;
+    }
 
     if (!is_compatible_binary(file)) {
         // Restore old page table
