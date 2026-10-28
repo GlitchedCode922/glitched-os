@@ -185,42 +185,100 @@ static void resolve_path(const char *path, char *out) {
     out[len] = '\0';
 }
 
-static mountpoint_t* find_mountpoint(const char *path, char *remaining_path) {
+static mountpoint_t* find_mountpoint(const char *path, uint64_t* p_handle, char *remaining_path) {
     char absolute_path[MAX_PATH];
     char resolved_path[MAX_PATH];
-    char* p = resolved_path;
     make_absolute(path, absolute_path);
     resolve_path(absolute_path, resolved_path);
-
+    path = resolved_path;
     mountpoint_t* current = root;
-    mountpoint_t* m = root->children;
-    while (m) {
-        size_t mount_len = strlen(m->mount_point);
-        if (filesystems[m->type].case_sensitive) {
-            if (strncmp(m->mount_point, p, mount_len) == 0 && (p[mount_len] == '/' || p[mount_len] == '\0')) {
-                current = m;
-                p += mount_len;
-                while (*p == '/') p++; // Skip any slashes after the mount point
-                m = current->children; // Check for nested mounts
-                continue;
-            }
-        } else {
-            if (strncasecmp(m->mount_point, p, mount_len) == 0 && (p[mount_len] == '/' || p[mount_len] == '\0')) {
-                current = m;
-                p += mount_len;
-                while (*p == '/') p++; // Skip any slashes after the mount point
-                m = current->children; // Check for nested mounts
-                continue;
-            }
+    filesystem_t* fs = &filesystems[current->type];
+    fs->select(current->fs_data);
+    uint64_t handle = fs->get_root();
+    const char* remaining = path;
+    while (*path == '/') path++;
+    while (*path) {
+        char subdir[256];
+        int count = 0;
+        while (*path != '/' && *path && count < 256) {
+            subdir[count++] = *path++;
         }
-        m = m->next;
+        if (count == 0) {
+            if (*path == '/') path++;  // Consume slash
+            continue;
+        }
+        subdir[count] = '\0';
+
+        uint64_t next;
+        int res = fs->lookup(subdir, handle, &next);
+        if (res < 0) {
+            if (p_handle) *p_handle = -res;
+            return NULL;
+        }
+
+        handle = next;
+
+        mountpoint_t* m = current->children;
+        if (m) {
+            do {
+                if (m->handle == handle) {
+                    current = m;
+                    fs = &filesystems[current->type];
+                    fs->select(current->fs_data);
+                    handle = fs->get_root();
+                    remaining = path;
+                    break;
+                }
+                m = m->next;
+            } while (m && m != current->children);
+        }
+    }
+    if (p_handle) *p_handle = handle;
+    if (remaining_path) strncpy(remaining_path, remaining, MAX_PATH);
+    return current;
+}
+
+int lookup(const char *path, file_handle_t *file) {
+    uint64_t handle;
+    mountpoint_t* mountpoint = find_mountpoint(path, &handle, NULL);
+    if (!mountpoint) return -(int)handle;
+
+    file->mountpoint = mountpoint;
+    file->handle = handle;
+
+    return 0;
+}
+
+int lookup_device(const char *path, uint64_t* dev_handle) {
+    char absolute_path[MAX_PATH];
+    char resolved_path[MAX_PATH];
+    make_absolute(path, absolute_path);
+    resolve_path(absolute_path, resolved_path);
+    path = resolved_path;
+    uint64_t handle = devfs_get_root();
+    while (*path == '/') path++;
+    while (*path) {
+        char subdir[256];
+        int count = 0;
+        while (*path != '/' && *path && count < 256) {
+            subdir[count++] = *path++;
+        }
+        if (count == 0) {
+            if (*path == '/') path++;  // Consume slash
+            continue;
+        }
+        subdir[count] = '\0';
+
+        uint64_t next;
+        int res = devfs_lookup(subdir, handle, &next);
+        if (res < 0) return res;
+
+        handle = next;
     }
 
-    if (remaining_path) {
-        strcpy(remaining_path, p);
-    }
+    *dev_handle = handle;
 
-    return current; // Return the best match found
+    return 0;
 }
 
 int mount_filesystem(const char* source, const char* target, const char* type, int flags) {
@@ -275,27 +333,21 @@ int mount_filesystem(const char* source, const char* target, const char* type, i
         }
     }
 
-    char remaining_path[MAX_PATH];
-    mountpoint_t* parent = find_mountpoint(target, remaining_path);
-    if (!parent) {
-        return -ENOENT; // Parent mount point not found
-    }
-
-    if (remaining_path[0] == '\0') {
-        return -EBUSY; // Already mounted
-    }
+    uint64_t handle;
+    mountpoint_t* mountpoint = find_mountpoint(target, &handle, NULL);
+    if (!mountpoint) return -(int)handle;
+    if (handle == mountpoint->handle) return -EBUSY; // Cannot mount over mountpoint root
 
     mountpoint_t* new_mount = (mountpoint_t*)kmalloc(sizeof(mountpoint_t));
     new_mount->fs_data = filesystems[fs_index].mount(dev, flags);
     new_mount->type = fs_index;
-    strncpy(new_mount->mount_point, remaining_path, sizeof(new_mount->mount_point) - 1);
-    new_mount->mount_point[sizeof(new_mount->mount_point) - 1] = '\0';
-    new_mount->parent = parent;
+    new_mount->handle = handle;
+    new_mount->parent = mountpoint;
     new_mount->children = NULL;
 
     // Add to parent's children list
-    new_mount->next = parent->children;
-    parent->children = new_mount;
+    new_mount->next = mountpoint->children;
+    mountpoint->children = new_mount;
 
     return 0; // Success
 }
@@ -310,7 +362,7 @@ int mount_root_filesystem(const char* device, int flags) {
     if (!device) return -EINVAL;
     uint64_t handle;
     stat_t st;
-    int res = devfs_lookup(device, &handle);
+    int res = lookup_device(device, &handle);
     if (res < 0) return res;
     res = devfs_stat(handle, &st);
     if (res < 0) return res;
@@ -333,7 +385,6 @@ int mount_root_filesystem(const char* device, int flags) {
     root = (mountpoint_t*)kmalloc(sizeof(mountpoint_t));
     root->fs_data = filesystems[fs_index].mount(dev, flags);
     root->type = fs_index;
-    strcpy(root->mount_point, "/");
     root->parent = NULL;
     root->children = NULL;
 
@@ -341,9 +392,12 @@ int mount_root_filesystem(const char* device, int flags) {
 }
 
 int unmount_filesystem(const char *path) {
-    char remaining_path[MAX_PATH];
-    mountpoint_t* mount = find_mountpoint(path, remaining_path);
-    if (!mount || mount == root || remaining_path[0] != '\0') return -EINVAL;
+    file_handle_t file;
+    int res = lookup(path, &file);
+    if (res < 0) return res;
+
+    mountpoint_t* mount = file.mountpoint;
+    if (mount == root) return -EINVAL;
     if (mount->refcount > 0 || mount->children) return -EBUSY;
     mountpoint_t* parent = mount->parent;
     if (parent->children == mount) {
@@ -357,6 +411,7 @@ int unmount_filesystem(const char *path) {
             sibling->next = mount->next;
         }
     }
+
     filesystem_t* fs = &filesystems[mount->type];
     if (fs->unmount) {
         int res = fs->unmount(mount->fs_data);
@@ -368,44 +423,16 @@ int unmount_filesystem(const char *path) {
     return 0; // Success
 }
 
-int lookup(const char *path, file_handle_t *file) {
-    char remaining_path[MAX_PATH];
-    mountpoint_t* mount = find_mountpoint(path, remaining_path);
-    if (!mount) {
-        return -ENOENT; // Mount point not found
-    }
-    filesystem_t* fs = &filesystems[mount->type];
-    fs->select(mount->fs_data);
-    uint64_t handle;
-    int res = fs->lookup(remaining_path, &handle);
-    if (res < 0) return res;
-    *file = (file_handle_t){
-        .mountpoint = mount,
-        .handle = handle,
-    };
-    return 0;
-}
-
 int open(const char *path, file_handle_t* open_file) {
-    char remaining_path[MAX_PATH];
-    mountpoint_t* mount = find_mountpoint(path, remaining_path);
-    if (!mount) {
-        return -ENOENT; // Mount point not found
-    }
-    filesystem_t* fs = &filesystems[mount->type];
-    fs->select(mount->fs_data);
-    uint64_t handle;
-    int res = fs->lookup(remaining_path, &handle);
+    int res = lookup(path, open_file);
     if (res < 0) return res;
+    filesystem_t* fs = &filesystems[open_file->mountpoint->type];
+    fs->select(open_file->mountpoint->fs_data);
     if (fs->open) {
-        res = fs->open(handle);
+        res = fs->open(open_file->handle);
         if (res < 0) return res;
     }
-    mount->refcount++;
-    *open_file = (file_handle_t){
-        .mountpoint = mount,
-        .handle = handle,
-    };
+    open_file->mountpoint->refcount++;
     return 0;
 }
 
@@ -493,19 +520,15 @@ int64_t write_file(file_handle_t file, const uint8_t *buffer, size_t offset, siz
 
 int remove_file(const char *path) {
     char remaining_path[MAX_PATH];
-    mountpoint_t* mount = find_mountpoint(path, remaining_path);
-    if (!mount) {
-        return -ENOENT; // Mount point not found
-    }
+    uint64_t handle;
+    mountpoint_t* mount = find_mountpoint(path, &handle, remaining_path);
+    if (!mount) return -(int)handle;
     if (*remaining_path == '\0') return -EBUSY;
     filesystem_t* fs = &filesystems[mount->type];
     fs->select(mount->fs_data);
-    uint64_t handle;
-    int res = fs->lookup(remaining_path, &handle);
-    if (res < 0) return res;
     stat_t st;
     dirent_t tmp;
-    res = fs->stat(handle, &st);
+    int res = fs->stat(handle, &st);
     if (res < 0) return res;
     if (st.type == DT_DIR && fs->readdir(handle, 0, &tmp)) return -ENOTEMPTY;
     if (!fs->remove) {
@@ -517,48 +540,107 @@ int remove_file(const char *path) {
 int rename_file(const char *old_path, const char *new_path) {
     char old_remaining_path[MAX_PATH];
     char new_remaining_path[MAX_PATH];
-    mountpoint_t* old_mount = find_mountpoint(old_path, old_remaining_path);
-    mountpoint_t* new_mount = find_mountpoint(new_path, new_remaining_path);
-    if (!old_mount) return -ENOENT;
-    if (!new_mount) return -ENOENT;
+    uint64_t old_err, new_err;
+    mountpoint_t* old_mount = find_mountpoint(old_path, &old_err, old_remaining_path);
+    mountpoint_t* new_mount = find_mountpoint(new_path, &new_err, new_remaining_path);
+    if (!old_mount) return -(int)old_err;
+    if (!new_mount) return -(int)new_err;
     if (*old_remaining_path == '\0') return -EBUSY;
     if (old_mount != new_mount) {
         return -EXDEV; // Cannot rename across different filesystems
     }
-    filesystem_t* old_fs = &filesystems[old_mount->type];
-    old_fs->select(old_mount->fs_data);
-    if (!old_fs->rename) {
+    filesystem_t* fs = &filesystems[old_mount->type];
+    fs->select(old_mount->fs_data);
+    if (!fs->rename) {
         return -ENOSYS; // Rename operation not supported by this filesystem
     }
-    return old_fs->rename(old_remaining_path, new_remaining_path);
+    return fs->rename(old_remaining_path, new_remaining_path);
+}
+
+static int split_path(const char *path, char *dir, char *filename) {
+    size_t path_length = 0;
+    size_t slash = (size_t)-1;
+
+    if (!path || !dir || !filename) {
+        return -EINVAL;
+    }
+
+    while (path_length < MAX_PATH && path[path_length] != '\0') {
+        if (path[path_length] == '/') {
+            slash = path_length;
+        }
+        path_length++;
+    }
+
+    if (path_length == MAX_PATH) {
+        return -ENAMETOOLONG;
+    }
+
+    size_t dir_length = 0;
+    size_t filename_start = 0;
+
+    if (slash != (size_t)-1) {
+        dir_length = slash;
+        filename_start = slash + 1;
+
+        if (dir_length == 0) {
+            dir_length = 1; // Preserve "/" as the directory.
+        }
+    }
+
+    size_t filename_length = path_length - filename_start;
+
+    for (size_t i = 0; i < dir_length; i++) {
+        dir[i] = path[i];
+    }
+    dir[dir_length] = '\0';
+
+    for (size_t i = 0; i < filename_length; i++) {
+        filename[i] = path[filename_start + i];
+    }
+    filename[filename_length] = '\0';
+
+    return 0;
 }
 
 int create_file(const char *path) {
-    char remaining_path[MAX_PATH];
-    mountpoint_t* mount = find_mountpoint(path, remaining_path);
-    if (!mount) {
-        return -ENOENT; // Mount point not found
-    }
+    char dirname[MAX_PATH];
+    char filename[MAX_PATH];
+    char remaining_dir[MAX_PATH];
+    int res = split_path(path, dirname, filename);
+    if (res < 0) return res;
+    uint64_t err;
+    mountpoint_t* mount = find_mountpoint(dirname, &err, remaining_dir);
+    if (!mount) return -(int)err;
+    size_t len = strlen(remaining_dir);
+    remaining_dir[len] = '/';
+    strncpy(remaining_dir + len + 1, filename, MAX_PATH - len - 2);
     filesystem_t* fs = &filesystems[mount->type];
     fs->select(mount->fs_data);
     if (!fs->create_file) {
-        return -ENOSYS; // Create_file operation not supported by this filesystem
+        return -ENOSYS; // create_file operation not supported by this filesystem
     }
-    return fs->create_file(remaining_path);
+    return fs->create_file(remaining_dir);
 }
 
 int create_directory(const char *path) {
-    char remaining_path[MAX_PATH];
-    mountpoint_t* mount = find_mountpoint(path, remaining_path);
-    if (!mount) {
-        return -ENOENT; // Mount point not found
-    }
+    char dirname[MAX_PATH];
+    char filename[MAX_PATH];
+    char remaining_dir[MAX_PATH];
+    int res = split_path(path, dirname, filename);
+    if (res < 0) return res;
+    uint64_t err;
+    mountpoint_t* mount = find_mountpoint(dirname, &err, remaining_dir);
+    if (!mount) return -(int)err;
+    size_t len = strlen(remaining_dir);
+    remaining_dir[len] = '/';
+    strncpy(remaining_dir + len + 1, filename, MAX_PATH - len - 2);
     filesystem_t* fs = &filesystems[mount->type];
     fs->select(mount->fs_data);
     if (!fs->create_directory) {
-        return -ENOSYS; // Create_directory operation not supported by this filesystem
+        return -ENOSYS; // create_directory operation not supported by this filesystem
     }
-    return fs->create_directory(remaining_path);
+    return fs->create_directory(remaining_dir);
 }
 
 int stat_handle(file_handle_t file, stat_t *out) {
@@ -591,20 +673,17 @@ int stat_handle(file_handle_t file, stat_t *out) {
 
 int stat(const char *path, stat_t *out) {
     if (!path || !out) return -EINVAL;
-    char remaining_path[MAX_PATH];
-    mountpoint_t* mount = find_mountpoint(path, remaining_path);
+    uint64_t handle;
+    mountpoint_t* mount = find_mountpoint(path, &handle, NULL);
     if (!mount) {
-        return -ENOENT; // Mount point not found
+        return -(int)handle;
     }
     filesystem_t* fs = &filesystems[mount->type];
     fs->select(mount->fs_data);
     if (!fs->stat) {
         return -ENOSYS;
     }
-    uint64_t handle;
-    int res = fs->lookup(remaining_path, &handle);
-    if (res < 0) return res;
-    res = fs->stat(handle, out);
+    int res = fs->stat(handle, out);
     if (res < 0) return res;
     switch (out->type) {
         case DT_FILE:
@@ -625,33 +704,37 @@ int stat(const char *path, stat_t *out) {
     return res;
 }
 
-int mknod(const char *path, uint32_t type, dev_t dev) {
-    char remaining_path[MAX_PATH];
-    mountpoint_t* mount = find_mountpoint(path, remaining_path);
-    if (!mount) {
-        return -ENOENT; // Mount point not found
-    }
+int mknod(const char* path, uint32_t type, dev_t dev) {
+    char dirname[MAX_PATH];
+    char filename[MAX_PATH];
+    char remaining_dir[MAX_PATH];
+    int res = split_path(path, dirname, filename);
+    if (res < 0) return res;
+    uint64_t err;
+    mountpoint_t* mount = find_mountpoint(dirname, &err, remaining_dir);
+    if (!mount) return -(int)err;
+    size_t len = strlen(remaining_dir);
+    remaining_dir[len] = '/';
+    strncpy(remaining_dir + len + 1, filename, MAX_PATH - len - 2);
     filesystem_t* fs = &filesystems[mount->type];
     fs->select(mount->fs_data);
     if (!fs->mknod) {
         return -ENOSYS; // mknod() not supported by this filesystem
     }
-    return fs->mknod(remaining_path, type, dev);
+    return fs->mknod(remaining_dir, type, dev);
 }
 
 int link(const char *file, const char *link) {
     char remaining_path[MAX_PATH];
-    mountpoint_t* mount = find_mountpoint(file, remaining_path);
-    if (!mount) return -ENOENT; // Mount point not found
+    uint64_t handle, ln_err;
+    mountpoint_t* mount = find_mountpoint(file, &handle, remaining_path);
+    if (!mount) return -(int)handle;
     char remaining_link_path[MAX_PATH];
-    mountpoint_t* ln_mount = find_mountpoint(link, remaining_path);
-    if (!ln_mount) return -ENOENT; // Mount point not found
+    mountpoint_t* ln_mount = find_mountpoint(link, &ln_err, remaining_link_path);
+    if (!ln_mount) return -(int)ln_err;
     if (mount != ln_mount) return -EXDEV;
     filesystem_t* fs = &filesystems[mount->type];
     fs->select(mount->fs_data);
-    uint64_t handle;
-    int res = fs->lookup(remaining_path, &handle);
-    if (res < 0) return res;
     if (!fs->link) {
         return -ENOSYS; // Hard link creation not supported by this filesystem
     }

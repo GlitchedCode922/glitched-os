@@ -4,16 +4,22 @@
 #include "drivers/chrdev.h"
 #include "drivers/timer.h"
 #include "error.h"
+#include "uapi/dirent.h"
+#include <stddef.h>
 #include <stdint.h>
 
 static ramfs_mount_t* mount;
 
-int strcmp(const char *s1, const char *s2) {
-    while (*s1 && *s2 && (*s1 == *s2)) {
-        s1++;
-        s2++;
+static int strncmp(const char *s1, const char *s2, size_t n) {
+    for (size_t i = 0; i < n; i++) {
+        if (s1[i] != s2[i]) {
+            return (unsigned char)s1[i] - (unsigned char)s2[i];
+        }
+        if (s1[i] == '\0') {
+            return 0;
+        }
     }
-    return *(unsigned char *)s1 - *(unsigned char *)s2;
+    return 0;
 }
 
 static int ramfs_get_dirent(const char* path, ramfs_dirent_t** out) {
@@ -34,7 +40,7 @@ static int ramfs_get_dirent(const char* path, ramfs_dirent_t** out) {
         current = current->child;
         int found = 0;
         while (current) {
-            if (strcmp(subdir, current->name) == 0) {
+            if (strncmp(subdir, current->name, 256) == 0) {
                 // Found
                 found = 1;
                 break;
@@ -73,12 +79,21 @@ int ramfs_free_dirent(ramfs_dirent_t* dirent) {
     return 0;
 }
 
-int ramfs_lookup(const char* path, uint64_t* handle) {
-    ramfs_dirent_t* dirent;
-    int res = ramfs_get_dirent(path, &dirent);
-    if (res < 0) return res;
-    *handle = (uint64_t)dirent;
-    return 0;
+uint64_t ramfs_get_root() {
+    return (uint64_t)&mount->root;
+}
+
+int ramfs_lookup(const char* name, uint64_t parent, uint64_t* handle) {
+    if (((ramfs_dirent_t*)parent)->type != DT_DIR) return -ENOTDIR;
+    ramfs_dirent_t* dirent = ((ramfs_dirent_t*)parent)->child;
+    while (dirent) {
+        if (strncmp(name, dirent->name, 256) == 0) {
+            *handle = (uint64_t)dirent;
+            return 0;
+        }
+        dirent = dirent->next;
+    }
+    return -ENOENT;
 }
 
 int ramfs_open(uint64_t handle) {
@@ -499,6 +514,7 @@ void ramfs_register() {
     ramfs.unmount = ramfs_unmount;
     ramfs.select = ramfs_select;
 
+    ramfs.get_root = ramfs_get_root;
     ramfs.lookup = ramfs_lookup;
     ramfs.open = ramfs_open;
     ramfs.close = ramfs_close;

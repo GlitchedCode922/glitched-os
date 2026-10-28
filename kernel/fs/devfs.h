@@ -2,7 +2,8 @@
 #include "vfs.h"
 #include <stdint.h>
 
-int devfs_lookup(const char* path, uint64_t* handle);
+uint64_t devfs_get_root();
+int devfs_lookup(const char* path, uint64_t parent, uint64_t* handle);
 int devfs_open(uint64_t handle);
 int devfs_close(uint64_t handle);
 

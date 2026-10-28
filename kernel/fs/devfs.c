@@ -5,9 +5,14 @@
 
 static void* ramfs_instance;
 
-int devfs_lookup(const char* path, uint64_t* handle) {
+uint64_t devfs_get_root() {
     ramfs_select(ramfs_instance);
-    return ramfs_lookup(path, handle);
+    return ramfs_get_root();
+}
+
+int devfs_lookup(const char* name, uint64_t parent, uint64_t* handle) {
+    ramfs_select(ramfs_instance);
+    return ramfs_lookup(name, parent, handle);
 }
 
 int devfs_open(uint64_t handle) {
@@ -98,6 +103,7 @@ void devfs_register() {
     devfs.unmount = devfs_unmount;
     devfs.select = devfs_select;
 
+    devfs.get_root = devfs_get_root;
     devfs.lookup = devfs_lookup;
     devfs.open = devfs_open;
     devfs.close = devfs_close;

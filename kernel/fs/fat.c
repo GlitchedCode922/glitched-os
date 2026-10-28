@@ -356,7 +356,68 @@ fat_dirent_t fat_read_dirent(uint64_t handle) {
     return *(fat_dirent_t*)(sector_buffer + offset);
 }
 
-int fat_lookup(const char *path, uint64_t* handle) {
+uint64_t fat_get_root() {
+    return 0;
+}
+
+int fat_lookup(const char* name, uint64_t parent, uint64_t* handle) {
+    fat_dirent_t dirent = fat_read_dirent(parent);
+
+    if (!(dirent.attributes & DIRENT_DIRECTORY)) return -ENOTDIR;
+
+    uint32_t cluster = ((uint32_t)dirent.first_cluster_high << 16) | dirent.first_cluster_low;
+    uint32_t bytes_per_cluster = data->bpb.sectors_per_cluster * data->bpb.bytes_per_sector;
+    uint8_t cluster_buffer[bytes_per_cluster];
+    read_sectors(data->backing, get_first_cluster_sector(cluster), cluster_buffer, data->bpb.sectors_per_cluster);
+
+    char n_name[512];
+    normalize_fat_path(name, n_name);
+    name = n_name;
+
+    char component[12]; // 8.3 format
+    int comp_len = 0;
+    while (*name && comp_len < 12) {
+        component[comp_len++] = *name++;
+    }
+    for (int i = comp_len; i < 12; i++) component[i] = ' ';
+    readable_to_8d3(component);
+
+    // Search for the component in the current directory (all clusters)
+    uint32_t offset = 0;
+    while (1) {
+        if (offset >= bytes_per_cluster) {
+            // Move to next cluster
+            cluster = next_cluster(cluster);
+            if (cluster >= CLUSTER_CHAIN_END) break; // End of cluster chain
+
+            read_sectors(data->backing, get_first_cluster_sector(cluster), cluster_buffer, data->bpb.sectors_per_cluster);
+            offset = 0;
+        }
+        fat_dirent_t* dirent = (fat_dirent_t*)&cluster_buffer[offset];
+        if (dirent->name[0] == DIRENT_END) break; // No more entries
+        if (dirent->name[0] == DIRENT_DELETED || dirent->attributes & DIRENT_VOLUME_LABEL) {
+            offset += sizeof(fat_dirent_t);
+            continue; // Deleted or volume label entry
+        }
+
+        char dirent_name[11];
+        memcpy(dirent_name, dirent->name, 11);
+
+        if (memcmp(dirent_name, component, 11) == 0) {
+            uint32_t position[2];
+
+            position[0] = get_first_cluster_sector(cluster) + offset / 512;
+            position[1] = offset % 512;
+            *handle = (uint64_t)position[0] << 32 | position[1];
+            return 0;
+        }
+        offset += sizeof(fat_dirent_t);
+    }
+
+    return -ENOENT;
+}
+
+int fat_lookup_path(const char *path, uint64_t* handle) {
     fat_dirent_ref_t dirent_ref = fat_get_dirent_ref(path);
     if (!dirent_ref.found) {
         return -ENOENT;
@@ -579,7 +640,7 @@ int fat_create_file(const char *path) {
         return -EROFS; // Filesystem is read-only
     }
     uint64_t tmp;
-    int res = fat_lookup(path, &tmp);
+    int res = fat_lookup_path(path, &tmp);
     if (res == 0) {
         return -EEXIST; // File already exists
     }
@@ -614,7 +675,7 @@ int fat_create_directory(const char *path) {
         return -EROFS; // Filesystem is read-only
     }
     uint64_t tmp;
-    int res = fat_lookup(path, &tmp);
+    int res = fat_lookup_path(path, &tmp);
     if (res == 0) {
         return -EEXIST; // File already exists
     }
@@ -808,7 +869,7 @@ int fat_rename(const char *old_path, const char *new_path) {
         return -ENOENT; // Old file not found
     }
     uint64_t tmp;
-    if (fat_lookup(new_path, &tmp) == 0) {
+    if (fat_lookup_path(new_path, &tmp) == 0) {
         int res = fat_delete(new_path);
         if (res < 0) {
             return res; // Failed to delete existing file at new path
@@ -986,6 +1047,7 @@ void fat_register() {
     fat_fs.check = fat_check;
     fat_fs.select = fat_select;
     fat_fs.mount = fat_mount;
+    fat_fs.get_root = fat_get_root;
     fat_fs.lookup = fat_lookup;
     fat_fs.read = fat_read;
     fat_fs.write = fat_write_to_file;

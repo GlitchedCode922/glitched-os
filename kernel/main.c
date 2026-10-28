@@ -1,7 +1,6 @@
 #include "console.h"
 #include "drivers/fbdev.h"
 #include "drivers/rtc.h"
-#include "fs/devfs.h"
 #include "limine.h"
 #include "fbcon.h"
 #include "panic.h"
@@ -170,9 +169,9 @@ void kernel_main() {
     uint64_t tmp;
     if (console_specified) {
         console_init(console_device);
-    } else if (devfs_lookup("tty1", &tmp) >= 0) {
+    } else if (lookup_device("tty1", &tmp) >= 0) {
         console_init("tty1");
-    } else if (devfs_lookup("ttyS0", &tmp) >= 0) {
+    } else if (lookup_device("ttyS0", &tmp) >= 0) {
         console_init("ttyS0");
     }
     partition_init();

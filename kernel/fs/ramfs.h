@@ -31,7 +31,8 @@ typedef struct {
 
 #define RAMFS_BLOCK_SIZE (4096 - sizeof(uintptr_t))
 
-int ramfs_lookup(const char* path, uint64_t* handle);
+uint64_t ramfs_get_root();
+int ramfs_lookup(const char* name, uint64_t parent, uint64_t* handle);
 int ramfs_open(uint64_t handle);
 int ramfs_close(uint64_t handle);
 

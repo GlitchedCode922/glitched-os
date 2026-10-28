@@ -11,7 +11,7 @@ int console_tty_id = 0; // Set to first registered TTY for early kernel panics
 
 void console_init(const char *device) {
     uint64_t handle;
-    int res = devfs_lookup(device, &handle);
+    int res = lookup_device(device, &handle);
     if (res < 0) panic("Couldn't find kernel console device: %s", device);
     stat_t st;
     res = devfs_stat(handle, &st);

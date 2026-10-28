@@ -18,7 +18,8 @@ typedef struct {
     int (*unmount)(void* data);
     void (*select)(void* data);
 
-    int (*lookup)(const char* path, uint64_t* handle);
+    uint64_t (*get_root)();
+    int (*lookup)(const char* path, uint64_t parent, uint64_t* handle);
     int (*open)(uint64_t handle);
     int (*close)(uint64_t handle);
 
@@ -36,7 +37,7 @@ typedef struct {
 } filesystem_t;
 
 typedef struct mountpoint {
-    char mount_point[MAX_PATH];  // Relative mount point path
+    uint64_t handle;
     int type;                    // Filesystem type
     int refcount;
     void* fs_data;
@@ -55,6 +56,7 @@ int mount_filesystem(const char* source, const char* target, const char* type, i
 int mount_root_filesystem(const char* device, int flags);
 int unmount_filesystem(const char *path);
 int lookup(const char *path, file_handle_t* file);
+int lookup_device(const char *path, uint64_t* handle);
 int open(const char *path, file_handle_t* open_file);
 int close(file_handle_t open_file);
 int readdir(file_handle_t file, int index, dirent_t* out);

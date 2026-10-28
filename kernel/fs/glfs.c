@@ -58,8 +58,12 @@ void glfs_glue_select(void* p_mount) {
     mount = p_mount;
 }
 
-int glfs_glue_lookup(const char *path, uint64_t* inode) {
-    return glfs_lookup(mount, path, inode);
+uint64_t glfs_glue_get_root() {
+    return glfs_get_root(mount);
+}
+
+int glfs_glue_lookup(const char *name, uint64_t parent, uint64_t* inode) {
+    return glfs_lookup(mount, name, parent, inode);
 }
 
 int glfs_glue_open(uint64_t inode) {
@@ -199,6 +203,7 @@ void glfs_register() {
     glfs.unmount = glfs_glue_unmount;
     glfs.select = glfs_glue_select;
 
+    glfs.get_root = glfs_glue_get_root;
     glfs.lookup = glfs_glue_lookup;
     glfs.open = glfs_glue_open;
     glfs.close = glfs_glue_close;
