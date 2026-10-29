@@ -735,10 +735,16 @@ int link(const char *file, const char *link) {
     uint64_t handle, ln_err;
     mountpoint_t* mount = find_mountpoint(file, &handle, remaining_path);
     if (!mount) return -(int)handle;
+    char ln_dirname[MAX_PATH];
+    char ln_filename[MAX_PATH];
+    split_path(link, ln_dirname, ln_filename);
     char remaining_link_path[MAX_PATH];
-    mountpoint_t* ln_mount = find_mountpoint(link, &ln_err, remaining_link_path);
+    mountpoint_t* ln_mount = find_mountpoint(ln_dirname, &ln_err, remaining_link_path);
     if (!ln_mount) return -(int)ln_err;
     if (mount != ln_mount) return -EXDEV;
+    size_t len = strlen(remaining_link_path);
+    remaining_link_path[len] = '/';
+    strncpy(remaining_link_path + len + 1, ln_filename, MAX_PATH - len - 2);
     filesystem_t* fs = &filesystems[mount->type];
     fs->select(mount->fs_data);
     if (!fs->link) {
