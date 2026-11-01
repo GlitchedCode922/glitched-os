@@ -66,7 +66,7 @@ void icmp_received(uint8_t *packet, uint8_t* sender, int len) {
             break;
 
         case ICMP_TIMESTAMP_REQUEST:
-            // Handle Timestamp Request 
+            // Handle Timestamp Request
             break;
 
         case ICMP_TIMESTAMP_REPLY:
@@ -105,11 +105,22 @@ int icmp_send(uint8_t *dest_ip, uint8_t type, uint8_t code, uint16_t sequence_nu
 int ping(uint8_t *dest_ip, int timeout) {
     char ping_data[56];
     memset(ping_data, 'a', 56);
-    while (pinging) yield_current();
+    while (pinging) {
+        if (has_pending_signals(current_task)) {
+            return -EINTR;
+        }
+        yield_current();
+    }
     pinging = 1;
     icmp_send(dest_ip, ICMP_ECHO_REQUEST, 0, 0, (uint8_t*)ping_data, sizeof(ping_data));
     uint64_t start = get_uptime_milliseconds();
-    while (pinging == 1 && get_uptime_milliseconds() - start < timeout) yield_current();
+    while (pinging == 1 && get_uptime_milliseconds() - start < timeout) {
+        if (has_pending_signals(current_task)) {
+            pinging = 0;
+            return -EINTR;
+        }
+        yield_current();
+    }
     if (pinging == 0) {
         uint16_t elapsed = get_uptime_milliseconds() - start;
         return elapsed; // Ping successful

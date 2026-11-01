@@ -98,6 +98,6 @@ void* load_elf(file_handle_t file, void** brk) {
         }
     }
 
-    if (brk) *brk = (void*)(((uintptr_t)break_addr / PAGE_SIZE + 1) * PAGE_SIZE); // Update the break address
+    if (brk) *brk = (void*)PAGE_ALIGN(break_addr); // Update the break address
     return (void*)ehdr.e_entry; // Successfully loaded ELF binary
 }

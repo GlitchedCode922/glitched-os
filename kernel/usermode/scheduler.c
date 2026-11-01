@@ -135,6 +135,22 @@ void run_init(char* path) {
     jump_to_user(addr, (char*)0x10000000000 + 4096 * 128 - 16);
 }
 
+int has_pending_signals(task_t* task) {
+    if (task->in_signal) return 0;
+    uint32_t deliverable = task->pending_signals & ~task->signal_mask;
+    if (!deliverable) return 0;
+
+    for (int i = 0; i < 31; i++) {
+        if (!(deliverable & (1u << i))) continue;
+
+        sigaction_t* action = &task->signal_handlers[i + 1];
+        if (action->handler == SIG_IGN) continue;
+        if (action->handler == SIG_DFL && signal_default_actions[i + 1] == SIGNAL_IGNORE) continue;
+        return 1;
+    }
+    return 0;
+}
+
 void deliver_signals() {
     uint32_t deliverable = current_task->pending_signals & ~current_task->signal_mask;
     if (!deliverable) return;
@@ -148,6 +164,10 @@ void deliver_signals() {
                 exit(current_task->iframe, - i - 1);
             }
         } else if (action->handler != SIG_IGN) {
+            if (current_task->iframe->cs != USER_CS) {
+                current_task->pending_signals |= (1 << i);
+                continue;
+            }
             current_task->signal_interrupted_iframe = *current_task->iframe;
             memcpy(
                 current_task->signal_interrupted_fpu_state,
@@ -614,15 +634,15 @@ void yield_current() {
     );
 }
 
-void sleep_current(uint64_t ms) {
+uint64_t sleep_current(uint64_t ms) {
+    uint64_t res = SYSCALL_SLEEP;
     asm volatile(
-        "movq %0, %%rdi\n\t"
-        "movq %1, %%rax\n\t"
-        "int $0x80\n\t"
-        :
-        : "r"(ms), "r"((uint64_t)SYSCALL_SLEEP)
-        : "rax", "rdi"
+        "int $0x80"
+        : "+a"(res)
+        : "D"(ms)
+        : "memory"
     );
+    return res;
 }
 
 void kworker_exit() {
@@ -631,13 +651,14 @@ void kworker_exit() {
     switch_task();
 }
 
-void sleep(uint64_t ms, iframe_t *iframe) {
-    if (ms == 0) return;
+uint64_t sleep(uint64_t ms, iframe_t *iframe) {
+    if (ms == 0) return 0;
     current_task->state = STATE_BLOCKED;
     current_task->block_reason = BLOCK_DELAY;
     current_task->blocked_ticks = ms;
-    current_task->iframe = iframe;
-    switch_task();
+    current_task->iframe->rax = 0;
+    run_next(iframe);
+    return 0; // Unreachable
 }
 
 task_t* get_child(task_t* task, int pid) {
@@ -686,6 +707,7 @@ int waitpid(int pid, int* wstatus, int options, iframe_t* iframe) {
             return pid;
         }
         if (options & WNOHANG) return 0;
+        if (has_pending_signals(current_task)) return -EINTR;
         current_task->state = STATE_BLOCKED;
         current_task->block_reason = BLOCK_WAITPID;
         current_task->blocked_process = child;
@@ -712,7 +734,8 @@ int waitpid(int pid, int* wstatus, int options, iframe_t* iframe) {
                 return child->pid;
             }
         }
-        if (options & WNOHANG) return -1;
+        if (options & WNOHANG) return 0;
+        if (has_pending_signals(current_task)) return -EINTR;
         current_task->state = STATE_BLOCKED;
         current_task->block_reason = BLOCK_WAITPID;
         current_task->blocked_process = NULL;
@@ -721,7 +744,7 @@ int waitpid(int pid, int* wstatus, int options, iframe_t* iframe) {
         run_next(iframe);
     }
 
-    return -1; // Unreachable
+    return -ENOSYS;
 }
 
 static void signal_task(task_t* task, int sig) {
@@ -822,6 +845,12 @@ void check_blocked_tasks(int reduce_ticks) {
                     task->state = STATE_READY;
                     task->block_reason = BLOCK_NONE;
                 }
+                if (has_pending_signals(task)) {
+                    task->state = STATE_READY;
+                    task->block_reason = BLOCK_NONE;
+                    task->iframe->rax = task->blocked_ticks;
+                    task->blocked_ticks = 0;
+                }
             } else if (task->block_reason == BLOCK_WAITPID) {
                 if (task->blocked_process != NULL) {
                     uintptr_t old_cr3 = pml4_physical;
@@ -847,17 +876,22 @@ void check_blocked_tasks(int reduce_ticks) {
                         unblock = 1;
                     }
                     change_pml4(old_cr3);
-                    if (!unblock) {
+                    if (!unblock && !has_pending_signals(task)) {
                         task = task->next;
                         continue;
                     }
                     task->state = STATE_READY;
                     task->block_reason = BLOCK_NONE;
-                    task->iframe->rax = task->blocked_process->pid;
+                    task->iframe->rax = unblock ? task->blocked_process->pid : -EINTR;
                     task->blocked_process = NULL;
                 } else {
                     task_t* blocked = get_first_waitpid_target(task, task->waitpid_flags);
                     if (blocked == NULL) {
+                        if (has_pending_signals(task)) {
+                            task->state = STATE_READY;
+                            task->block_reason = BLOCK_NONE;
+                            task->iframe->rax = -EINTR;
+                        }
                         task = task->next;
                         continue;
                     }

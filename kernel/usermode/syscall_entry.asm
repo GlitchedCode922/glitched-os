@@ -4,6 +4,7 @@ section .text
 global syscall_entry
 extern tss
 syscall_entry:
+    cli
     mov [user_rsp], rsp
     mov rsp, [tss + 4]
     ; Construct interrupt frame

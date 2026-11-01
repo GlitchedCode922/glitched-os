@@ -31,3 +31,4 @@
 #define EPIPE 32
 #define ESRCH 3
 #define EPERM 1
+#define EINTR 4

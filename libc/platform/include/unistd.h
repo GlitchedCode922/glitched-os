@@ -50,7 +50,7 @@ pid_t wait(int *wstatus);
 #define WIFCONTINUED(s) ((s) == 0xffff)
 
 void yield();
-void sleep(uint64_t ms);
+int64_t sleep(uint64_t ms);
 
 int isatty(int fd);
 

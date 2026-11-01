@@ -114,7 +114,7 @@ void syscall(iframe_t* iframe) {
         ret = get_uptime_milliseconds();
         break;
     case SYSCALL_SLEEP:
-        sleep(arg1, iframe);
+        ret = sleep(arg1, iframe);
         break;
     case SYSCALL_BRK:
         ret = (uintptr_t)set_brk((void*)arg1);
@@ -351,6 +351,8 @@ void syscall(iframe_t* iframe) {
     }
     iframe->rax = (uint64_t)ret;
     if (ticks_remaining <= 0 && iframe->cs == USER_CS) {
+        run_next(iframe); // Next task
+    } else if (current_task->state == STATE_BLOCKED && iframe->cs == USER_CS) {
         run_next(iframe); // Next task
     } else if (iframe->cs == USER_CS) {
         deliver_signals();

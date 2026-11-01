@@ -59,6 +59,9 @@ int64_t pipe_write(pipe_t* pipe, const void* buffer, uint64_t len, uint8_t block
         uint64_t available = (pipe->read_head - pipe->write_head - 1 + PIPE_SIZE) % PIPE_SIZE;
         if (available == 0) {
             if (!blocking) return written ? (int64_t)written : -EAGAIN;
+            if (has_pending_signals(current_task)) {
+                return -EINTR;
+            }
             yield_current();
             continue;
         }

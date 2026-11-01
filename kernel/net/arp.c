@@ -94,10 +94,19 @@ int arp_request(uint8_t* target_ip, uint8_t* target_mac_buffer, int card) {
         int start_time = get_uptime_milliseconds();
         int res = send_ethernet((char *)request.sender_mac, BROADCAST_MAC, ARP_ETHERTYPE, padded_frame, 60 - 14, card);
         if (res < 0) return res;
-        while (waiting_for_reply && get_uptime_milliseconds() - start_time < 1000) yield_current();
+        while (waiting_for_reply && get_uptime_milliseconds() - start_time < 1000) {
+            if (has_pending_signals(current_task)) {
+                waiting_for_reply = 0;
+                return -EINTR;
+            }
+            yield_current();
+        }
         if (!waiting_for_reply) break;
     }
-    if (waiting_for_reply) return -EHOSTUNREACH;
+    if (waiting_for_reply) {
+        waiting_for_reply = 0;
+        return -EHOSTUNREACH;
+    }
 
     // After receiving the reply, the MAC address should be in the cache
     for (int i = 0; i < ARP_CACHE_SIZE; i++) {

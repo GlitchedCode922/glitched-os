@@ -143,6 +143,9 @@ int64_t read(int fd, void *buffer, size_t size) {
             if (file_description->flags & O_NONBLOCK || bytes_read != -EAGAIN) {
                 break;
             }
+            if (has_pending_signals(current_task)) {
+                return -EINTR;
+            }
             yield_current();
         }
         if (bytes_read > 0) file_description->offset += bytes_read;
@@ -151,6 +154,9 @@ int64_t read(int fd, void *buffer, size_t size) {
             bytes_read = pipe_read(file_description->pipe, buffer, size);
             if (file_description->flags & O_NONBLOCK || bytes_read != -EAGAIN) {
                 break;
+            }
+            if (has_pending_signals(current_task)) {
+                return -EINTR;
             }
             yield_current();
         }
@@ -371,6 +377,9 @@ int64_t fd_recvfrom(int fd, uint8_t *buffer, uint64_t len, int flags, sockaddr_i
         bytes_read = recvfrom(file_description->socket, buffer, len, flags, addr);
         if (file_description->flags & O_NONBLOCK || bytes_read != -EAGAIN) {
             break;
+        }
+        if (has_pending_signals(current_task)) {
+            return -EINTR;
         }
         yield_current();
     }
