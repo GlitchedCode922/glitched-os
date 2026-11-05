@@ -2,13 +2,11 @@
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <signal.h>
 #include "builtin.h"
 #include "mrsh_getopt.h"
 #include "shell/job.h"
 #include "shell/process.h"
 #include "shell/shell.h"
-#include "shell/task.h"
 
 static const char jobs_usage[] = "usage: jobs [-l|-p] [job_id...]\n";
 
@@ -16,7 +14,6 @@ struct jobs_context {
 	struct mrsh_job *current, *previous;
 	bool pids;
 	bool pgids;
-	bool r;
 };
 
 static void show_job(struct mrsh_job *job, const struct jobs_context *ctx) {
@@ -37,12 +34,12 @@ static void show_job(struct mrsh_job *job, const struct jobs_context *ctx) {
 	} else if (ctx->pgids) {
 		char *cmd = mrsh_node_format(job->node);
 		printf("[%d] %c %d %s %s\n", job->job_id, curprev, job->pgid,
-				job_state_str(job, ctx->r), cmd);
+				job_state_str(job), cmd);
 		free(cmd);
 	} else {
 		char *cmd = mrsh_node_format(job->node);
 		printf("[%d] %c %s %s\n", job->job_id, curprev,
-				job_state_str(job, ctx->r), cmd);
+				job_state_str(job), cmd);
 		free(cmd);
 	}
 }
@@ -58,7 +55,6 @@ int builtin_jobs(struct mrsh_state *state, int argc, char *argv[]) {
 		.previous = previous,
 		.pids = false,
 		.pgids = false,
-		.r = rand() % 2 == 0,
 	};
 
 	_mrsh_optind = 0;

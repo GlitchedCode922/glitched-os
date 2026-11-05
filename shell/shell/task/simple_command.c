@@ -64,7 +64,7 @@ static int run_process(struct mrsh_context *ctx, struct mrsh_simple_command *sc,
 
 		for (size_t i = 0; i < sc->assignments.len; ++i) {
 			struct mrsh_assignment *assign = sc->assignments.data[i];
-			uint32_t prev_attribs;
+			uint32_t prev_attribs = MRSH_VAR_ATTRIB_NONE;
 			if (mrsh_env_get(state, assign->name, &prev_attribs)
 					&& (prev_attribs & MRSH_VAR_ATTRIB_READONLY)) {
 				fprintf(stderr, "cannot modify readonly variable %s\n",
@@ -249,7 +249,7 @@ static int run_assignments(struct mrsh_context *ctx, struct mrsh_array *assignme
 		if ((ctx->state->options & MRSH_OPT_ALLEXPORT)) {
 			attribs = MRSH_VAR_ATTRIB_EXPORT;
 		}
-		uint32_t prev_attribs = 0;
+		uint32_t prev_attribs = MRSH_VAR_ATTRIB_NONE;
 		if (mrsh_env_get(ctx->state, assign->name, &prev_attribs) != NULL
 				&& (prev_attribs & MRSH_VAR_ATTRIB_READONLY)) {
 			free(new_value);

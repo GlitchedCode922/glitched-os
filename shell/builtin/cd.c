@@ -15,8 +15,7 @@ static const char cd_usage[] = "usage: cd [-L|-P] [-|directory]\n";
 static int cd(struct mrsh_state *state, const char *path) {
 	const char *oldPWD = mrsh_env_get(state, "PWD", NULL);
 	if (chdir(path) != 0) {
-		// TODO make better error messages
-		fprintf(stderr, "cd: %s\n", strerror(errno));
+		fprintf(stderr, "cd: %s: %s\n", path, strerror(errno));
 		return 1;
 	}
 	char *cwd = current_working_dir();
@@ -78,7 +77,7 @@ int builtin_cd(struct mrsh_state *state, int argc, char *argv[]) {
 			return 1;
 		}
 		if (chdir(oldpwd) != 0) {
-			fprintf(stderr, "cd: %s\n", strerror(errno));
+			fprintf(stderr, "cd: %s: %s\n", oldpwd, strerror(errno));
 			return 1;
 		}
 		char *_pwd = strdup(pwd);

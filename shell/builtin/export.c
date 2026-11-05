@@ -33,7 +33,7 @@ int builtin_export(struct mrsh_state *state, int argc, char *argv[]) {
 	for (int i = 1; i < argc; ++i) {
 		char *eql, *key;
 		const char *val;
-		uint32_t prev_attribs = 0;
+		uint32_t prev_attribs = MRSH_VAR_ATTRIB_NONE;
 		eql = strchr(argv[i], '=');
 		if (eql) {
 			size_t klen = eql - argv[i];

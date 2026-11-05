@@ -12,7 +12,7 @@
 static const char read_usage[] = "usage: read [-r] var...\n";
 
 static int readonly_test(struct mrsh_state* state, const char* var) {
-	uint32_t prev_attribs;
+	uint32_t prev_attribs = MRSH_VAR_ATTRIB_NONE;
 	mrsh_env_get(state, var, &prev_attribs);
 	if ((prev_attribs & MRSH_VAR_ATTRIB_READONLY)) {
 		fprintf(stderr, "read: cannot modify read-only variable %s\n", var);

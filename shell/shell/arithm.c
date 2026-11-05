@@ -210,7 +210,7 @@ static bool run_arithm_assign(struct mrsh_state *state,
 
 	char buf[32];
 	snprintf(buf, sizeof(buf), "%ld", *result);
-	uint32_t prev_attribs;
+	uint32_t prev_attribs = MRSH_VAR_ATTRIB_NONE;
 	mrsh_env_get(state, assign->name, &prev_attribs);
 	if ((prev_attribs & MRSH_VAR_ATTRIB_READONLY)) {
 		fprintf(stderr, "Cannot modify read-only variable %s\n", assign->name);

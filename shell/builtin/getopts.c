@@ -87,7 +87,7 @@ int builtin_getopts(struct mrsh_state *state, int argc, char *argv[]) {
 		mrsh_env_unset(state, "OPTARG");
 	}
 
-	uint32_t prev_attribs;
+	uint32_t prev_attribs = MRSH_VAR_ATTRIB_NONE;
 	mrsh_env_get(state, name, &prev_attribs);
 	if ((prev_attribs & MRSH_VAR_ATTRIB_READONLY)) {
 		fprintf(stderr, "getopts: cannot modify read-only variable %s\n", name);

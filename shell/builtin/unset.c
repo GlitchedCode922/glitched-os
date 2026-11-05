@@ -36,7 +36,7 @@ int builtin_unset(struct mrsh_state *state, int argc, char *argv[]) {
 	}
 	for (int i = _mrsh_optind; i < argc; ++i) {
 		if (!funcs) {
-			uint32_t prev_attribs = 0;
+			uint32_t prev_attribs = MRSH_VAR_ATTRIB_NONE;
 			if (mrsh_env_get(state, argv[i], &prev_attribs)) {
 				if ((prev_attribs & MRSH_VAR_ATTRIB_READONLY)) {
 					fprintf(stderr,

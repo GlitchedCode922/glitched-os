@@ -92,9 +92,9 @@ bool refresh_jobs_status(struct mrsh_state *state);
 struct mrsh_job *job_by_id(struct mrsh_state *state,
 		const char *id, bool interactive);
 /**
- * Return a string describing the process' state. `r` is a random boolean.
+ * Return a string describing the process' state.
  */
-const char *job_state_str(struct mrsh_job *job, bool r);
+const char *job_state_str(struct mrsh_job *job);
 /**
  * Send SIGHUP to all running jobs.
  */

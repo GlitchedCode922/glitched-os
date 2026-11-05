@@ -221,9 +221,9 @@ static bool _job_wait(struct mrsh_state *state, pid_t pid, int options) {
 
 	assert(pid > 0 && pid != getpid());
 
-        // We only want to be notified about stopped processes in the main
-        // shell. Child processes want to block until their own children have
-        // terminated.
+	// We only want to be notified about stopped processes in the main
+	// shell. Child processes want to block until their own children have
+	// terminated.
 	if (!priv->child) {
 		options |= WUNTRACED;
 	}
@@ -440,7 +440,7 @@ struct mrsh_job *job_by_id(struct mrsh_state *state,
 	return NULL;
 }
 
-const char *job_state_str(struct mrsh_job *job, bool r) {
+const char *job_state_str(struct mrsh_job *job) {
 	int status = job_poll(job);
 	switch (status) {
 	case TASK_STATUS_WAIT:
@@ -452,14 +452,14 @@ const char *job_state_str(struct mrsh_job *job, bool r) {
 			struct mrsh_process *proc = job->processes.data[0];
 			switch (proc->signal) {
 			case SIGSTOP:
-				return r ? "Stopped (SIGSTOP)" : "Suspended (SIGSTOP)";
+				return "Stopped (SIGSTOP)";
 			case SIGTTIN:
-				return r ? "Stopped (SIGTTIN)" : "Suspended (SIGTTIN)";
+				return "Stopped (SIGTTIN)";
 			case SIGTTOU:
-				return r ? "Stopped (SIGTTOU)" : "Suspended (SIGTTOU)";
+				return "Stopped (SIGTTOU)";
 			}
 		}
-		return r ? "Stopped" : "Suspended";
+		return "Stopped";
 	default:
 		if (job->processes.len > 0) {
 			struct mrsh_process *proc = job->processes.data[0];
