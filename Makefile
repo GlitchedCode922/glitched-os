@@ -20,17 +20,17 @@ LDLIBS =
 ARFLAGS =
 
 ifeq ($(TOOLCHAIN), llvm)
-	CC = clang
-	LD = ld.lld
-	AR = llvm-ar
-	override CFLAGS += --target=$(TARGET)
+CC = clang
+LD = ld.lld
+AR = llvm-ar
+override CFLAGS += --target=$(TARGET)
 else ifeq ($(TOOLCHAIN), gcc)
-	CC = $(TARGET)-gcc
-	LD = $(TARGET)-ld
-	AR = $(TARGET)-ar
+CC = $(TARGET)-gcc
+LD = $(TARGET)-ld
+AR = $(TARGET)-ar
 else ifeq ($(TOOLCHAIN), custom)
 else
-	$(error Invalid TOOLCHAIN specified: $(TOOLCHAIN))
+$(error Invalid TOOLCHAIN specified: $(TOOLCHAIN))
 endif
 
 KERNEL_C_FILES = $(shell find kernel -name '*.c')
