@@ -4,8 +4,8 @@ ENTRY(kernel_entry)
 PHDRS {
     limine_requests PT_LOAD;
     text PT_LOAD;
-    data PT_LOAD;
     rodata PT_LOAD;
+    data PT_LOAD;
 }
 
 SECTIONS {
@@ -40,7 +40,9 @@ SECTIONS {
         *(COMMON)
     } :data
 
-    __size = . - 0xffffffff80000000;
+__kernel_start = 0xffffffff80000000;
+__kernel_end = ADDR(.bss) + SIZEOF(.bss);
+__size = ABSOLUTE(__kernel_end - __kernel_start);
 
     /DISCARD/ : {
         *(.eh_frame*)

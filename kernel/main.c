@@ -23,7 +23,7 @@
 #include "usermode/syscalls.h"
 #include <stdint.h>
 
-extern uint64_t __size;
+extern char __size[];
 
 __attribute__((used, section(".limine_requests_start")))
 static volatile LIMINE_REQUESTS_START_MARKER;
@@ -151,7 +151,7 @@ void kernel_main() {
         : "=r"(cr3)
     );
     init_paging(cr3, memmap_request.response, hhdm_request.response->offset);
-    init_mman((size_t)&__size);
+    init_mman((size_t)__size);
     gdt_init();
     idt_init();
     scheduler_init();

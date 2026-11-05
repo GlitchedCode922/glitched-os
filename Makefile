@@ -79,7 +79,7 @@ build/.glitchfs-stamp: $(GLITCHFS_SOURCES)
 		libglfs-target tools
 	@touch $@
 
-build/kernel: $(KERNEL_OBJECTS) build/.glitchfs-stamp
+build/kernel: $(KERNEL_OBJECTS) kernel/linker.ld build/.glitchfs-stamp
 	$(LD) $(LDFLAGS) $(KERNEL_LDFLAGS) $^ glitchfs/build/target-libglfs.a $(LDLIBS) -o $@
 
 build/obj/kernel/%.o: kernel/%.c
@@ -131,7 +131,7 @@ shell: build/sh
 disk-image: build/disk.img
 
 build/disk.img: build/kernel $(BINARY_TARGETS) build/sh limine.conf build/.glitchfs-stamp
-	$(MAKE) -C thirdparty/limine CC=$(HOSTCC)
+	$(MAKE) -C limine CC=$(HOSTCC)
 	dd if=/dev/zero of=build/disk.img.incomplete bs=1M count=128
 	dd if=/dev/zero of=build/root.img.tmp bs=1M count=111
 
@@ -148,14 +148,13 @@ build/disk.img: build/kernel $(BINARY_TARGETS) build/sh limine.conf build/.glitc
 	mmd -i build/disk.img.incomplete@@4194304 ::/EFI ::/EFI/BOOT
 	mmd -i build/disk.img.incomplete@@4194304 ::/limine
 
-	mcopy -i build/disk.img.incomplete@@4194304 thirdparty/limine/BOOTX64.EFI ::/EFI/BOOT/BOOTX64.EFI
-	mcopy -i build/disk.img.incomplete@@4194304 thirdparty/limine/limine-bios.sys ::/limine/
+	mcopy -i build/disk.img.incomplete@@4194304 limine/BOOTX64.EFI ::/EFI/BOOT/BOOTX64.EFI
+	mcopy -i build/disk.img.incomplete@@4194304 limine/limine-bios.sys ::/limine/
 	mcopy -i build/disk.img.incomplete@@4194304 limine.conf ::/limine
 	mcopy -i build/disk.img.incomplete@@4194304 build/kernel ::/kernel
-	mcopy -i build/disk.img.incomplete@@4194304 thirdparty/limine/LICENSE ::/limine
 
 	mkdir -p build/rootfs/bin
-	mkdir -p build/rootfs/share
+	mkdir -p build/rootfs/share/licenses
 	mkdir -p build/rootfs/boot
 	mkdir -p build/rootfs/dev
 	mkdir -p build/rootfs/tmp
@@ -163,12 +162,16 @@ build/disk.img: build/kernel $(BINARY_TARGETS) build/sh limine.conf build/.glitc
 	cp build/binaries/* build/rootfs/bin
 	cp build/sh build/rootfs/bin/sh
 	cp build/sh build/rootfs/bin/mrsh
-	cp shell/LICENSE build/rootfs/share/mrsh.license
+	mkdir -p build/rootfs/share/licenses/mrsh
+	mkdir -p build/rootfs/share/licenses/limine
+	cp shell/LICENSE build/rootfs/share/licenses/mrsh
+	cp limine/LICENSE build/rootfs/share/licenses/limine
+	cp limine/3RDPARTY.md build/rootfs/share/licenses/limine
 	glitchfs/build/tools/glfs-pack build/rootfs build/root.img.tmp
 	dd if=build/root.img.tmp of=build/disk.img.incomplete bs=1M seek=16 count=111 conv=notrunc
 	rm -f build/root.img.tmp
 
-	thirdparty/limine/limine bios-install build/disk.img.incomplete 1
+	limine/limine bios-install build/disk.img.incomplete 1
 
 	mv build/disk.img.incomplete build/disk.img
 
