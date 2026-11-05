@@ -28,6 +28,8 @@ int chdir(const char* path);
 char* getcwd(char* buffer, size_t size);
 
 #define WNOHANG 0x1
+#define WUNTRACED 0x2
+#define WCONTINUED 0x4
 
 pid_t fork();
 pid_t spawn(const char *path, char* const argv[], char* const envp[], spawn_action_t** spawn_actions);
@@ -39,10 +41,13 @@ int execvpe(const char *path, char* const argv[], char* const envp[]);
 pid_t waitpid(pid_t pid, int *wstatus, int options);
 pid_t wait(int *wstatus);
 
-#define WIFEXITED(s)   ((s) >= 0)
-#define WIFSIGNALED(s) ((s) <  0)
-#define WEXITSTATUS(s) (s)
-#define WTERMSIG(s)    (-(s))
+#define WIFEXITED(s)    (((s) & 0x7f) == 0)
+#define WEXITSTATUS(s)  (((s) >> 8) & 0xff)
+#define WIFSIGNALED(s)  (((s) & 0x7f) != 0 && ((s) & 0x7f) != 0x7f && (s) != 0xffff)
+#define WTERMSIG(s)     ((s) & 0x7f)
+#define WIFSTOPPED(s)   (((s) & 0xff) == 0x7f)
+#define WSTOPSIG(s)     (((s) >> 8) & 0xff)
+#define WIFCONTINUED(s) ((s) == 0xffff)
 
 void yield();
 void sleep(uint64_t ms);

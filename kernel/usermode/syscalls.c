@@ -355,4 +355,7 @@ void syscall(iframe_t* iframe) {
     } else if (iframe->cs == USER_CS) {
         deliver_signals();
     }
+    if (current_task->state != STATE_RUNNING) {
+        run_next(iframe);
+    }
 }

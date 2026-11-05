@@ -113,10 +113,6 @@ task_t* get_next_task() {
 
 void run_init(char* path) {
     init_task.cr3 = clone_page_tables(base_pml4);
-    asm volatile(
-        "mov %0, %%cr3"
-        :: "r"(init_task.cr3)
-    );
     change_pml4(init_task.cr3);
     file_handle_t file;
     int res = lookup(path, &file);
@@ -212,10 +208,6 @@ static void switch_task() {
     current_task = next_task;
     current_task->state = STATE_RUNNING;
     ticks_remaining = current_task->time_slice;
-    asm volatile(
-        "mov %0, %%cr3"
-        :: "r"(current_task->cr3)
-    );
     change_pml4(current_task->cr3);
     tss.rsp0 = (uint64_t)current_task->kernel_stack;
     deliver_signals();
@@ -436,42 +428,35 @@ int add_task(char* path, char** argv, char** envp, task_t* parent, int pid, spaw
     }
 
     // Switch to the new page table
-    asm volatile("mov %0, %%cr3" :: "r"(new_task->cr3));
+    uintptr_t old_cr3 = pml4_physical;
     change_pml4(new_task->cr3);
 
     // Load the ELF
     stat_t st;
     int res = stat(kpath, &st);
     if (res < 0) {
-        asm volatile("mov %0, %%cr3" :: "r"(current_task->cr3));
-        change_pml4(current_task->cr3);
+        change_pml4(old_cr3);
         return res;
     } else if (st.type == DT_DIR) {
-        asm volatile("mov %0, %%cr3" :: "r"(current_task->cr3));
-        change_pml4(current_task->cr3);
+        change_pml4(old_cr3);
         return -EISDIR;
     }
 
     file_handle_t file;
     res = lookup(kpath, &file);
     if (res < 0) {
-        asm volatile("mov %0, %%cr3" :: "r"(current_task->cr3) : "memory");
-        change_pml4(current_task->cr3);
+        change_pml4(old_cr3);
         return res;
     }
 
     if (!is_compatible_binary(file)) {
-        // Restore old page table
-        asm volatile("mov %0, %%cr3" :: "r"(current_task->cr3));
-        change_pml4(current_task->cr3);
+        change_pml4(old_cr3);
         return -ENOEXEC;
     }
 
     void* entry = load_elf(file, &new_task->initial_brk);
     if (!entry) {
-        // Restore old page table
-        asm volatile("mov %0, %%cr3" :: "r"(current_task->cr3));
-        change_pml4(current_task->cr3);
+        change_pml4(old_cr3);
         return -ENOEXEC;
     }
     new_task->brk = new_task->initial_brk;
@@ -664,23 +649,40 @@ task_t* get_child(task_t* task, int pid) {
     return NULL;
 }
 
-task_t* get_first_zombie(task_t* task) {
+task_t* get_first_waitpid_target(task_t* task, int flags) {
     task_t* c = task->child;
     while (c) {
         if (c == NULL) return NULL;
         if (c->state == STATE_ZOMBIE) return c;
+        if (flags & WUNTRACED && c->waitpid_event == 1) return c;
+        if (flags & WCONTINUED && c->waitpid_event == 2) return c;
         c = c->next_sibling;
     }
     return NULL;
 }
+
+#define W_EXITCODE(status, sig) (((status) << 8) | (sig))
+#define W_STOPCODE(sig)         (((sig) << 8) | 0x7f)
+#define W_CONTINUED             0xffff
 
 int waitpid(int pid, int* wstatus, int options, iframe_t* iframe) {
     if (pid > 0) {
         task_t* child = get_child(current_task, pid);
         if (child == NULL) return -ESRCH;
         if (child->state == STATE_ZOMBIE) {
-            if (wstatus) *wstatus = child->return_code;
+            if (wstatus) {
+                if (child->return_code >= 0) *wstatus = W_EXITCODE(child->return_code, 0);
+                else if (child->return_code < 0) *wstatus = W_EXITCODE(0, -child->return_code);
+            }
             child->state = STATE_DELETED;
+            return pid;
+        } else if (options & WUNTRACED && child->waitpid_event == 1) {
+            if (wstatus) *wstatus = W_STOPCODE(child->stop_signal);
+            child->waitpid_event = 0;
+            return pid;
+        } else if (options & WCONTINUED && child->waitpid_event == 2) {
+            if (wstatus) *wstatus = W_CONTINUED;
+            child->waitpid_event = 0;
             return pid;
         }
         if (options & WNOHANG) return 0;
@@ -688,23 +690,61 @@ int waitpid(int pid, int* wstatus, int options, iframe_t* iframe) {
         current_task->block_reason = BLOCK_WAITPID;
         current_task->blocked_process = child;
         current_task->wstatus = wstatus;
+        current_task->waitpid_flags = options;
         run_next(iframe);
     } else {
-        task_t* child = get_first_zombie(current_task);
+        task_t* child = get_first_waitpid_target(current_task, options);
         if (child != NULL) {
-            if (wstatus) *wstatus = child->return_code;
-            child->state = STATE_DELETED;
-            return child->pid;
+            if (child->state == STATE_ZOMBIE) {
+                if (wstatus) {
+                    if (child->return_code >= 0) *wstatus = W_EXITCODE(child->return_code, 0);
+                    else if (child->return_code < 0) *wstatus = W_EXITCODE(0, -child->return_code);
+                }
+                child->state = STATE_DELETED;
+                return child->pid;
+            } else if (options & WUNTRACED && child->waitpid_event == 1) {
+                if (wstatus) *wstatus = W_STOPCODE(child->stop_signal);
+                child->waitpid_event = 0;
+                return child->pid;
+            } else if (options & WCONTINUED && child->waitpid_event == 2) {
+                if (wstatus) *wstatus = W_CONTINUED;
+                child->waitpid_event = 0;
+                return child->pid;
+            }
         }
         if (options & WNOHANG) return -1;
         current_task->state = STATE_BLOCKED;
         current_task->block_reason = BLOCK_WAITPID;
         current_task->blocked_process = NULL;
         current_task->wstatus = wstatus;
+        current_task->waitpid_flags = options;
         run_next(iframe);
     }
 
     return -1; // Unreachable
+}
+
+static void signal_task(task_t* task, int sig) {
+    task->pending_signals |= (1 << (sig - 1));
+    if (signal_default_actions[sig] == SIGNAL_STOP &&
+        task->signal_handlers[sig].handler == SIG_DFL &&
+        task->state != STATE_STOPPED
+    ) {
+        task->state = STATE_STOPPED;
+        task->pending_signals &= ~(1 << (sig - 1));
+        task->stop_signal = sig;
+        task->waitpid_event = 1;
+        if (task->parent) {
+            task->parent->pending_signals |= (1 << (SIGCHLD - 1));
+        }
+    }
+    if (sig == SIGCONT && task->state == STATE_STOPPED) {
+        task->state = STATE_READY;
+        task->waitpid_event = 2;
+        if (task->parent) {
+            task->parent->pending_signals |= (1 << (SIGCHLD - 1));
+        }
+    }
 }
 
 int kill(int pid, int sig) {
@@ -715,7 +755,7 @@ int kill(int pid, int sig) {
         do {
             if (task->pid == pid) {
                 if (task->state != STATE_DELETED) {
-                    task->pending_signals |= (1 << (sig - 1));
+                    signal_task(task, sig);
                     found = 1;
                 }
             }
@@ -726,7 +766,7 @@ int kill(int pid, int sig) {
         do {
             if (task->pgid == current_task->pgid) {
                 if (task->state != STATE_DELETED) {
-                    task->pending_signals |= (1 << (sig - 1));
+                    signal_task(task, sig);
                     found = 1;
                 }
             }
@@ -737,7 +777,7 @@ int kill(int pid, int sig) {
         do {
             if (task != &init_task && task != current_task) {
                 if (task->state != STATE_DELETED) {
-                    task->pending_signals |= (1 << (sig - 1));
+                    signal_task(task, sig);
                     found = 1;
                 }
             }
@@ -748,7 +788,7 @@ int kill(int pid, int sig) {
         do {
             if (task->pgid == -pid) {
                 if (task->state != STATE_DELETED) {
-                    task->pending_signals |= (1 << (sig - 1));
+                    signal_task(task, sig);
                     found = 1;
                 }
             }
@@ -760,7 +800,7 @@ int kill(int pid, int sig) {
 
 int raise(int sig) {
     if (sig < 1 || sig > 31) return -EINVAL;
-    current_task->pending_signals |= (1 << (sig - 1));
+    signal_task(current_task, sig);
     return 0;
 }
 
@@ -784,38 +824,70 @@ void check_blocked_tasks(int reduce_ticks) {
                 }
             } else if (task->block_reason == BLOCK_WAITPID) {
                 if (task->blocked_process != NULL) {
+                    uintptr_t old_cr3 = pml4_physical;
+                    change_pml4(task->cr3);
+                    int unblock = 0;
                     if (task->blocked_process->state == STATE_ZOMBIE) {
-                        asm volatile(
-                            "mov %0, %%cr3"
-                            :: "r"(task->cr3)
-                        );
-                        if (task->wstatus) *task->wstatus = task->blocked_process->return_code;
-                        asm volatile(
-                            "mov %0, %%cr3"
-                            :: "r"(current_task->cr3)
-                        );
+                        if (task->wstatus) {
+                            if (task->blocked_process->return_code >= 0) {
+                                *task->wstatus = W_EXITCODE(task->blocked_process->return_code, 0);
+                            } else if (task->blocked_process->return_code < 0) {
+                                *task->wstatus = W_EXITCODE(0, -task->blocked_process->return_code);
+                            }
+                        }
                         task->blocked_process->state = STATE_DELETED;
-                        task->state = STATE_READY;
-                        task->block_reason = BLOCK_NONE;
-                        task->iframe->rax = task->blocked_process->pid;
-                        task->blocked_process = NULL;
+                        unblock = 1;
+                    } else if (task->blocked_process->waitpid_event == 1 && task->waitpid_flags & WUNTRACED) {
+                        if (task->wstatus) *task->wstatus = W_STOPCODE(task->blocked_process->stop_signal);
+                        task->blocked_process->waitpid_event = 0;
+                        unblock = 1;
+                    } else if (task->blocked_process->waitpid_event == 2 && task->waitpid_flags & WCONTINUED) {
+                        if (task->wstatus) *task->wstatus = W_CONTINUED;
+                        task->blocked_process->waitpid_event = 0;
+                        unblock = 1;
                     }
+                    change_pml4(old_cr3);
+                    if (!unblock) {
+                        task = task->next;
+                        continue;
+                    }
+                    task->state = STATE_READY;
+                    task->block_reason = BLOCK_NONE;
+                    task->iframe->rax = task->blocked_process->pid;
+                    task->blocked_process = NULL;
                 } else {
-                    task_t* blocked = get_first_zombie(task);
+                    task_t* blocked = get_first_waitpid_target(task, task->waitpid_flags);
                     if (blocked == NULL) {
                         task = task->next;
                         continue;
                     }
-                    asm volatile(
-                        "mov %0, %%cr3"
-                        :: "r"(task->cr3)
-                    );
-                    if (task->wstatus) *task->wstatus = blocked->return_code;
-                    asm volatile(
-                        "mov %0, %%cr3"
-                        :: "r"(current_task->cr3)
-                    );
-                    blocked->state = STATE_DELETED;
+                    uintptr_t old_cr3 = pml4_physical;
+                    change_pml4(task->cr3);
+                    int unblock = 0;
+                    if (blocked->state == STATE_ZOMBIE) {
+                        if (task->wstatus) {
+                            if (blocked->return_code >= 0) {
+                                *task->wstatus = W_EXITCODE(blocked->return_code, 0);
+                            } else if (blocked->return_code < 0) {
+                                *task->wstatus = W_EXITCODE(0, -blocked->return_code);
+                            }
+                            blocked->state = STATE_DELETED;
+                        }
+                        unblock = 1;
+                    } else if (blocked->waitpid_event == 1 && task->waitpid_flags & WUNTRACED) {
+                        if (task->wstatus) *task->wstatus = W_STOPCODE(task->stop_signal);
+                        blocked->waitpid_event = 0;
+                        unblock = 1;
+                    } else if (blocked->waitpid_event == 2 && task->waitpid_flags & WCONTINUED) {
+                        if (task->wstatus) *task->wstatus = W_CONTINUED;
+                        blocked->waitpid_event = 0;
+                        unblock = 1;
+                    }
+                    change_pml4(old_cr3);
+                    if (!unblock) {
+                        task = task->next;
+                        continue;
+                    }
                     task->state = STATE_READY;
                     task->block_reason = BLOCK_NONE;
                     task->iframe->rax = blocked->pid;

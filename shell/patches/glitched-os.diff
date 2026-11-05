@@ -1666,20 +1666,6 @@ index 46e87f4..1bcb634 100644
  		priv->foreground_job = NULL;
  	}
  
-@@ -222,13 +221,6 @@ static bool _job_wait(struct mrsh_state *state, pid_t pid, int options) {
- 
- 	assert(pid > 0 && pid != getpid());
- 
--	// We only want to be notified about stopped processes in the main
--	// shell. Child processes want to block until their own children have
--	// terminated.
--	if (!priv->child) {
--		options |= WUNTRACED;
--	}
--
- 	while (true) {
- 		// Here it's important to wait for a specific process: we don't want to
- 		// steal one of our grandchildren's status for one of our children.
 diff --git a/shell/path.c b/shell/path.c
 index 3c2bf65..72e3429 100644
 --- a/shell/path.c
@@ -1735,16 +1721,6 @@ index c3c3432..4c12821 100644
  #include "shell/process.h"
  #include "shell/task.h"
  
-@@ -73,9 +73,6 @@ void update_process(struct mrsh_state *state, pid_t pid, int stat) {
- 	if (WIFEXITED(stat) || WIFSIGNALED(stat)) {
- 		proc->terminated = true;
- 		proc->stat = stat;
--	} else if (WIFSTOPPED(stat)) {
--		proc->stopped = true;
--		proc->signal = WSTOPSIG(stat);
- 	} else {
- 		abort();
- 	}
 diff --git a/shell/redir.c b/shell/redir.c
 index 00ee494..9166fa1 100644
 --- a/shell/redir.c

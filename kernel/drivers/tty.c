@@ -28,6 +28,9 @@ void tty_char_recv(int tty_id, char c) {
         if (c == 0x03) {
             if (tty->foreground_pgid > 0) kill(-tty->foreground_pgid, SIGINT);
             skip_input = 1;
+        } else if (c == 0x1A) {
+            if (tty->foreground_pgid > 0) kill(-tty->foreground_pgid, SIGTSTP);
+            skip_input = 1;
         }
     }
     if (tty->termios.c_lflag & ICANON && c == 0x04) {

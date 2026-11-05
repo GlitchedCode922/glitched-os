@@ -12,17 +12,20 @@ typedef enum {
     STATE_ZOMBIE,
     STATE_RUNNING,
     STATE_BLOCKED,
-    STATE_DELETED
+    STATE_DELETED,
+    STATE_STOPPED
 } process_state_t;
 
 #define PROCESS_TICKS 10
 
 #define WNOHANG 0x1
+#define WUNTRACED 0x2
+#define WCONTINUED 0x4
 
 typedef enum {
     BLOCK_NONE,
     BLOCK_DELAY,
-    BLOCK_WAITPID
+    BLOCK_WAITPID,
 } block_reason_t;
 
 typedef struct Task {
@@ -50,7 +53,10 @@ typedef struct Task {
     int is_kworker;
     int* wstatus;
     struct Task* blocked_process;
+    int waitpid_event;
+    int waitpid_flags;
     int return_code;
+    int stop_signal;
     struct Task* next;
     struct Task* next_sibling;
     struct Task* parent;
@@ -60,6 +66,7 @@ typedef struct Task {
 typedef enum {
     SIGNAL_IGNORE,
     SIGNAL_TERMINATE,
+    SIGNAL_STOP,
 } signal_action_t;
 
 static const signal_action_t signal_default_actions[32] = {
@@ -81,10 +88,10 @@ static const signal_action_t signal_default_actions[32] = {
     [SIGSTKFLT]  = SIGNAL_TERMINATE,
     [SIGCHLD]    = SIGNAL_IGNORE,
     [SIGCONT]    = SIGNAL_IGNORE,
-    [SIGSTOP]    = SIGNAL_TERMINATE,
-    [SIGTSTP]    = SIGNAL_TERMINATE,
-    [SIGTTIN]    = SIGNAL_TERMINATE,
-    [SIGTTOU]    = SIGNAL_TERMINATE,
+    [SIGSTOP]    = SIGNAL_STOP,
+    [SIGTSTP]    = SIGNAL_STOP,
+    [SIGTTIN]    = SIGNAL_STOP,
+    [SIGTTOU]    = SIGNAL_STOP,
     [SIGURG]     = SIGNAL_IGNORE,
     [SIGXCPU]    = SIGNAL_TERMINATE,
     [SIGXFSZ]    = SIGNAL_TERMINATE,

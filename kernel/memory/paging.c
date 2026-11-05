@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-void* pml4_address = NULL;
+uint64_t pml4_physical = 0;
 void* hhdm_base = 0;
 struct limine_memmap_response *memory_map = NULL;
 uint32_t* memory_bitmap = NULL;
@@ -36,7 +36,7 @@ uintptr_t get_physical_address(uintptr_t virtual_address) {
 void init_paging(uintptr_t cr3, struct limine_memmap_response *memmap, uintptr_t hhdm) {
     if (cr3 == 0 || memmap == NULL) panic("init_paging failed");
 
-    pml4_address = (void*)hhdm + cr3;
+    pml4_physical = cr3;
     hhdm_base = (void*)hhdm;
     memory_map = memmap;
 
@@ -124,6 +124,13 @@ uintptr_t allocate_physical_page() {
     return addr;
 }
 
+static inline void flush_tlb(void) {
+    uintptr_t cr3;
+
+    asm volatile("mov %%cr3, %0" : "=r"(cr3));
+    asm volatile("mov %0, %%cr3" :: "r"(cr3) : "memory");
+}
+
 void* alloc_region(uintptr_t vaddr, size_t size, uint64_t flags) {
     page_address_t idx = get_page_entry(vaddr);
     uint64_t *pml4 = (uint64_t*)pml4_address;
@@ -188,6 +195,10 @@ void* alloc_region(uintptr_t vaddr, size_t size, uint64_t flags) {
             pd_changed = 0;
         }
 
+        pml4[idx.pml4_index] |= HIGHER_LEVEL_FLAGS;
+        pdpt[idx.pdpt_index] |= HIGHER_LEVEL_FLAGS;
+        pd[idx.pd_index] |= HIGHER_LEVEL_FLAGS;
+
         // --- PT level ---
         if (pt[idx.pt_index] & FLAGS_PRESENT) {
             panic("alloc_region: virtual 0x%p already mapped", (void*)vaddr);
@@ -216,6 +227,7 @@ void* alloc_region(uintptr_t vaddr, size_t size, uint64_t flags) {
         idx.pml4_index++;
     }
 
+    flush_tlb();
     return (void*)vaddr;
 }
 
@@ -283,6 +295,10 @@ void* alloc_mmio_region(uintptr_t vaddr, uintptr_t paddr, size_t size, uint64_t 
             pd_changed = 0;
         }
 
+        pml4[idx.pml4_index] |= HIGHER_LEVEL_FLAGS;
+        pdpt[idx.pdpt_index] |= HIGHER_LEVEL_FLAGS;
+        pd[idx.pd_index] |= HIGHER_LEVEL_FLAGS;
+
         // --- PT level ---
         if (pt[idx.pt_index] & FLAGS_PRESENT) {
             panic("alloc_region: virtual 0x%p already mapped", (void*)vaddr);
@@ -310,6 +326,7 @@ void* alloc_mmio_region(uintptr_t vaddr, uintptr_t paddr, size_t size, uint64_t 
         idx.pml4_index++;
     }
 
+    flush_tlb();
     return (void*)vaddr;
 }
 
@@ -377,6 +394,10 @@ void* alloc_zero_region(uintptr_t vaddr, size_t size, uint64_t flags) {
             pd_changed = 0;
         }
 
+        pml4[idx.pml4_index] |= HIGHER_LEVEL_FLAGS;
+        pdpt[idx.pdpt_index] |= HIGHER_LEVEL_FLAGS;
+        pd[idx.pd_index] |= HIGHER_LEVEL_FLAGS;
+
         // --- PT level ---
         if (pt[idx.pt_index] & FLAGS_PRESENT) {
             panic("alloc_region: virtual 0x%p already mapped", (void*)vaddr);
@@ -404,6 +425,7 @@ void* alloc_zero_region(uintptr_t vaddr, size_t size, uint64_t flags) {
         idx.pml4_index++;
     }
 
+    flush_tlb();
     return (void*)vaddr;
 }
 
@@ -503,9 +525,9 @@ void free_region(uintptr_t vaddr, size_t size) {
     }
 }
 
-void* clone_page_tables(void* pml4_address) {
+void* clone_page_tables(void* pml4_addr) {
     uint64_t* new_pml4 = (uint64_t*)allocate_physical_page();
-    uint64_t* old_pml4 = add_hhdm_to(pml4_address);
+    uint64_t* old_pml4 = add_hhdm_to(pml4_addr);
 
     for (int i = 0; i < 512; i++) {
         uint64_t pml4e = old_pml4[i];
@@ -562,8 +584,8 @@ void* clone_page_tables(void* pml4_address) {
     return new_pml4;
 }
 
-void free_page_tables(void* pml4_address) {
-    uint64_t* pml4 = add_hhdm_to(pml4_address);
+void free_page_tables(void* pml4_addr) {
+    uint64_t* pml4 = add_hhdm_to(pml4_addr);
     for (int i = 0; i < 256; i++) { // Skip higher half entries
         uint64_t pml4e = pml4[i];
         if (pml4e & FLAGS_PRESENT) {
@@ -601,7 +623,7 @@ void free_page_tables(void* pml4_address) {
             if (memory_bitmap[page_index] == 0 && page_index < first_usable) first_usable = page_index;
         }
     }
-    size_t page_index = (uint64_t)pml4_address / PAGE_SIZE;
+    size_t page_index = (uint64_t)pml4_addr / PAGE_SIZE;
     if (memory_bitmap[page_index] > 0) memory_bitmap[page_index]--;
     if (memory_bitmap[page_index] == 0 && page_index < first_usable) first_usable = page_index;
 }
@@ -696,8 +718,4 @@ int validate_user_string(const char *str, uint64_t max_len) {
         i += n;
     }
     return -ENAMETOOLONG;
-}
-
-void change_pml4(void* pml4) {
-    pml4_address = add_hhdm_to(pml4);
 }

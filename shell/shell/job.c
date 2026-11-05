@@ -221,6 +221,13 @@ static bool _job_wait(struct mrsh_state *state, pid_t pid, int options) {
 
 	assert(pid > 0 && pid != getpid());
 
+        // We only want to be notified about stopped processes in the main
+        // shell. Child processes want to block until their own children have
+        // terminated.
+	if (!priv->child) {
+		options |= WUNTRACED;
+	}
+
 	while (true) {
 		// Here it's important to wait for a specific process: we don't want to
 		// steal one of our grandchildren's status for one of our children.

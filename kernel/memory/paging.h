@@ -29,6 +29,13 @@ typedef struct {
 } page_address_t;
 
 extern void* hhdm_base;
+extern uint64_t pml4_physical;
+#define pml4_address ((void*)((uintptr_t)hhdm_base + pml4_physical))
+#define change_pml4(pml4) do { \
+    asm volatile("mov %0, %%cr3" :: "r"(pml4) : "memory"); \
+    pml4_physical = (uint64_t)pml4; \
+} while(0)
+
 static inline uint64_t* add_hhdm_to(uint64_t* ptr) {
     return (uint64_t*)((uintptr_t)ptr + (uintptr_t)hhdm_base);
 }
@@ -48,9 +55,8 @@ int validate_user_pointer(void* ptr, uint64_t len, int write);
 int validate_user_string(const char *str, uint64_t max_len);
 int free_page(void* page);
 void free_region(uintptr_t vaddr, size_t size);
-void* clone_page_tables(void* pml4_address);
-void free_page_tables(void* pml4_address);
+void* clone_page_tables(void* pml4);
+void free_page_tables(void* pml4);
 int cow_handler(void* faulting_address);
-void change_pml4(void* pml4);
 
 page_address_t get_page_entry(uintptr_t addr);

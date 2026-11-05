@@ -73,6 +73,9 @@ void update_process(struct mrsh_state *state, pid_t pid, int stat) {
 	if (WIFEXITED(stat) || WIFSIGNALED(stat)) {
 		proc->terminated = true;
 		proc->stat = stat;
+	} else if (WIFSTOPPED(stat)) {
+		proc->stopped = true;
+		proc->signal = WSTOPSIG(stat);
 	} else {
 		abort();
 	}
