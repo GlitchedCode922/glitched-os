@@ -748,6 +748,7 @@ int waitpid(int pid, int* wstatus, int options, iframe_t* iframe) {
 }
 
 static void signal_task(task_t* task, int sig) {
+    if (sig == 0) return; // Null signal
     task->pending_signals |= (1 << (sig - 1));
     if (signal_default_actions[sig] == SIGNAL_STOP &&
         task->signal_handlers[sig].handler == SIG_DFL &&
@@ -771,7 +772,7 @@ static void signal_task(task_t* task, int sig) {
 }
 
 int kill(int pid, int sig) {
-    if (sig < 1 || sig > 31) return -EINVAL;
+    if (sig < 0 || sig > 31) return -EINVAL;
     int found = 0;
     if (pid > 0) {
         task_t* task = &init_task;
