@@ -302,8 +302,7 @@ int fork(iframe_t* iframe) {
     current_task->iframe->rax = new_task->pid;
     new_task->iframe->rax = 0;
     current_task->state = STATE_READY;
-    switch_task();
-    return new_task->pid; // Not reached
+    return new_task->pid;
 }
 
 static int strlen(char* s) {
@@ -522,6 +521,8 @@ int add_task(char* path, char** argv, char** envp, task_t* parent, int pid, spaw
     user_stack -= 8;
     *(uint64_t*)user_stack = argc;
 
+    change_pml4(old_cr3);
+
     // Setup kernel stack and iframe
     void* kstack = (char*)kmalloc(4096 * 32) + 4096 * 32;
     iframe_t* new_iframe = kstack - sizeof(iframe_t);
@@ -556,8 +557,7 @@ int spawn(char* path, char** argv, char** envp, spawn_action_t** actions, iframe
 
     current_task->iframe->rax = (uint64_t)res;
     current_task->state = STATE_READY;
-    switch_task();
-    return res; // Unreachable
+    return res;
 }
 
 int execve(char *path, char **argv, char** envp, iframe_t *iframe) {
