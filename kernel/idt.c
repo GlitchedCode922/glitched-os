@@ -193,7 +193,7 @@ void breakpoint_debugger(iframe_t* iframe) {
             kprintf(" bt: Print a stack trace\n");
             kprintf(" continue: Continue execution\n");
         } else if (strcmp(buffer, "bt\n") == 0) {
-            stack_trace(iframe->rbp);
+            stack_trace(iframe->rip, iframe->rbp);
         } else if (strcmp(buffer, "continue\n") == 0) {
             // Skip consecutive breakpoints
             while (*(uint8_t*)(iframe->rip) == 0xCC) iframe->rip++;
@@ -223,7 +223,7 @@ void interrupt_handler(iframe_t* iframe) {
             kprintf("Page fault in process with PID %d at address 0x%x, error code: 0x%x\n%s", current_task->pid, cr2, error_code, flags);
             raise(SIGSEGV);
         } else {
-            panic_int(iframe->rbp, "Page fault in kernel at address: 0x%x, error code: 0x%x\n%s", cr2, error_code, flags);
+            panic_int(iframe->rip, iframe->rbp, "Page fault in kernel at address: 0x%x, error code: 0x%x\n%s", cr2, error_code, flags);
         }
     } else if (vector == 13) {
         // General protection fault
@@ -231,12 +231,12 @@ void interrupt_handler(iframe_t* iframe) {
             kprintf("#GP in process with PID %d, error code: 0x%x\n", current_task->pid, error_code);
             raise(SIGSEGV);
         } else {
-            panic_int(iframe->rbp, "#GP in kernel, error code: 0x%x\n", error_code);
+            panic_int(iframe->rip, iframe->rbp, "#GP in kernel, error code: 0x%x\n", error_code);
         }
     } else if (vector == 3) {
         breakpoint_debugger(iframe);
     } else if (vector == 18 || vector == 2 || vector == 10 || vector == 11 || vector == 8 || vector == 28 || vector == 29) { // Serious errors
-        panic_int(iframe->rbp, "%s with error code: 0x%x\n", exception_names[vector], error_code);
+        panic_int(iframe->rip, iframe->rbp, "%s with error code: 0x%x\n", exception_names[vector], error_code);
     } else if (vector < 32) {
         if (iframe->cs == USER_CS) {
             kprintf("%s in process with PID %d, error code: 0x%x\n", exception_names[vector], current_task->pid, error_code);
@@ -246,7 +246,7 @@ void interrupt_handler(iframe_t* iframe) {
                 exit(iframe, - (32 + vector));
             }
         } else {
-            panic_int(iframe->rbp, "%s in kernel, error code: 0x%x\n", exception_names[vector], error_code);
+            panic_int(iframe->rip, iframe->rbp, "%s in kernel, error code: 0x%x\n", exception_names[vector], error_code);
         }
     } else if (vector == 128) {
         syscall(iframe);

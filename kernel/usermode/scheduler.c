@@ -246,7 +246,7 @@ void run_next(iframe_t* iframe) {
 }
 
 void exit(iframe_t* iframe, int ret) {
-    if (current_task == &init_task) panic_int(iframe->rbp, "Init process exited, return code: %d", ret);
+    if (current_task == &init_task) panic_int(iframe->rip, iframe->rbp, "Init process exited, return code: %d", ret);
     release_process_fds();
     current_task->state = STATE_ZOMBIE;
     current_task->return_code = ret;

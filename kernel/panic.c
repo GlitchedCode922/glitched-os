@@ -9,9 +9,10 @@
 
 panic_state_t panic_state = OPERATIONAL;
 
-void stack_trace(uint64_t rbp) {
+void stack_trace(uint64_t rip, uint64_t rbp) {
     if (rbp == 0) asm volatile("mov %%rbp, %0" : "=r"(rbp));
-    for (int i = 0; ; i++) {
+    kprintf("  #0: 0x%x\n", rip);
+    for (int i = 1; ; i++) {
         uint64_t return_address = *((uint64_t*)(rbp + 8));
         if (return_address == 0) break;
         kprintf("  #%d: 0x%x\n", i, return_address);
@@ -20,7 +21,7 @@ void stack_trace(uint64_t rbp) {
     }
 }
 
-__attribute__((noreturn)) void vpanic_int(uint64_t rbp, const char *fmt, va_list args) {
+__attribute__((noreturn)) void vpanic_int(uint64_t rip, uint64_t rbp, const char *fmt, va_list args) {
     switch (panic_state) {
         case OPERATIONAL:
             panic_state = PANIC;
@@ -47,7 +48,7 @@ operational:
     // Stack trace
     panic_state = STACK_TRACE;
     kprintf("Stack trace:\n");
-    stack_trace(rbp);
+    stack_trace(rip, rbp);
 
 stack_trace_failed:
     panic_state = WAITING_INPUT;
@@ -62,11 +63,11 @@ stack_trace_failed:
     reboot();
 }
 
-__attribute__((noreturn)) void panic_int(uint64_t rbp, const char *fmt, ...) {
+__attribute__((noreturn)) void panic_int(uint64_t rip, uint64_t rbp, const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
 
-    vpanic_int(rbp, fmt, args);
+    vpanic_int(rip, rbp, fmt, args);
 
     va_end(args);
 }
@@ -76,8 +77,10 @@ __attribute__((noreturn)) void panic(const char *fmt, ...) {
     va_start(args, fmt);
 
     uint64_t rbp;
+    uint64_t rip;
     asm volatile("mov %%rbp, %0" : "=r"(rbp));
-    vpanic_int(rbp, fmt, args);
+    asm volatile("lea 0(%%rip), %0" : "=r"(rip));
+    vpanic_int(rip, rbp, fmt, args);
 
     va_end(args);
 }
