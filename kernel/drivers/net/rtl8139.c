@@ -29,9 +29,9 @@ void rtl8139_init(pci_device_t device) {
     uint32_t bar0 = device.bar[0] & ~0x3; // Masking to get the base address
     base_io_addresses[cards_existing] = bar0 & 0xFFFF;
     irqs[cards_existing] = device.irq;
-    uint32_t command = pci_config_read(device.bus, device.device, device.function, 0x04);
+    uint32_t command = pci_config_read32(device.bus, device.device, device.function, 0x04);
     command |= 0x07; // Set the bus mastering bit
-    pci_config_write(device.bus, device.device, device.function, 0x04, command);
+    pci_config_write32(device.bus, device.device, device.function, 0x04, command);
     rx_buffers[cards_existing] = kmalloc(8192 + 16); // Allocate buffer for receiving packets
     for (int i = 0; i < 512; i++) received_packets[cards_existing][i] = kmalloc(2048);
     for (int i = 0; i < 4; i++) transmitter_buffers[cards_existing][i] = kmalloc(2048);

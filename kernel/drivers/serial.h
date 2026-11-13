@@ -11,6 +11,5 @@
 extern tty_t serial_ttys[4];
 
 void serial_init();
-void serial_interrupt_handler(uint8_t irq);
 int serial_port_exists(int port);
 int64_t serial_write(void* data, const uint8_t* buffer, uint64_t size);

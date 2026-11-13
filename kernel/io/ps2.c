@@ -1,5 +1,7 @@
 #include <stdint.h>
 #include "io/ports.h"
+#include "io/ps2.h"
+#include "io/8259pic.h"
 #include "drivers/ps2_keyboard.h"
 #include "drivers/ps2_mouse.h"
 
@@ -7,6 +9,10 @@ static int dual_channel = 0;
 static int mouse_present = 0;
 
 void ps2_init() {
+    irq_handlers[1].arg = 0;
+    irq_handlers[1].handler = ps2_handler;
+    irq_handlers[12].arg = (void*)1;
+    irq_handlers[12].handler = ps2_handler;
     // Disable both devices
     outb(0x64, 0xAD);
     outb(0x64, 0xA7);
@@ -62,7 +68,7 @@ void ps2_init() {
     }
 }
 
-void ps2_handler(uint8_t aux) {
+uint32_t ps2_handler(void* aux) {
     // Read the status register
     uint8_t status = inb(0x64);
     if (status & 0x01) {
@@ -70,11 +76,12 @@ void ps2_handler(uint8_t aux) {
         uint8_t data = inb(0x60);
         if (aux) {
             // Data from the 2nd PS/2 port
-            if (!mouse_present) return;
+            if (!mouse_present) return 0;
             ps2_mouse_handler(data);
         } else {
             // Data from the 1st PS/2 port
             ps2_keyboard_handler(data);
         }
     }
+    return 0;
 }

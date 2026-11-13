@@ -306,10 +306,9 @@ void* alloc_mmio_region(uintptr_t vaddr, uintptr_t paddr, size_t size, uint64_t 
 
         uintptr_t phys = paddr + (i - vaddr);
         pt[idx.pt_index] = (phys & PAGE_MASK)
-                        | flags
+                        | flags | FLAGS_MMIO
                         | FLAGS_PRESENT;
         size_t page = phys / PAGE_SIZE;
-        memory_bitmap[page]++;
 
         idx.pt_index++;
         if (idx.pt_index < 512) continue;
@@ -457,17 +456,19 @@ int free_page(void *page) {
         return -1; // PT entry not present
     }
 
-    // Free the page and clear the entry
     uintptr_t phys = (uintptr_t)page_table_to_address(pt[entry.pt_index]);
+
+    if (!(pt[entry.pt_index] & FLAGS_MMIO)) {
+        size_t page_index = phys / PAGE_SIZE;
+        if (memory_bitmap[page_index] == 0) panic("Bitmap underflow");
+        if (memory_bitmap[page_index] > 0) memory_bitmap[page_index]--;
+        if (memory_bitmap[page_index] == 0 && page_index < first_usable) first_usable = page_index;
+    }
+
     pt[entry.pt_index] = 0;
 
     // Invalidate the TLB for the virtual address
     asm volatile("invlpg (%0)" ::"r"(page) : "memory");
-
-    // Remove allocation from bitmap
-    size_t page_index = phys / PAGE_SIZE;
-    if (memory_bitmap[page_index] > 0) memory_bitmap[page_index]--;
-    if (memory_bitmap[page_index] == 0 && page_index < first_usable) first_usable = page_index;
 
     // Check if the PT, PD, or PDPT can be freed
     int empty = 1;
@@ -562,7 +563,7 @@ void* clone_page_tables(void* pml4_addr) {
                                         pt[l] &= ~FLAGS_RW;
                                         pt[l] |= FLAGS_COW;
                                     }
-                                    memory_bitmap[phys / PAGE_SIZE]++;
+                                    if (!(pt[l] & FLAGS_MMIO)) memory_bitmap[phys / PAGE_SIZE]++;
                                     add_hhdm_to(new_pt)[l] = phys | (pt[l] & FLAGS_MASK);
                                     uintptr_t va =
                                         ((uintptr_t)i << 39) |
@@ -602,8 +603,9 @@ void free_page_tables(void* pml4_addr) {
                             uint64_t* pt = add_hhdm_to(page_table_to_address(pde));
 
                             for (int l = 0; l < 512; l++) {
-                                if (pt[l] & FLAGS_PRESENT) {
+                                if (pt[l] & FLAGS_PRESENT && !(pt[l] & FLAGS_MMIO)) {
                                     size_t page_index = (uint64_t)page_table_to_address(pt[l]) / PAGE_SIZE;
+                                    if (memory_bitmap[page_index] == 0) panic("Bitmap underflow");
                                     if (memory_bitmap[page_index] > 0) memory_bitmap[page_index]--;
                                     if (memory_bitmap[page_index] == 0 && page_index < first_usable) first_usable = page_index;
                                 }

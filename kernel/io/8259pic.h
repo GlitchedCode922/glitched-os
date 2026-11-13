@@ -10,6 +10,13 @@
 #define ICW1_INIT 0x10
 #define ICW1_ICW4 0x01
 
+typedef struct {
+    uint32_t (*handler)(void*);
+    void* arg;
+} irq_handler_t;
+
+extern irq_handler_t irq_handlers[16];
+
 void pic_init();
 void pic_enable_irq(int irq);
 void pic_disable_irq(int irq);

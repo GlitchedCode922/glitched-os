@@ -18,6 +18,7 @@
 #define FLAGS_PSE      0x80
 #define FLAGS_GLOBAL   0x100
 #define FLAGS_COW      0x200
+#define FLAGS_MMIO     0x400
 #define FLAGS_PAT      0x1000
 #define FLAGS_NX       0x8000000000000000
 

@@ -14,7 +14,6 @@
 #include "vfs.h"
 #include "fbcon.h"
 #include "power.h"
-#include "panic.h"
 #include "error.h"
 #include <stdarg.h>
 #include <stddef.h>
@@ -122,12 +121,14 @@ void syscall(iframe_t* iframe) {
     case SYSCALL_SBRK:
         ret = (uintptr_t)sbrk((intptr_t)arg1);
         break;
+    case SYSCALL_SHUTDOWN:
+        asm volatile("cli");
+        shutdown();
+        break;
     case SYSCALL_REBOOT:
-        // Reboot the system
-        asm volatile("cli"); // Disable interrupts
+        asm volatile("cli");
         reboot();
-        panic("reboot");
-        break; // This line will not be reached
+        break;
     case SYSCALL_CHDIR:
         ret = validate_user_string((void*)arg1, MAX_PATH);
         if (ret < 0) break;

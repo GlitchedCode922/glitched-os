@@ -11,7 +11,27 @@ size_t pci_device_count = 0;
 pci_driver_t pci_drivers[MAX_PCI_DRIVERS];
 size_t pci_driver_count = 0;
 
-uint32_t pci_config_read(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset) {
+uint8_t pci_config_read8(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset) {
+    uint32_t address = (1U << 31)             // enable bit
+                     | (bus << 16)
+                     | (device << 11)
+                     | (function << 8)
+                     | (offset & 0xFC);      // align to 4 bytes
+    outl(PCI_CONFIG_ADDRESS, address);
+    return inb(PCI_CONFIG_DATA + (offset & 3));
+}
+
+uint16_t pci_config_read16(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset) {
+    uint32_t address = (1U << 31)             // enable bit
+                     | (bus << 16)
+                     | (device << 11)
+                     | (function << 8)
+                     | (offset & 0xFC);      // align to 4 bytes
+    outl(PCI_CONFIG_ADDRESS, address);
+    return inw(PCI_CONFIG_DATA + (offset & 2));
+}
+
+uint32_t pci_config_read32(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset) {
     uint32_t address = (1U << 31)             // enable bit
                      | (bus << 16)
                      | (device << 11)
@@ -21,7 +41,27 @@ uint32_t pci_config_read(uint8_t bus, uint8_t device, uint8_t function, uint8_t 
     return inl(PCI_CONFIG_DATA);
 }
 
-void pci_config_write(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset, uint32_t value) {
+void pci_config_write8(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset, uint8_t value) {
+    uint32_t address = (1U << 31)
+                     | (bus << 16)
+                     | (device << 11)
+                     | (function << 8)
+                     | (offset & 0xFC);
+    outl(PCI_CONFIG_ADDRESS, address);
+    outb(PCI_CONFIG_DATA + (offset & 3), value);
+}
+
+void pci_config_write16(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset, uint16_t value) {
+    uint32_t address = (1U << 31)
+                     | (bus << 16)
+                     | (device << 11)
+                     | (function << 8)
+                     | (offset & 0xFC);
+    outl(PCI_CONFIG_ADDRESS, address);
+    outw(PCI_CONFIG_DATA + (offset & 2), value);
+}
+
+void pci_config_write32(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset, uint32_t value) {
     uint32_t address = (1U << 31)
                      | (bus << 16)
                      | (device << 11)
@@ -37,14 +77,14 @@ void enumerate_pci() {
     for (uint16_t bus = 0; bus < 256; bus++) {
         for (uint8_t device = 0; device < 32; device++) {
             for (uint8_t function = 0; function < 8; function++) {
-                uint32_t id = pci_config_read(bus, device, function, 0x00);
+                uint32_t id = pci_config_read32(bus, device, function, 0x00);
                 uint16_t vendor_id = id & 0xFFFF;
                 if (vendor_id == 0xFFFF) continue;  // No device
 
                 uint16_t device_id = (id >> 16) & 0xFFFF;
-                uint32_t class_reg = pci_config_read(bus, device, function, 0x08);
+                uint32_t class_reg = pci_config_read32(bus, device, function, 0x08);
                 uint8_t class_code = (class_reg >> 24) & 0xFF;
-                uint8_t irq = pci_config_read(bus, device, function, 0x3C) & 0xFF;
+                uint8_t irq = pci_config_read32(bus, device, function, 0x3C) & 0xFF;
 
                 // Save device info
                 if (pci_device_count < MAX_PCI_DEVICES) {
@@ -60,7 +100,7 @@ void enumerate_pci() {
 
                     // Read BARs (6 possible)
                     for (int bar = 0; bar < 6; bar++) {
-                        dev->bar[bar] = pci_config_read(bus, device, function, 0x10 + bar * 4);
+                        dev->bar[bar] = pci_config_read32(bus, device, function, 0x10 + bar * 4);
                     }
                 }
             }

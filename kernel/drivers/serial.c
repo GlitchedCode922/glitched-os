@@ -15,6 +15,21 @@ tty_t serial_ttys[4] = {{0}};
 int serial_tty_ids[4] = {0};
 char* serial_tty_names[4] = {"ttyS0", "ttyS1", "ttyS2", "ttyS3"};
 
+uint32_t serial_interrupt_handler(void* arg) {
+    uint8_t irq = (uintptr_t)arg;
+    for (int i = 0; i < 4; i++) {
+        if (enabled[i] && interrupt_numbers[i] == irq) {
+            uint16_t port = serial_ports[i];
+            while (inb(port + 5) & 1) { // While data is available
+                uint8_t byte = inb(port);
+                tty_char_recv(serial_tty_ids[i], byte);
+            }
+            break;
+        }
+    }
+    return 0;
+}
+
 void serial_init() {
     for (int i = 0; i < 4; i++) {
         uint16_t port = serial_ports[i];
@@ -44,6 +59,8 @@ void serial_init() {
 
         outb(port + 4, 0x0B); // IRQs enabled, RTS/DSR set
         outb(port + 1, 0x01); // Enable received data available interrupt
+        irq_handlers[interrupt_numbers[i]].arg = (void*)(uintptr_t)(interrupt_numbers[i]);
+        irq_handlers[interrupt_numbers[i]].handler = serial_interrupt_handler;
         pic_enable_irq(interrupt_numbers[i]);
         enabled[i] = 1;
 next:
@@ -56,19 +73,6 @@ next:
         serial_ttys[i].name = serial_tty_names[i];
         if (enabled[i]) {
             serial_tty_ids[i] = register_tty(serial_ttys + i);
-        }
-    }
-}
-
-void serial_interrupt_handler(uint8_t irq) {
-    for (int i = 0; i < 4; i++) {
-        if (enabled[i] && interrupt_numbers[i] == irq) {
-            uint16_t port = serial_ports[i];
-            while (inb(port + 5) & 1) { // While data is available
-                uint8_t byte = inb(port);
-                tty_char_recv(serial_tty_ids[i], byte);
-            }
-            break;
         }
     }
 }

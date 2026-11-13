@@ -7,7 +7,7 @@
 #include "drivers/serial.h"
 #include <stdint.h>
 
-int spurious_interrupts = 0;
+irq_handler_t irq_handlers[16] = {0};
 
 void pic_remap(int offset1, int offset2) {
     unsigned char a1, a2;
@@ -101,72 +101,14 @@ void irq0_handler(iframe_t* iframe) {
     }
 }
 
-void irq1_handler() {
-    // Handle IRQ1 (keyboard interrupt)
-    ps2_handler(0);
-    pic_send_eoi(1); // Send EOI to PIC for IRQ1
-}
-
-void irq3_handler() {
-    serial_interrupt_handler(3);
-    pic_send_eoi(3); // Send EOI to PIC for IRQ3
-}
-
-void irq4_handler() {
-    serial_interrupt_handler(4);
-    pic_send_eoi(4); // Send EOI to PIC for IRQ4
-}
-
-void irq7_handler() {
-    // Check for spurious interrupts
-    outb(PIC1_CMD, 0x0b); // Read ISR register
-    uint8_t isr = inb(PIC1_CMD);
-    if(isr & (1 << 7)) {
-        spurious_interrupts++;
-    }
-}
-
-void irq12_handler() {
-    // Handle IRQ12 (mouse interrupt)
-    ps2_handler(1);
-    pic_send_eoi(12); // Send EOI to PIC for IRQ12
-}
-
-void irq15_handler() {
-    outb(PIC2_CMD, 0x0b); // Read ISR register for Slave PIC
-    uint8_t isr = inb(PIC2_CMD);
-    if(isr & (1 << 7)) {
-        spurious_interrupts++;
-        pic_send_eoi(7);
-    }
-}
-
 void irq_handler(int irq, iframe_t* iframe) {
     pci_irq_handler(irq);
-    switch (irq) {
-        case 0:
-            irq0_handler(iframe);
-            break;
-        case 1:
-            irq1_handler();
-            break;
-        case 3:
-            irq3_handler();
-            break;
-        case 4:
-            irq4_handler();
-            break;
-        case 7:
-            irq7_handler();
-            break;
-        case 12:
-            irq12_handler();
-            break;
-        case 15:
-            irq15_handler();
-            break;
-        default:
-            pic_send_eoi(irq); // Acknowledge the interrupt
-            break;
+    if (irq_handlers[irq].handler) {
+        irq_handlers[irq].handler(irq_handlers[irq].arg);
     }
+    if (irq == 0) {
+        irq0_handler(iframe);
+        return;
+    }
+    pic_send_eoi(irq);
 }

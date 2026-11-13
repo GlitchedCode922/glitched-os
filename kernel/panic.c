@@ -1,5 +1,7 @@
 #include "console.h"
-#include "power.h"
+#include "uacpi/sleep.h"
+#include "uacpi/acpi.h"
+#include "uacpi/tables.h"
 #include "panic.h"
 #include "drivers/ps2_keyboard.h"
 #include "drivers/tty.h"
@@ -8,6 +10,7 @@
 #include <stdint.h>
 
 panic_state_t panic_state = OPERATIONAL;
+static const uint16_t invalid_idtptr[5] = {0};
 
 void stack_trace(uint64_t rip, uint64_t rbp) {
     if (rbp == 0) asm volatile("mov %%rbp, %0" : "=r"(rbp));
@@ -59,8 +62,20 @@ stack_trace_failed:
     input_disabled = 0;
     if (tty_count != 0) ttys[console_tty_id]->termios.c_lflag = 0;
     if (tty_count != 0) while (tty_read(console_tty_id, 0, (uint8_t*)&c, 1) == -EAGAIN);
-    panic_state = OPERATIONAL;
-    reboot();
+    struct acpi_fadt* fadt;
+    uacpi_table_fadt(&fadt);
+    if (fadt->flags & ACPI_RESET_REG_SUP) {
+        uacpi_status res = uacpi_reboot();
+        if (uacpi_unlikely_error(res)) {
+            kprintf("Reboot failed: ACPI error: %s", uacpi_status_to_string(res));
+        }
+    }
+    asm volatile (
+        "lidt %0\n"
+        "int $0x00\n"
+        :: "m"(invalid_idtptr)
+    );
+    while (1) asm volatile ("hlt");
 }
 
 __attribute__((noreturn)) void panic_int(uint64_t rip, uint64_t rbp, const char *fmt, ...) {

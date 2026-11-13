@@ -9,6 +9,9 @@
 #include "drivers/block/ata.h"
 #include "drivers/partitions.h"
 #include "drivers/nulldev.h"
+#include "uacpi/event.h"
+#include "uacpi/status.h"
+#include "uacpi/utilities.h"
 #include "vfs.h"
 #include "gdt.h"
 #include "idt.h"
@@ -184,6 +187,18 @@ void kernel_main() {
     init_fpu();
     vvar_vaddr->boot_time = rtc_get_timestamp();
     timer_init();
+
+    uacpi_status ret;
+    ret = uacpi_initialize(0);
+    if (uacpi_unlikely_error(ret)) panic("ACPI error: %s", uacpi_status_to_string(ret));
+    ret = uacpi_namespace_load();
+    if (uacpi_unlikely_error(ret)) panic("ACPI error: %s", uacpi_status_to_string(ret));
+    ret = uacpi_namespace_initialize();
+    if (uacpi_unlikely_error(ret)) panic("ACPI error: %s", uacpi_status_to_string(ret));
+    ret = uacpi_set_interrupt_model(UACPI_INTERRUPT_MODEL_PIC);
+    if (uacpi_unlikely_error(ret)) panic("ACPI error: %s", uacpi_status_to_string(ret));
+    ret = uacpi_finalize_gpe_initialization();
+    if (uacpi_unlikely_error(ret)) panic("ACPI error: %s", uacpi_status_to_string(ret));
 
     int res = mount_root_filesystem(rootfs_device, 0);
     if (res < 0) panic("Mounting rootfs failed, error code: %d", res);

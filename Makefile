@@ -9,7 +9,7 @@ override CFLAGS += -nostdlib -ffreestanding -fno-stack-protector -fno-stack-chec
 KERNEL_CFLAGS =
 LIBC_CFLAGS =
 BIN_CFLAGS =
-override KERNEL_CFLAGS += -mno-80387 -mno-mmx -mno-sse -mno-sse2 -mno-red-zone -mcmodel=kernel -Iglitchfs/libglfs/include -Ikernel
+override KERNEL_CFLAGS += -mno-80387 -mno-mmx -mno-sse -mno-sse2 -mno-red-zone -mcmodel=kernel -Ikernel/drivers/uacpi/include -Iglitchfs/libglfs/include -Ikernel
 override LIBC_CFLAGS += -Ilibc/include -Ilibc/platform/include -Ikernel
 override BIN_CFLAGS += -Ilibc/include -Ilibc/platform/include -Ikernel
 LDFLAGS =
@@ -164,9 +164,11 @@ build/disk.img: build/kernel $(BINARY_TARGETS) build/sh limine.conf build/.glitc
 	cp build/sh build/rootfs/bin/mrsh
 	mkdir -p build/rootfs/share/licenses/mrsh
 	mkdir -p build/rootfs/share/licenses/limine
+	mkdir -p build/rootfs/share/licenses/uacpi
 	cp shell/LICENSE build/rootfs/share/licenses/mrsh
 	cp limine/LICENSE build/rootfs/share/licenses/limine
 	cp limine/3RDPARTY.md build/rootfs/share/licenses/limine
+	cp kernel/drivers/uacpi/LICENSE build/rootfs/share/licenses/uacpi
 	glitchfs/build/tools/glfs-pack build/rootfs build/root.img.tmp
 	dd if=build/root.img.tmp of=build/disk.img.incomplete bs=1M seek=16 count=111 conv=notrunc
 	rm -f build/root.img.tmp
