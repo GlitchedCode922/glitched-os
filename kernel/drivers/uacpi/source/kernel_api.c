@@ -9,7 +9,7 @@
 #include "uacpi/status.h"
 #include "uacpi/types.h"
 #include "usermode/scheduler.h"
-#include "limine.h"
+#include "limine_requests.h"
 #include <stdint.h>
 #include <stdatomic.h>
 
@@ -281,13 +281,8 @@ uacpi_status uacpi_kernel_wait_for_work_completion(void) {
     return UACPI_STATUS_OK;
 }
 
-__attribute__((used, section(".limine_requests")))
-static volatile struct limine_rsdp_request rsdp_request = {
-    .id = LIMINE_RSDP_REQUEST,
-    .revision = 0
-};
-
 uacpi_status uacpi_kernel_get_rsdp(uacpi_phys_addr *out_rsdp_address) {
+    if (!rsdp_request.response->address) return UACPI_STATUS_NOT_FOUND;
     *out_rsdp_address = (uintptr_t)rsdp_request.response->address;
     return UACPI_STATUS_OK;
 }

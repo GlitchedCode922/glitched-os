@@ -2,6 +2,7 @@
 #include "uacpi/sleep.h"
 #include "uacpi/acpi.h"
 #include "uacpi/tables.h"
+#include "limine_requests.h"
 #include "panic.h"
 #include "drivers/ps2_keyboard.h"
 #include "drivers/tty.h"
@@ -62,12 +63,14 @@ stack_trace_failed:
     input_disabled = 0;
     if (tty_count != 0) ttys[console_tty_id]->termios.c_lflag = 0;
     if (tty_count != 0) while (tty_read(console_tty_id, 0, (uint8_t*)&c, 1) == -EAGAIN);
-    struct acpi_fadt* fadt;
-    uacpi_table_fadt(&fadt);
-    if (fadt->flags & ACPI_RESET_REG_SUP) {
-        uacpi_status res = uacpi_reboot();
-        if (uacpi_unlikely_error(res)) {
-            kprintf("Reboot failed: ACPI error: %s", uacpi_status_to_string(res));
+    if (rsdp_request.response->address) {
+        struct acpi_fadt* fadt;
+        uacpi_table_fadt(&fadt);
+        if (fadt->flags & ACPI_RESET_REG_SUP) {
+            uacpi_status res = uacpi_reboot();
+            if (uacpi_unlikely_error(res)) {
+                kprintf("Reboot failed: ACPI error: %s", uacpi_status_to_string(res));
+            }
         }
     }
     asm volatile (

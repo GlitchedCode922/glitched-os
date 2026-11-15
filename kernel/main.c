@@ -1,7 +1,7 @@
 #include "console.h"
 #include "drivers/fbdev.h"
 #include "drivers/rtc.h"
-#include "limine.h"
+#include "limine_requests.h"
 #include "fbcon.h"
 #include "panic.h"
 #include "memory/mman.h"
@@ -27,47 +27,6 @@
 #include <stdint.h>
 
 extern char __size[];
-
-__attribute__((used, section(".limine_requests_start")))
-static volatile LIMINE_REQUESTS_START_MARKER;
-
-__attribute__((used, section(".limine_requests")))
-static volatile LIMINE_BASE_REVISION(3);
-
-__attribute__((used, section(".limine_requests")))
-static volatile struct limine_framebuffer_request framebuffer_request = {
-    .id = LIMINE_FRAMEBUFFER_REQUEST,
-    .revision = 0
-};
-
-__attribute__((used, section(".limine_requests")))
-static volatile struct limine_hhdm_request hhdm_request = {
-    .id = LIMINE_HHDM_REQUEST,
-    .revision = 0
-};
-
-__attribute__((used, section(".limine_requests")))
-static volatile struct limine_memmap_request memmap_request = {
-    .id = LIMINE_MEMMAP_REQUEST,
-    .revision = 0
-};
-
-__attribute__((used, section(".limine_requests")))
-static volatile struct limine_stack_size_request stack_size_request = {
-    .id = LIMINE_STACK_SIZE_REQUEST,
-    .revision = 0,
-    .stack_size = 0x1000000 // 10 MiB
-};
-
-__attribute__((used, section(".limine_requests")))
-static volatile struct limine_executable_cmdline_request cmdline_request = {
-    .id = LIMINE_EXECUTABLE_CMDLINE_REQUEST,
-    .revision = 0
-};
-
-__attribute__((used, section(".limine_requests_end")))
-static volatile LIMINE_REQUESTS_END_MARKER;
-
 extern volatile struct limine_framebuffer* framebuffer;
 volatile struct limine_framebuffer* framebuffer;
 char rootfs_device[MAX_PATH] = "";
@@ -188,17 +147,19 @@ void kernel_main() {
     vvar_vaddr->boot_time = rtc_get_timestamp();
     timer_init();
 
-    uacpi_status ret;
-    ret = uacpi_initialize(0);
-    if (uacpi_unlikely_error(ret)) panic("ACPI error: %s", uacpi_status_to_string(ret));
-    ret = uacpi_namespace_load();
-    if (uacpi_unlikely_error(ret)) panic("ACPI error: %s", uacpi_status_to_string(ret));
-    ret = uacpi_namespace_initialize();
-    if (uacpi_unlikely_error(ret)) panic("ACPI error: %s", uacpi_status_to_string(ret));
-    ret = uacpi_set_interrupt_model(UACPI_INTERRUPT_MODEL_PIC);
-    if (uacpi_unlikely_error(ret)) panic("ACPI error: %s", uacpi_status_to_string(ret));
-    ret = uacpi_finalize_gpe_initialization();
-    if (uacpi_unlikely_error(ret)) panic("ACPI error: %s", uacpi_status_to_string(ret));
+    if (rsdp_request.response->address) {
+        uacpi_status ret;
+        ret = uacpi_initialize(0);
+        if (uacpi_unlikely_error(ret)) panic("ACPI error: %s", uacpi_status_to_string(ret));
+        ret = uacpi_namespace_load();
+        if (uacpi_unlikely_error(ret)) panic("ACPI error: %s", uacpi_status_to_string(ret));
+        ret = uacpi_namespace_initialize();
+        if (uacpi_unlikely_error(ret)) panic("ACPI error: %s", uacpi_status_to_string(ret));
+        ret = uacpi_set_interrupt_model(UACPI_INTERRUPT_MODEL_PIC);
+        if (uacpi_unlikely_error(ret)) panic("ACPI error: %s", uacpi_status_to_string(ret));
+        ret = uacpi_finalize_gpe_initialization();
+        if (uacpi_unlikely_error(ret)) panic("ACPI error: %s", uacpi_status_to_string(ret));
+    }
 
     int res = mount_root_filesystem(rootfs_device, 0);
     if (res < 0) panic("Mounting rootfs failed, error code: %d", res);
