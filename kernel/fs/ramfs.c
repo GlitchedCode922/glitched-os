@@ -466,7 +466,7 @@ int ramfs_check(block_device_t block) {
 }
 
 void* ramfs_mount(block_device_t block, int flags) {
-    mount = kmalloc(sizeof(ramfs_mount_t));
+    mount = kzalloc(sizeof(ramfs_mount_t));
     mount->root.type = DT_DIR;
     mount->root.mtime = get_time();
     mount->root.ctime = get_time();

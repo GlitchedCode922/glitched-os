@@ -146,12 +146,15 @@ void* kmalloc(size_t size) {
     void* ptr = find_available_va(PAGE_ALIGN(size) / PAGE_SIZE);
     // Allocate memory of the specified size
     alloc_region((uintptr_t)ptr, size, FLAGS_PRESENT | FLAGS_RW);
-    memset(ptr, 0, size); // Initialize allocated memory to zero
     return ptr;
 }
 
+void* kzalloc(size_t size) {
+    return memset(kmalloc(size), 0, size);
+}
+
 void* kcalloc(size_t num, size_t size_per_element) {
-    return kmalloc(num * size_per_element);
+    return kzalloc(num * size_per_element);
 }
 
 void* krealloc(void* ptr, size_t old_size, size_t new_size) {

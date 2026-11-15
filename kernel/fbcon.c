@@ -139,7 +139,7 @@ void fbcon_init() {
     bottom_margin = framebuffer->height % c_height;
 
     colored_bitmap = kmalloc(c_width * c_height * 3);
-    console_buffer = kmalloc(width * height * sizeof(character_t));
+    console_buffer = kzalloc(width * height * sizeof(character_t));
 
     clear_screen();
     set_cursor_position(0, 0);
@@ -165,7 +165,7 @@ void setfont(font_t* font) {
     kfree(colored_bitmap);
     kfree(console_buffer);
     colored_bitmap = kmalloc(c_width * c_height * 3);
-    console_buffer = kmalloc(width * height * sizeof(character_t));
+    console_buffer = kzalloc(width * height * sizeof(character_t));
 
     clear_screen();
     set_cursor_position(0, 0);

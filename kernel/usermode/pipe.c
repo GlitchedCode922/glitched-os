@@ -6,6 +6,8 @@
 
 pipe_t* create_pipe() {
     pipe_t* ret = kmalloc(sizeof(pipe_t));
+    ret->read_head = 0;
+    ret->write_head = 0;
     ret->reader_count = 1;
     ret->writer_count = 1;
     return ret;

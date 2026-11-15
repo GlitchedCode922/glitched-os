@@ -88,7 +88,7 @@ int mbr_detect_partitions(block_device_t device) {
         if (output_device.name[strlen(output_device.name) - 1] >= '0' &&
         output_device.name[strlen(output_device.name) - 1] <= '9')
         output_device.name[strlen(output_device.name)] = 'p';
-        itoa(i + 1, &output_device.name[strlen(output_device.name)]);
+            itoa(i + 1, &output_device.name[strlen(output_device.name)]);
         register_block_device(&output_device);
     }
     return found;
@@ -159,7 +159,7 @@ int gpt_detect_partitions(block_device_t device) {
             strncpy(output_device.name, device.name, 244);
             if (output_device.name[strlen(output_device.name) - 1] >= '0' &&
             output_device.name[strlen(output_device.name) - 1] <= '9')
-            output_device.name[strlen(output_device.name)] = 'p';
+                output_device.name[strlen(output_device.name)] = 'p';
             itoa(found + 1, &output_device.name[strlen(output_device.name)]);
             register_block_device(&output_device);
             found++;

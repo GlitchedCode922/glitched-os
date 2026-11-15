@@ -349,6 +349,7 @@ int mount_filesystem(const char* source, const char* target, const char* type, i
     new_mount->type = fs_index;
     new_mount->handle = handle;
     new_mount->parent = mountpoint;
+    new_mount->refcount = 0;
     new_mount->children = NULL;
 
     // Add to parent's children list
@@ -391,8 +392,11 @@ int mount_root_filesystem(const char* device, int flags) {
     root = (mountpoint_t*)kmalloc(sizeof(mountpoint_t));
     root->fs_data = filesystems[fs_index].mount(dev, flags);
     root->type = fs_index;
+    root->refcount = 0;
+    root->handle = 0;
     root->parent = NULL;
     root->children = NULL;
+    root->next = NULL;
 
     return 0; // Success
 }

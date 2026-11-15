@@ -80,7 +80,7 @@ void scheduler_init() {
     );
     idle_task.cr3 = clone_page_tables(base_pml4);
     idle_task.kernel_stack = kmalloc(4096 * 32) + 4096 * 32;
-    idle_task.fpu_state = kmalloc(fpu_memory_size);
+    idle_task.fpu_state = kzalloc(fpu_memory_size);
     idle_task.state = STATE_READY;
     idle_task.iframe = (iframe_t*)(idle_task.kernel_stack - sizeof(iframe_t));
     idle_task.iframe->rip = (uint64_t)idle;
@@ -128,8 +128,8 @@ void run_init(char* path) {
     void* kstack = (char*)kmalloc(4096 * 32) + 4096 * 32;
     init_task.kernel_stack = kstack;
     tss.rsp0 = (uint64_t)kstack;
-    init_task.fpu_state = kmalloc(fpu_memory_size);
-    init_task.signal_interrupted_fpu_state = kmalloc(fpu_memory_size);
+    init_task.fpu_state = kzalloc(fpu_memory_size);
+    init_task.signal_interrupted_fpu_state = kzalloc(fpu_memory_size);
     current_task = &init_task;
     scheduler_initialized = 1;
     jump_to_user(addr, (char*)0x10000000000 + 4096 * 128 - 16);
@@ -278,8 +278,8 @@ int fork(iframe_t* iframe) {
     *new_iframe = *current_task->iframe;
     new_task->kernel_stack = kstack;
     new_task->iframe = new_iframe;
-    new_task->fpu_state = kmalloc(fpu_memory_size);
-    new_task->signal_interrupted_fpu_state = kmalloc(fpu_memory_size);
+    new_task->fpu_state = kzalloc(fpu_memory_size);
+    new_task->signal_interrupted_fpu_state = kzalloc(fpu_memory_size);
     memcpy(new_task->fpu_state, current_task->fpu_state, fpu_memory_size);
     memcpy(
         new_task->signal_interrupted_fpu_state,
@@ -531,8 +531,8 @@ int add_task(char* path, char** argv, char** envp, task_t* parent, int pid, spaw
     new_iframe->rip = (uint64_t)entry;
     new_task->kernel_stack = kstack;
     new_task->iframe = new_iframe;
-    new_task->fpu_state = kmalloc(fpu_memory_size);
-    new_task->signal_interrupted_fpu_state = kmalloc(fpu_memory_size);
+    new_task->fpu_state = kzalloc(fpu_memory_size);
+    new_task->signal_interrupted_fpu_state = kzalloc(fpu_memory_size);
 
     // Link task tree
     new_task->next = parent->next;
@@ -613,7 +613,7 @@ int create_kworker(void (*function)(void*), void* arg) {
     *new_iframe = iframe;
     new_task->kernel_stack = kstack;
     new_task->iframe = new_iframe;
-    new_task->fpu_state = kmalloc(fpu_memory_size);
+    new_task->fpu_state = kzalloc(fpu_memory_size);
     new_task->is_kworker = 1;
     new_task->next = current_task->next;
     current_task->next = new_task;
