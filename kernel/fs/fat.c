@@ -869,11 +869,9 @@ int fat_rename(const char *old_path, const char *new_path) {
         return -ENOENT; // Old file not found
     }
     uint64_t tmp;
-    if (fat_lookup_path(new_path, &tmp) == 0) {
+    if (fat_lookup_path(new_path, &tmp) >= 0) {
         int res = fat_delete(new_path);
-        if (res < 0) {
-            return res; // Failed to delete existing file at new path
-        }
+        if (res < 0) return res;
     }
 
     // Extract new filename and parent directory

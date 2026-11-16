@@ -360,6 +360,11 @@ int ramfs_rename(const char *old_path, const char *new_path) {
     ramfs_dirent_t* dirent;
     int res = ramfs_get_dirent(old_path, &dirent);
     if (res < 0) return res;
+    ramfs_dirent_t* tmp;
+    if (ramfs_get_dirent(new_path, &tmp) >= 0) {
+        res = ramfs_delete(new_path);
+        if (res < 0) return res;
+    }
 
     if (dirent->previous) {
         dirent->previous->next = dirent->next;
