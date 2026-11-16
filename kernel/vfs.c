@@ -547,26 +547,6 @@ int remove_file(const char *path) {
     return fs->remove(remaining_path);
 }
 
-int rename_file(const char *old_path, const char *new_path) {
-    char old_remaining_path[MAX_PATH];
-    char new_remaining_path[MAX_PATH];
-    uint64_t old_err, new_err;
-    mountpoint_t* old_mount = find_mountpoint(old_path, &old_err, old_remaining_path);
-    mountpoint_t* new_mount = find_mountpoint(new_path, &new_err, new_remaining_path);
-    if (!old_mount) return -(int)old_err;
-    if (!new_mount) return -(int)new_err;
-    if (*old_remaining_path == '\0') return -EBUSY;
-    if (old_mount != new_mount) {
-        return -EXDEV; // Cannot rename across different filesystems
-    }
-    filesystem_t* fs = &filesystems[old_mount->type];
-    fs->select(old_mount->fs_data);
-    if (!fs->rename) {
-        return -ENOSYS; // Rename operation not supported by this filesystem
-    }
-    return fs->rename(old_remaining_path, new_remaining_path);
-}
-
 static int split_path(const char *path, char *dir, char *filename) {
     size_t path_length = 0;
     size_t slash = (size_t)-1;
@@ -611,6 +591,33 @@ static int split_path(const char *path, char *dir, char *filename) {
     filename[filename_length] = '\0';
 
     return 0;
+}
+
+int rename_file(const char *old_path, const char *new_path) {
+    char old_remaining_path[MAX_PATH];
+    char dirname[MAX_PATH];
+    char filename[MAX_PATH];
+    char new_remaining_dir[MAX_PATH];
+    int res = split_path(new_path, dirname, filename);
+    if (res < 0) return res;
+    uint64_t old_err, new_err;
+    mountpoint_t* old_mount = find_mountpoint(old_path, &old_err, old_remaining_path);
+    mountpoint_t* new_mount = find_mountpoint(dirname, &new_err, new_remaining_dir);
+    if (!old_mount) return -(int)old_err;
+    if (!new_mount) return -(int)new_err;
+    if (*old_remaining_path == '\0') return -EBUSY;
+    if (old_mount != new_mount) {
+        return -EXDEV; // Cannot rename across different filesystems
+    }
+    filesystem_t* fs = &filesystems[old_mount->type];
+    fs->select(old_mount->fs_data);
+    if (!fs->rename) {
+        return -ENOSYS; // Rename operation not supported by this filesystem
+    }
+    size_t len = strlen(new_remaining_dir);
+    new_remaining_dir[len] = '/';
+    strncpy(new_remaining_dir + len + 1, filename, MAX_PATH - len - 2);
+    return fs->rename(old_remaining_path, new_remaining_dir);
 }
 
 int create_file(const char *path) {
