@@ -15,22 +15,27 @@ uintptr_t zero_page = 0;
 
 #define HIGHER_LEVEL_FLAGS (FLAGS_PRESENT | FLAGS_RW | FLAGS_USER)
 
-uintptr_t get_physical_address(uintptr_t virtual_address) {
-    page_address_t entry = get_page_entry(virtual_address);
+uintptr_t get_physical_address(uintptr_t va) {
+    page_address_t e = get_page_entry(va);
 
-    uint64_t* pml4 = (uint64_t*)pml4_address;
-    if (!(pml4[entry.pml4_index] & FLAGS_PRESENT)) return 0;
+    uint64_t *pml4 = pml4_address;
+    uint64_t x = pml4[e.pml4_index];
+    if (!(x & FLAGS_PRESENT)) return 0;
 
-    uint64_t* pdpt = add_hhdm_to(page_table_to_address(pml4[entry.pml4_index]));
-    if (!(pdpt[entry.pdpt_index] & FLAGS_PRESENT)) return 0;
+    uint64_t* pdpt = (uint64_t*)add_hhdm_to(page_table_to_address(x));
+    x = pdpt[e.pdpt_index];
+    if (!(x & FLAGS_PRESENT)) return 0;
+    if (x & FLAGS_PSE) return (x & 0x000FFFFFC0000000ULL) | (va & 0x3FFFFFFFULL);  // 1 GiB
 
-    uint64_t* pd = add_hhdm_to(page_table_to_address(pdpt[entry.pdpt_index]));
-    if (!(pd[entry.pd_index] & FLAGS_PRESENT)) return 0;
+    uint64_t* pd = (uint64_t*)add_hhdm_to(page_table_to_address(x));
+    x = pd[e.pd_index];
+    if (!(x & FLAGS_PRESENT)) return 0;
+    if (x & FLAGS_PSE) return (x & 0x000FFFFFFFE00000ULL) | (va & 0x1FFFFFULL);    // 2 MiB
 
-    uint64_t* pt = add_hhdm_to(page_table_to_address(pd[entry.pd_index]));
-    if (!(pt[entry.pt_index] & FLAGS_PRESENT)) return 0;
-
-    return (uintptr_t)page_table_to_address(pt[entry.pt_index]);
+    uint64_t* pt = (uint64_t*)add_hhdm_to(page_table_to_address(x));
+    x = pt[e.pt_index];
+    if (!(x & FLAGS_PRESENT)) return 0;
+    return (x & ~FLAGS_MASK) | (va & 0xFFF);
 }
 
 void init_paging(uintptr_t cr3, struct limine_memmap_response *memmap, uintptr_t hhdm) {

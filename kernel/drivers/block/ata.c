@@ -10,7 +10,7 @@
 #include <stddef.h>
 
 static ata_device_t devices[4] = {0};
-static char* ata_dev_names[4] = {"block/sda", "block/sdb", "block/sdc", "block/sdd"};
+static char* ata_dev_names[4] = {"block/hda", "block/hdb", "block/hdc", "block/hdd"};
 static char* atapi_dev_names[4] = {"block/sr0", "block/sr1", "block/sr2", "block/sr3"};
 
 void scan_for_devices() {

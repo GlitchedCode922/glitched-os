@@ -5,7 +5,7 @@
 
 int main() {
     mount(NULL, "/dev", "devfs", 0);
-    mount("/dev/block/sda2", "/boot", "fat", 0);
+    mount("/dev/block/sd0p2", "/boot", "fat", 0);
     mount(NULL, "/tmp", "ramfs", 0);
 
     int console_fd = open("/dev/tty1", O_RDWR);

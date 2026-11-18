@@ -1,4 +1,13 @@
 #include "console.h"
+#include "drivers/block/ahci.h"
+#include "drivers/block/ata.h"
+#include "drivers/net/rtl8139.h"
+#include "drivers/partitions.h"
+#include "drivers/nulldev.h"
+#include "drivers/net.h"
+#include "drivers/fpu.h"
+#include "drivers/timer.h"
+#include "drivers/serial.h"
 #include "drivers/fbdev.h"
 #include "drivers/rtc.h"
 #include "limine_requests.h"
@@ -6,22 +15,14 @@
 #include "panic.h"
 #include "memory/mman.h"
 #include "memory/paging.h"
-#include "drivers/block/ata.h"
-#include "drivers/partitions.h"
-#include "drivers/nulldev.h"
 #include "uacpi/event.h"
 #include "uacpi/status.h"
 #include "uacpi/utilities.h"
 #include "vfs.h"
 #include "gdt.h"
 #include "idt.h"
-#include "drivers/net/rtl8139.h"
-#include "drivers/net.h"
-#include "drivers/fpu.h"
-#include "drivers/timer.h"
 #include "io/pci.h"
 #include "io/ps2.h"
-#include "drivers/serial.h"
 #include "usermode/scheduler.h"
 #include "usermode/syscalls.h"
 #include <stdint.h>
@@ -138,12 +139,12 @@ void kernel_main() {
         console_init("ttyS0");
     }
     partition_init();
-    ata_register();
-    free_region(0x0, 0x100000000);
     net_init();
     register_rtl8139_driver();
+    ahci_register();
     register_null_devices();
     enumerate_pci();
+    ata_register();
     vvar_vaddr->boot_time = rtc_get_timestamp();
     timer_init();
 

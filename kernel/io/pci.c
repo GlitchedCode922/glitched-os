@@ -84,6 +84,8 @@ void enumerate_pci() {
                 uint16_t device_id = (id >> 16) & 0xFFFF;
                 uint32_t class_reg = pci_config_read32(bus, device, function, 0x08);
                 uint8_t class_code = (class_reg >> 24) & 0xFF;
+                uint8_t subclass = (class_reg >> 16) & 0xFF;
+                uint8_t prog_if = (class_reg >> 8) & 0xFF;
                 uint8_t irq = pci_config_read32(bus, device, function, 0x3C) & 0xFF;
 
                 // Save device info
@@ -96,6 +98,8 @@ void enumerate_pci() {
                     dev->vendor_id = vendor_id;
                     dev->device_id = device_id;
                     dev->class_code = class_code;
+                    dev->subclass = subclass;
+                    dev->prog_if = prog_if;
                     dev->irq = irq;
 
                     // Read BARs (6 possible)
@@ -111,11 +115,24 @@ void enumerate_pci() {
     for (size_t i = 0; i < pci_device_count; i++) {
         pci_device_t dev = pci_devices[i];
         for (size_t j = 0; j < pci_driver_count; j++) {
-            if (pci_drivers[j].vendor == dev.vendor_id && pci_drivers[j].device == dev.device_id) {
-                if (pci_drivers[j].init) {
+            if (pci_drivers[j].mode == 0) {
+                if (pci_drivers[j].vendor == dev.vendor_id &&
+                    pci_drivers[j].device == dev.device_id) {
                     // Enable the IRQ
                     pic_enable_irq(dev.irq);
-                    pci_drivers[j].init(dev);
+                    if (pci_drivers[j].init) {
+                        pci_drivers[j].init(dev);
+                    }
+                }
+            } else {
+                if (pci_drivers[j].class_code == dev.class_code &&
+                    pci_drivers[j].subclass   == dev.subclass   &&
+                    pci_drivers[j].prog_if    == dev.prog_if   ) {
+                    // Enable the IRQ
+                    pic_enable_irq(dev.irq);
+                    if (pci_drivers[j].init) {
+                        pci_drivers[j].init(dev);
+                    }
                 }
             }
         }

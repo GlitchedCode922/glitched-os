@@ -14,6 +14,8 @@ typedef struct {
     uint16_t vendor_id;
     uint16_t device_id;
     uint8_t  class_code;
+    uint8_t  subclass;
+    uint8_t  prog_if;
     uint8_t  irq;
     uint32_t bar[6];
 } pci_device_t;
@@ -21,8 +23,12 @@ typedef struct {
 typedef struct {
     void (*init)(pci_device_t);
     void (*isr)(uint8_t);
+    int mode; // 0: device ID, 1: class
     uint16_t vendor;
     uint16_t device;
+    uint8_t class_code;
+    uint8_t subclass;
+    uint8_t prog_if;
 } pci_driver_t;
 
 extern pci_device_t pci_devices[MAX_PCI_DEVICES];
