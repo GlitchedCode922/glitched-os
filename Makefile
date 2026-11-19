@@ -137,9 +137,9 @@ build/disk.img: build/kernel $(BINARY_TARGETS) build/sh limine.conf build/.glitc
 
 	parted build/disk.img.incomplete --script -- \
 	mklabel gpt \
-	mkpart primary 1MiB 4MiB \
-	mkpart ESP fat32 4MiB 16MiB \
-	mkpart primary 16MiB -1MiB \
+	mkpart bios_boot 1MiB 4MiB \
+	mkpart boot fat32 4MiB 16MiB \
+	mkpart rootfs 16MiB -1MiB \
 	set 1 bios_grub on \
 	set 2 esp on
 

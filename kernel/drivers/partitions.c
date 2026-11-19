@@ -1,7 +1,10 @@
 #include "drivers/partitions.h"
 #include "drivers/block.h"
 #include "error.h"
+#include "fs/devfs.h"
 #include "memory/mman.h"
+#include "uapi/dirent.h"
+#include "vfs.h"
 #include <stdint.h>
 
 partition_t partitions[256] = {0};
@@ -101,6 +104,16 @@ int has_gpt(block_device_t device) {
     return memcmp(&buffer[512], "EFI PART", 8) == 0;
 }
 
+static int partition_name_to_ascii(const uint16_t* name, char* out) {
+    int i;
+    for (i = 0; i < 36; i++) {
+        uint16_t codepoint = name[i];
+        out[i] = codepoint < 128 ? codepoint : '?';
+        if (codepoint == 0) break;
+    }
+    return i;
+}
+
 int gpt_detect_partitions(block_device_t device) {
     if (!has_gpt(device)) return 0;
 
@@ -162,6 +175,12 @@ int gpt_detect_partitions(block_device_t device) {
                 output_device.name[strlen(output_device.name)] = 'p';
             itoa(found + 1, &output_device.name[strlen(output_device.name)]);
             register_block_device(&output_device);
+            char partition_path[64] = "block/by-name/";
+            int len = partition_name_to_ascii(gpt_entry->partition_name, partition_path + 14);
+            if (len) {
+                devfs_create_directory("block/by-name");
+                devfs_mknod(partition_path, DT_BLOCK, makedev(partition_driver_index, partition_count - 1));
+            }
             found++;
         }
     }
