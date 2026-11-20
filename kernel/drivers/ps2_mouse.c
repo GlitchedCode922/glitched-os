@@ -1,8 +1,10 @@
 #include <stddef.h>
 #include <stdint.h>
+#include "console.h"
 #include "error.h"
 #include "io/ports.h"
 #include "io/8259pic.h"
+#include "spin.h"
 #include "usermode/pipe.h"
 #include "drivers/chrdev.h"
 #include "fs/devfs.h"
@@ -15,11 +17,11 @@ pipe_t* mouse_pipe;
 int set_sample_rate(uint8_t rate) {
     outb(0x64, 0xD4);
     outb(0x60, 0xF3); // Set sample rate command
-    while (!(inb(0x64) & 0x01));
+    if (spin(!(inb(0x64) & 0x01), 500,) < 0) return -1;
     if (inb(0x60) != 0xFA) return -1; // Acknowledge check
     outb(0x64, 0xD4);
     outb(0x60, rate); // Send the sample rate
-    while (!(inb(0x64) & 0x01));
+    if (spin(!(inb(0x64) & 0x01), 500,) < 0) return -1;
     if (inb(0x60) != 0xFA) return -1; // Acknowledge check
     return 0; // Success
 }
@@ -39,9 +41,9 @@ int ps2_mouse_init() {
     set_sample_rate(80);
     outb(0x64, 0xD4);
     outb(0x60, 0xF2); // Identify command
-    while (!(inb(0x64) & 0x01));
+    if (spin(!(inb(0x64) & 0x01), 500,) < 0) return -1;
     if (inb(0x60) != 0xFA) return -1; // Acknowledge check
-    while (!(inb(0x64) & 0x01));
+    if (spin(!(inb(0x64) & 0x01), 500,) < 0) return -1;
     char mouse_id = inb(0x60);
     if (mouse_id == 0x03) {
         supports_intellimouse = 1;
@@ -49,7 +51,7 @@ int ps2_mouse_init() {
     // Enable data reporting
     outb(0x64, 0xD4);
     outb(0x60, 0xF4); // Enable data reporting command
-    while (!(inb(0x64) & 0x01));
+    if (spin(!(inb(0x64) & 0x01), 500,) < 0) return -1;
     if (inb(0x60) != 0xFA) return -1;
     pic_enable_irq(12);
     mouse_pipe = create_pipe();

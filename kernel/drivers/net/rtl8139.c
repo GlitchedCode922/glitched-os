@@ -6,6 +6,7 @@
 #include "memory/mman.h"
 #include "memory/paging.h"
 #include "error.h"
+#include "spin.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -50,7 +51,7 @@ void turn_on_rtl8139(int card) {
 
     // Reset the RTL8139
     outb(io_base + 0x37, 0x10); // Issue a reset command
-    while ((inb(io_base + 0x37) & 0x10)); // Wait for reset to complete
+    if (spin(inb(io_base + 0x37) & 0x10, 5000,) < 0) return;
 
     // Interrupt setup
     outw(io_base + 0x3C, 0x0005); // Set the TOK and ROK bits high
@@ -158,14 +159,12 @@ int rtl8139_read_packet(int card, void** buffer) {
     return length;
 }
 
-void rtl8139_send_packet(int card, void* buffer, int length) {
-    if (card >= cards_existing) return; // Invalid card index
-    if (length > 1792) return; // Packet too large
+int rtl8139_send_packet(int card, void* buffer, int length) {
+    if (card >= cards_existing) return -EINVAL; // Invalid card index
+    if (length > 1792) return -EINVAL; // Packet too large
 
     uint16_t io_base = base_io_addresses[card];
     int tx_index = tx_buffer_in_use[card];
-
-    asm volatile("cli");
 
     // Copy the packet to the transmit buffer
     uint8_t* tx_buffer = (uint8_t*)transmitter_buffers[card][tx_index];
@@ -177,11 +176,11 @@ void rtl8139_send_packet(int card, void* buffer, int length) {
     outl(io_base + 0x10 + (tx_index * 4), length);
 
     // Wait for transmission to complete
-    while (!(inw(io_base + 0x10 + (tx_index * 4)) & (1 << 13)));
+    if (spin(!(inw(io_base + 0x10 + (tx_index * 4)) & (1 << 13)), 100,) < 0) return -EIO;
 
     tx_buffer_in_use[card]++;
     if (tx_buffer_in_use[card] == 4) tx_buffer_in_use[card] = 0;
-    asm volatile("sti");
+    return 0;
 }
 
 void register_rtl8139_driver() {

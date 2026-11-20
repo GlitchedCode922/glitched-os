@@ -1,6 +1,7 @@
 #include "drivers/rtc.h"
 #include "drivers/timer.h"
 #include "io/ports.h"
+#include "spin.h"
 #include <stdint.h>
 
 static uint8_t rtc_read(uint8_t reg) {
@@ -22,8 +23,8 @@ static uint8_t bcd_to_bin(uint8_t val) {
 }
 
 uint64_t rtc_get_timestamp() {
-    while(!(rtc_read(0x0a) & 0x80));
-    while(rtc_read(0x0a) & 0x80);
+    spin(!(rtc_read(0x0a) & 0x80), 3000,);
+    spin(rtc_read(0x0a) & 0x80, 3000,);
 
     datetime_t dt = {
         .second = rtc_read(0x00),

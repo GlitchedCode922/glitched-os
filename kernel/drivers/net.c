@@ -67,8 +67,7 @@ int send_packet(int if_index, void* data, int length) {
     if (driver->send_packet == NULL) {
         return -ENOSYS; // Driver does not support sending packets
     }
-    driver->send_packet(iface->driver_local_index, data, length);
-    return 0; // Success
+    return driver->send_packet(iface->driver_local_index, data, length);
 }
 
 int receive_packet(int if_index, void **buffer) {

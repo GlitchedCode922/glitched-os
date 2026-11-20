@@ -13,7 +13,7 @@ typedef struct {
 } net_if_t;
 
 typedef struct {
-    void (*send_packet)(int card, void* buffer, int length);
+    int (*send_packet)(int card, void* buffer, int length);
     int (*read_packet)(int card, void** buffer);
     uint8_t* (*get_mac_address)(int card);
 } net_driver_t;

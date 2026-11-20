@@ -4,6 +4,7 @@
 #include "io/8259pic.h"
 #include "drivers/ps2_keyboard.h"
 #include "drivers/ps2_mouse.h"
+#include "spin.h"
 
 static int dual_channel = 0;
 static int mouse_present = 0;
@@ -18,18 +19,18 @@ void ps2_init() {
     outb(0x64, 0xA7);
     inb(0x60); // Discard any data in the buffer
     outb(0x64, 0x20); // Read command byte
-    while (!(inb(0x64) & 0x01));
+    if (spin(!(inb(0x64) & 0x01), 500,) < 0) return;
     uint8_t command_byte = inb(0x60);
     outb(0x64, 0x60); // Write command byte
-    while (inb(0x64) & 0x02);
+    if (spin(inb(0x64) & 0x02, 500,) < 0) return;
     outb(0x60, command_byte & ~(0x01 | 0x10) | 0x40);
     outb(0x64, 0xAA); // Self-test
-    while (!(inb(0x64) & 0x01));
+    if (spin(!(inb(0x64) & 0x01), 500,) < 0) return;
     if (inb(0x60) != 0x55) return; // Self-test failed
     // Check if second PS/2 port is available
     outb(0x64, 0xA8); // Enable second PS/2 port
     outb(0x64, 0x20); // Read command byte
-    while (!(inb(0x64) & 0x01));
+    if (spin(!(inb(0x64) & 0x01), 500,) < 0) return;
     command_byte = inb(0x60);
     if (command_byte & 0x20) {
         // Second PS/2 port is not available
@@ -38,29 +39,29 @@ void ps2_init() {
         dual_channel = 1;
         outb(0x64, 0xA7);
         outb(0x64, 0x20); // Read command byte
-        while (!(inb(0x64) & 0x01));
+        if (spin(!(inb(0x64) & 0x01), 500,) < 0) return;
         command_byte = inb(0x60);
         outb(0x64, 0x60);
-        while (inb(0x64) & 0x02);
+        if (spin(inb(0x64) & 0x02, 500,) < 0) return;
         outb(0x60, command_byte & ~0x22);
     }
     // Enable both devices
     outb(0x64, 0xAE);
     if (dual_channel) outb(0x64, 0xA8);
     outb(0x64, 0x20); // Read command byte
-    while (!(inb(0x64) & 0x01));
+    if (spin(!(inb(0x64) & 0x01), 500,) < 0) return;
     command_byte = inb(0x60);
     outb(0x64, 0x60);
-    while (inb(0x64) & 0x02);
+    if (spin(inb(0x64) & 0x02, 500,) < 0) return;
     outb(0x60, command_byte | 0x01 | (dual_channel ? 0x02 : 0));
     ps2_keyboard_init();
     // Check for a mouse
     if (!dual_channel) return;
     outb(0x64, 0xD4);
     outb(0x60, 0xF2); // Identify command
-    while (!(inb(0x64) & 0x01));
+    if (spin(!(inb(0x64) & 0x01), 500,) < 0) return;
     if (inb(0x60) != 0xFA) return;
-    while (!(inb(0x64) & 0x01));
+    if (spin(!(inb(0x64) & 0x01), 500,) < 0) return;
     char mouse_id = inb(0x60);
     if (mouse_id == 0x00) {
         mouse_present = 1;

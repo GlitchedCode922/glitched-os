@@ -4,7 +4,7 @@
 #include "io/ports.h"
 #include "io/8259pic.h"
 #include "error.h"
-#include "drivers/timer.h"
+#include "spin.h"
 #include "drivers/tty.h"
 
 const uint16_t serial_ports[] = {COM1_PORT, COM2_PORT, COM3_PORT, COM4_PORT};
@@ -43,14 +43,7 @@ void serial_init() {
         outb(port + 4, 0x10);
         outb(port + 0, 0xAE); // Test serial chip (send byte 0xAE and check if it's received)
 
-        const uint64_t start_tick = get_uptime_milliseconds();
-        const uint64_t timeout_ticks = 50;
-
-        while (!(inb(port + 5) & 0x01)) {
-            if ((get_uptime_milliseconds() - start_tick) > timeout_ticks) {
-                goto next;
-            }
-        }
+        if (spin(!(inb(port + 5) & 0x01), 10,) < 0) continue;
         uint8_t received = inb(port + 0);
         if (received != 0xAE) {
             // Serial port not working, skip enabling it
@@ -89,7 +82,7 @@ int serial_putc(int port, uint8_t data) {
         return -ENODEV; // Invalid port or not enabled
     }
     uint16_t port_addr = serial_ports[port - 1];
-    while (!(inb(port_addr + 5) & 0x20)); // Wait for the transmitter holding register to be empty
+    spin(!(inb(port_addr + 5) & 0x20), 10,); // Wait for the transmitter holding register to be empty
     outb(port_addr, data);
     return 1;
 }

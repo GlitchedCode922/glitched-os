@@ -6,6 +6,7 @@
 #include "memory/paging.h"
 #include "panic.h"
 #include "error.h"
+#include "spin.h"
 #include <stdint.h>
 
 typedef volatile struct {
@@ -147,12 +148,14 @@ int ahci_issue(hba_port_t* port, int slot, uint8_t cmd, uint64_t lba,
     f->lba5 = lba >> 40;
     f->count = count;
 
-    while (port->tfd & (0x80 | 0x08)) asm volatile("pause");
+    if (spin(port->tfd & (0x80 | 0x08), 5000,) < 0) return -EIO;
     port->ci |= 1 << slot;
 
-    while (port->ci & (1 << slot)) {
-        if (port->is & (1 << 30)) return -EIO;
-    }
+    int res = spin(port->ci & (1 << slot),
+        10000,
+        if (port->is & (1 << 30)) return -EIO
+    );
+    if (res < 0) return -EIO;
     if (port->is & (1 << 30)) return -EIO;
     port->is = 0xFFFFFFFF;
     return 0;
@@ -249,7 +252,7 @@ void ahci_init(pci_device_t device) {
     hba->ghc |= (1 << 31);
     if (hba->cap2 & 0x1) {
         hba->bohc |= 0x2;
-        while (hba->bohc & 0x1) asm volatile("pause");
+        if (spin(hba->bohc & 0x1, 5000,) < 0) return;
     }
 
     int num_slots = ((hba->cap >> 8) & 0x1F) + 1;
@@ -270,8 +273,9 @@ void ahci_init(pci_device_t device) {
         }
 
         port->cmd &= ~HBA_CMD_ST;
+        if (spin(port->cmd & HBA_CMD_CR, 1000,) < 0) continue;
         port->cmd &= ~HBA_CMD_FRE;
-        while (port->cmd & (HBA_CMD_FR | HBA_CMD_CR)) asm volatile("pause");
+        if (spin(port->cmd & HBA_CMD_FR, 1000,) < 0) continue;
 
         uintptr_t dma_page = allocate_physical_page();
         if (dma_page >> 32 && !s64a) panic("AHCI Driver: Couldn't get a physical page under 4GiB");
@@ -290,8 +294,11 @@ void ahci_init(pci_device_t device) {
 
         port->serr = 0xFFFFFFFF;
         port->is = 0xFFFFFFFF;
+
         port->cmd |= HBA_CMD_FRE;
+        if (spin(!(port->cmd & HBA_CMD_FR), 1000,) < 0) continue;
         port->cmd |= HBA_CMD_ST;
+        if (spin(!(port->cmd & HBA_CMD_CR), 1000,) < 0) continue;
 
         drives[drive_count].controller = hba;
         drives[drive_count].port = port;
