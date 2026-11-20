@@ -578,13 +578,13 @@ void* clone_page_tables(void* pml4_addr) {
                                     asm volatile("invlpg (%0)" :: "r"(va) : "memory");
                                 }
                             }
-                            add_hhdm_to(new_pd)[k] = ((uintptr_t)new_pt & PAGE_MASK) | (pde & HIGHER_LEVEL_FLAGS);
+                            add_hhdm_to(new_pd)[k] = ((uintptr_t)new_pt & PAGE_MASK) | HIGHER_LEVEL_FLAGS;
                         }
                     }
-                    add_hhdm_to(new_pdpt)[j] = ((uintptr_t)new_pd & PAGE_MASK) | (pdpte & HIGHER_LEVEL_FLAGS);
+                    add_hhdm_to(new_pdpt)[j] = ((uintptr_t)new_pd & PAGE_MASK) | HIGHER_LEVEL_FLAGS;
                 }
             }
-            add_hhdm_to(new_pml4)[i] = ((uintptr_t)new_pdpt & PAGE_MASK) | (pml4e & HIGHER_LEVEL_FLAGS);
+            add_hhdm_to(new_pml4)[i] = ((uintptr_t)new_pdpt & PAGE_MASK) | HIGHER_LEVEL_FLAGS;
         }
     }
     return new_pml4;

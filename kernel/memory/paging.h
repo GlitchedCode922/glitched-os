@@ -33,8 +33,10 @@ extern void* hhdm_base;
 extern uint64_t pml4_physical;
 #define pml4_address ((void*)((uintptr_t)hhdm_base + pml4_physical))
 #define change_pml4(pml4) do { \
+    asm volatile("cli"); \
     asm volatile("mov %0, %%cr3" :: "r"(pml4) : "memory"); \
     pml4_physical = (uint64_t)pml4; \
+    asm volatile("sti"); \
 } while(0)
 
 static inline uint64_t* add_hhdm_to(uint64_t* ptr) {

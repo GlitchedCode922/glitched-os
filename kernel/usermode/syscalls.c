@@ -353,12 +353,9 @@ void syscall(iframe_t* iframe) {
     iframe->rax = (uint64_t)ret;
     if (ticks_remaining <= 0 && iframe->cs == USER_CS) {
         run_next(iframe); // Next task
-    } else if (current_task->state == STATE_BLOCKED && iframe->cs == USER_CS) {
-        run_next(iframe); // Next task
+    } else if (current_task->state != STATE_RUNNING) {
+        run_next(iframe);
     } else if (iframe->cs == USER_CS) {
         deliver_signals();
-    }
-    if (current_task->state != STATE_RUNNING) {
-        run_next(iframe);
     }
 }

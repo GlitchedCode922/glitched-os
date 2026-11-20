@@ -283,13 +283,13 @@ void idt_init() {
     idt_set_entry(5, isr5, KERNEL_CS, 0x8E, 0);
     idt_set_entry(6, isr6, KERNEL_CS, 0x8E, 0);
     idt_set_entry(7, isr7, KERNEL_CS, 0x8E, 0);
-    idt_set_entry(8, isr8, KERNEL_CS, 0x8E, 2);
+    idt_set_entry(8, isr8, KERNEL_CS, 0x8E, 1);
     idt_set_entry(9, isr9, KERNEL_CS, 0x8E, 0);
     idt_set_entry(10, isr10, KERNEL_CS, 0x8E, 0);
     idt_set_entry(11, isr11, KERNEL_CS, 0x8E, 0);
     idt_set_entry(12, isr12, KERNEL_CS, 0x8E, 0);
     idt_set_entry(13, isr13, KERNEL_CS, 0x8E, 0);
-    idt_set_entry(14, isr14, KERNEL_CS, 0x8E, 1);
+    idt_set_entry(14, isr14, KERNEL_CS, 0x8E, 0);
     idt_set_entry(15, isr15, KERNEL_CS, 0x8E, 0);
     idt_set_entry(16, isr16, KERNEL_CS, 0x8E, 0);
     idt_set_entry(17, isr17, KERNEL_CS, 0x8E, 0);

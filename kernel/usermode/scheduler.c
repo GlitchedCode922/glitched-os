@@ -238,6 +238,7 @@ static void switch_task() {
 
 void run_next(iframe_t* iframe) {
     if (!scheduler_initialized) return;
+    asm volatile("cli");
     current_task->iframe = iframe;
     save_fpu(current_task->fpu_state);
     if (current_task->state == STATE_RUNNING) current_task->state = STATE_READY;
@@ -301,7 +302,6 @@ int fork(iframe_t* iframe) {
     current_task->child = new_task;
     current_task->iframe->rax = new_task->pid;
     new_task->iframe->rax = 0;
-    current_task->state = STATE_READY;
     return new_task->pid;
 }
 
@@ -556,7 +556,6 @@ int spawn(char* path, char** argv, char** envp, spawn_action_t** actions, iframe
     }
 
     current_task->iframe->rax = (uint64_t)res;
-    current_task->state = STATE_READY;
     return res;
 }
 
