@@ -5,6 +5,7 @@
 #include "usermode/scheduler.h"
 #include "drivers/timer.h"
 #include "drivers/serial.h"
+#include "panic.h"
 #include <stdint.h>
 
 irq_handler_t irq_handlers[16] = {0};
@@ -96,7 +97,7 @@ void irq0_handler(iframe_t* iframe) {
 
     check_blocked_tasks(1);
     ticks_remaining--;
-    if (ticks_remaining <= 0 && (iframe->cs == USER_CS || current_task->is_kworker)) {
+    if (ticks_remaining <= 0 && (iframe->cs == USER_CS || current_task->is_kworker) && panic_state == OPERATIONAL) {
         run_next(iframe); // Next task
     }
 }

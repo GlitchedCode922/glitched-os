@@ -9,6 +9,8 @@ typedef enum {
     WAITING_INPUT,
 } panic_state_t;
 
+extern panic_state_t panic_state;
+
 void stack_trace(uint64_t rip, uint64_t rbp);
 __attribute__((noreturn)) void vpanic_int(uint64_t rip, uint64_t rbp, const char *fmt, va_list args);
 __attribute__((noreturn)) void panic_int(uint64_t rip, uint64_t rbp, const char *fmt, ...);
