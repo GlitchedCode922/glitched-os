@@ -178,6 +178,8 @@ extern "C" {
 #define EWOULDBLOCK     _PDCLIB_EWOULDBLOCK
 /* Cross-device link */
 #define EXDEV           _PDCLIB_EXDEV
+/* No medium found */
+#define ENOMEDIUM       _PDCLIB_ENOMEDIUM
 
 /* Annex K -- Bounds-checking interfaces */
 

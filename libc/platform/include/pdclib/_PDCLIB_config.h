@@ -813,6 +813,8 @@ typedef int _PDCLIB_fd_t;
 #define _PDCLIB_EWOULDBLOCK      11
 /* Cross-device link */
 #define _PDCLIB_EXDEV            18
+/* No medium found */
+#define _PDCLIB_NOMEDIUM        123
 
 /* The highest defined errno value, plus one. This is used to set the size    */
 /* of the array in struct _PDCLIB_lc_text_t holding error messages for the    */

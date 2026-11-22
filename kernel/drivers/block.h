@@ -20,8 +20,8 @@ typedef struct {
 
 int read_sectors(block_device_t device, uint64_t lba, uint8_t *buffer, uint64_t count);
 int write_sectors(block_device_t device, uint64_t lba, const uint8_t *buffer, uint64_t count);
-int block_read(block_device_t dev, uint64_t offset, uint8_t *buffer, size_t size);
-int block_write(block_device_t dev, uint64_t offset, const uint8_t *buffer, size_t size);
+int64_t block_read(block_device_t dev, uint64_t offset, uint8_t *buffer, size_t size);
+int64_t block_write(block_device_t dev, uint64_t offset, const uint8_t *buffer, size_t size);
 int block_ioctl(block_device_t device, uint64_t request, uint64_t arg);
 int64_t get_blockdev_size(block_device_t device);
 int64_t get_sector_size(block_device_t device);

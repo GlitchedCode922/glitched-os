@@ -10,8 +10,8 @@
 #include <stddef.h>
 
 static ata_device_t devices[4] = {0};
-static char* ata_dev_names[4] = {"block/hda", "block/hdb", "block/hdc", "block/hdd"};
-static char* atapi_dev_names[4] = {"block/sr0", "block/sr1", "block/sr2", "block/sr3"};
+static char* ata_dev_names[4] = {"block/ide-hd0", "block/ide-hd1", "block/ide-hd2", "block/ide-hd3"};
+static char* atapi_dev_names[4] = {"block/ide-cd0", "block/ide-cd1", "block/ide-cd2", "block/ide-cd3"};
 
 void scan_for_devices() {
     devices[0] = detect_device(PRIMARY_BUS, 0xA0);
@@ -476,7 +476,7 @@ void ata_register() {
                 .major_number = driver_idx, // ATA driver index
                 .minor_number = i,          // Disk index
                 .name = name,
-                .is_partition = 0,
+                .is_partition = devices[i].type == 1 ? 1 : 0,
             };
             devfs_create_directory("block");
             register_block_device(&device);

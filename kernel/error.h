@@ -32,3 +32,4 @@
 #define ESRCH 3
 #define EPERM 1
 #define EINTR 4
+#define ENOMEDIUM 123

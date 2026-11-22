@@ -486,7 +486,7 @@ struct _PDCLIB_lc_messages_t _PDCLIB_lc_messages_C =
         /* unknown error   */ ( char * )"unknown error",
         /* unknown error   */ ( char * )"unknown error",
         /* unknown error   */ ( char * )"unknown error",
-        /* unknown error   */ ( char * )"unknown error",
+        /* ENOMEDIUM       */ ( char * )"ENOMEDIUM (No medium found)",
         /* unknown error   */ ( char * )"unknown error",
         /* ECANCELED       */ ( char * )"ECANCELED (Operation canceled)",
         /* unknown error   */ ( char * )"unknown error",
