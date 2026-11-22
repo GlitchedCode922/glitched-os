@@ -155,11 +155,7 @@ void* alloc_region(uintptr_t vaddr, size_t size, uint64_t flags) {
             pml4e = pml4[idx.pml4_index];
             if (!(pml4e & FLAGS_PRESENT)) {
                 uint64_t *new_pdpt = (uint64_t*)allocate_physical_page();
-                uint64_t *new_pdpt_hhdm = add_hhdm_to(new_pdpt);
                 if (!new_pdpt) panic("alloc_region: cannot allocate PDPT");
-                // clear entries
-                for (int i = 0; i < 512; i++) new_pdpt_hhdm[i] = 0;
-                // install
                 pml4[idx.pml4_index] = ((uintptr_t)new_pdpt & PAGE_MASK)
                                     | HIGHER_LEVEL_FLAGS;
                 pml4e = pml4[idx.pml4_index];
@@ -173,9 +169,7 @@ void* alloc_region(uintptr_t vaddr, size_t size, uint64_t flags) {
             pdpte = pdpt[idx.pdpt_index];
             if (!(pdpte & FLAGS_PRESENT)) {
                 uint64_t *new_pd = (uint64_t*)allocate_physical_page();
-                uint64_t *new_pd_hhdm = add_hhdm_to(new_pd);
                 if (!new_pd) panic("alloc_region: cannot allocate PD");
-                for (int i = 0; i < 512; i++) new_pd_hhdm[i] = 0;
                 pdpt[idx.pdpt_index] = ((uintptr_t)new_pd & PAGE_MASK)
                                     | HIGHER_LEVEL_FLAGS;
                 pdpte = pdpt[idx.pdpt_index];
@@ -189,9 +183,7 @@ void* alloc_region(uintptr_t vaddr, size_t size, uint64_t flags) {
             pde = pd[idx.pd_index];
             if (!(pde & FLAGS_PRESENT)) {
                 uint64_t *new_pt = (uint64_t*)allocate_physical_page();
-                uint64_t *new_pt_hhdm = add_hhdm_to(new_pt);
                 if (!new_pt) panic("alloc_region: cannot allocate PT");
-                for (int i = 0; i < 512; i++) new_pt_hhdm[i] = 0;
                 pd[idx.pd_index] = ((uintptr_t)new_pt & PAGE_MASK)
                                 | HIGHER_LEVEL_FLAGS;
                 pde = pd[idx.pd_index];
@@ -255,11 +247,7 @@ void* alloc_mmio_region(uintptr_t vaddr, uintptr_t paddr, size_t size, uint64_t 
             pml4e = pml4[idx.pml4_index];
             if (!(pml4e & FLAGS_PRESENT)) {
                 uint64_t *new_pdpt = (uint64_t*)allocate_physical_page();
-                uint64_t *new_pdpt_hhdm = add_hhdm_to(new_pdpt);
                 if (!new_pdpt) panic("alloc_region: cannot allocate PDPT");
-                // clear entries
-                for (int i = 0; i < 512; i++) new_pdpt_hhdm[i] = 0;
-                // install
                 pml4[idx.pml4_index] = ((uintptr_t)new_pdpt & PAGE_MASK)
                                     | HIGHER_LEVEL_FLAGS;
                 pml4e = pml4[idx.pml4_index];
@@ -273,9 +261,7 @@ void* alloc_mmio_region(uintptr_t vaddr, uintptr_t paddr, size_t size, uint64_t 
             pdpte = pdpt[idx.pdpt_index];
             if (!(pdpte & FLAGS_PRESENT)) {
                 uint64_t *new_pd = (uint64_t*)allocate_physical_page();
-                uint64_t *new_pd_hhdm = add_hhdm_to(new_pd);
                 if (!new_pd) panic("alloc_region: cannot allocate PD");
-                for (int i = 0; i < 512; i++) new_pd_hhdm[i] = 0;
                 pdpt[idx.pdpt_index] = ((uintptr_t)new_pd & PAGE_MASK)
                                     | HIGHER_LEVEL_FLAGS;
                 pdpte = pdpt[idx.pdpt_index];
@@ -289,9 +275,7 @@ void* alloc_mmio_region(uintptr_t vaddr, uintptr_t paddr, size_t size, uint64_t 
             pde = pd[idx.pd_index];
             if (!(pde & FLAGS_PRESENT)) {
                 uint64_t *new_pt = (uint64_t*)allocate_physical_page();
-                uint64_t *new_pt_hhdm = add_hhdm_to(new_pt);
                 if (!new_pt) panic("alloc_region: cannot allocate PT");
-                for (int i = 0; i < 512; i++) new_pt_hhdm[i] = 0;
                 pd[idx.pd_index] = ((uintptr_t)new_pt & PAGE_MASK)
                                 | HIGHER_LEVEL_FLAGS;
                 pde = pd[idx.pd_index];
@@ -353,11 +337,7 @@ void* alloc_zero_region(uintptr_t vaddr, size_t size, uint64_t flags) {
             pml4e = pml4[idx.pml4_index];
             if (!(pml4e & FLAGS_PRESENT)) {
                 uint64_t *new_pdpt = (uint64_t*)allocate_physical_page();
-                uint64_t *new_pdpt_hhdm = add_hhdm_to(new_pdpt);
                 if (!new_pdpt) panic("alloc_region: cannot allocate PDPT");
-                // clear entries
-                for (int i = 0; i < 512; i++) new_pdpt_hhdm[i] = 0;
-                // install
                 pml4[idx.pml4_index] = ((uintptr_t)new_pdpt & PAGE_MASK)
                                     | HIGHER_LEVEL_FLAGS;
                 pml4e = pml4[idx.pml4_index];
@@ -371,9 +351,7 @@ void* alloc_zero_region(uintptr_t vaddr, size_t size, uint64_t flags) {
             pdpte = pdpt[idx.pdpt_index];
             if (!(pdpte & FLAGS_PRESENT)) {
                 uint64_t *new_pd = (uint64_t*)allocate_physical_page();
-                uint64_t *new_pd_hhdm = add_hhdm_to(new_pd);
                 if (!new_pd) panic("alloc_region: cannot allocate PD");
-                for (int i = 0; i < 512; i++) new_pd_hhdm[i] = 0;
                 pdpt[idx.pdpt_index] = ((uintptr_t)new_pd & PAGE_MASK)
                                     | HIGHER_LEVEL_FLAGS;
                 pdpte = pdpt[idx.pdpt_index];
@@ -387,9 +365,7 @@ void* alloc_zero_region(uintptr_t vaddr, size_t size, uint64_t flags) {
             pde = pd[idx.pd_index];
             if (!(pde & FLAGS_PRESENT)) {
                 uint64_t *new_pt = (uint64_t*)allocate_physical_page();
-                uint64_t *new_pt_hhdm = add_hhdm_to(new_pt);
                 if (!new_pt) panic("alloc_region: cannot allocate PT");
-                for (int i = 0; i < 512; i++) new_pt_hhdm[i] = 0;
                 pd[idx.pd_index] = ((uintptr_t)new_pt & PAGE_MASK)
                                 | HIGHER_LEVEL_FLAGS;
                 pde = pd[idx.pd_index];
