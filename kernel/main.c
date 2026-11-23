@@ -1,6 +1,7 @@
 #include "console.h"
 #include "drivers/block/ahci.h"
 #include "drivers/block/ata.h"
+#include "drivers/block/nvme.h"
 #include "drivers/net/rtl8139.h"
 #include "drivers/partitions.h"
 #include "drivers/nulldev.h"
@@ -142,6 +143,7 @@ void kernel_main() {
     net_init();
     register_rtl8139_driver();
     ahci_register();
+    nvme_register();
     register_null_devices();
     enumerate_pci();
     ata_register();

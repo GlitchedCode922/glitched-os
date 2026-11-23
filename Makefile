@@ -180,5 +180,24 @@ build/disk.img: build/kernel $(BINARY_TARGETS) build/sh limine.conf build/.glitc
 clean:
 	rm -rf build
 
+OVMF_CODE := $(firstword $(wildcard \
+    /usr/share/OVMF/OVMF_CODE.fd \
+    /usr/share/OVMF/OVMF_CODE_4M.fd \
+    /usr/share/edk2/x64/OVMF_CODE.fd \
+    /usr/share/edk2/x64/OVMF_CODE.4m.fd \
+    /usr/share/edk2/ovmf/OVMF_CODE.fd \
+))
+
+BIOS ?= 0
+OVMF_CMD := -drive if=pflash,format=raw,readonly=on,file=$(OVMF_CODE)
+SATA_DRIVE_CMD := -drive file=build/disk.img,format=raw
+NVME_DRIVE_CMD := -drive file=build/disk.img,format=raw,if=none,id=main -device nvme,serial=glitched-os,drive=main
+BIOS_CMD := $(if $(filter 0,$(BIOS)),$(if $(OVMF_CODE),$(OVMF_CMD),),)
+DRIVE_CMD := $(if $(filter 0,$(BIOS)),$(if $(OVMF_CODE),$(NVME_DRIVE_CMD),$(SATA_DRIVE_CMD)),$(SATA_DRIVE_CMD))
+
+ifeq ($(OVMF_CODE),)
+    $(error OVMF_CODE not found)
+endif
+
 run: disk-image
-	qemu-system-x86_64 -machine q35 -m 4G -drive file=build/disk.img,format=raw $(QEMUFLAGS)
+	qemu-system-x86_64 -machine q35 -m 4G $(BIOS_CMD) $(DRIVE_CMD) $(QEMUFLAGS)

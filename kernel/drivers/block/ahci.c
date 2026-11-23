@@ -136,7 +136,7 @@ static int ahci_port_recover(hba_port_t* port, int sclo) {
         }
         if (port->tfd & (0x80 | 0x08)) {                 // still stuck: COMRESET
             port->sctl = (port->sctl & ~0xFu) | 1;       // DET = 1
-            spin(0, 2,);
+            spin(1, 2,);
             port->sctl &= ~0xFu;
             spin((port->ssts & 0xF) != 3, 1000,);
             port->serr = 0xFFFFFFFF;
