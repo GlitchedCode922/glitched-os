@@ -62,7 +62,7 @@ typedef struct {
     int64_t size;
 } partition_t;
 
-extern partition_t partitions[256];
+extern partition_t partitions[1024];
 extern int partition_count;
 
 int detect_partitions(block_device_t device);

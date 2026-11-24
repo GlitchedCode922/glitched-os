@@ -16,7 +16,8 @@ static int64_t glfs_backing_read_block(void* data, uint64_t block, void* buffer)
         .major_number = major((dev_t)data),
         .minor_number = minor((dev_t)data),
     };
-    return read_sectors(dev, block * (GLFS_BLOCK_SIZE / 512), buffer, GLFS_BLOCK_SIZE / 512);
+    int64_t sector_size = get_sector_size(dev);
+    return read_sectors(dev, block * (GLFS_BLOCK_SIZE / sector_size), buffer, GLFS_BLOCK_SIZE / sector_size);
 }
 
 static int64_t glfs_backing_write_block(void* data, uint64_t block, const void* buffer) {
@@ -24,7 +25,8 @@ static int64_t glfs_backing_write_block(void* data, uint64_t block, const void* 
         .major_number = major((dev_t)data),
         .minor_number = minor((dev_t)data),
     };
-    return write_sectors(dev, block * (GLFS_BLOCK_SIZE / 512), buffer, GLFS_BLOCK_SIZE / 512);
+    int64_t sector_size = get_sector_size(dev);
+    return write_sectors(dev, block * (GLFS_BLOCK_SIZE / sector_size), buffer, GLFS_BLOCK_SIZE / sector_size);
 }
 
 glfs_backing_t create_backing(block_device_t dev) {

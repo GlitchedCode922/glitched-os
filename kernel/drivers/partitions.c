@@ -7,7 +7,7 @@
 #include "vfs.h"
 #include <stdint.h>
 
-partition_t partitions[256] = {0};
+partition_t partitions[1024] = {0};
 int partition_count = 0;
 int partition_driver_index = 0;
 
@@ -55,19 +55,25 @@ static void itoa(uint64_t value, char* buffer) {
 }
 
 int has_mbr(block_device_t device) {
-    uint8_t buffer[1024];
+    int64_t sector_size = get_sector_size(device);
+    if (sector_size < 0) return sector_size;
+    uint8_t buffer[sector_size * 2];
     int res = read_sectors(device, 0, buffer, 2);
     if (res < 0) return res;
     uint8_t mbr_signature = memcmp(&buffer[510], (char[]){0x55, 0xAA}, 2);
-    uint8_t gpt_signature = memcmp(&buffer[512], "EFI PART", 8);
+    uint8_t gpt_signature = memcmp(&buffer[sector_size], "EFI PART", 8);
     if (gpt_signature == 0) return 0;
     if (mbr_signature == 0) return 1;
     return 0;
 }
 
 int mbr_detect_partitions(block_device_t device) {
+    if (partition_count >= 1024) return -ENOSPC;
+
     if (!has_mbr(device)) return 0;
-    uint8_t buffer[512];
+    int64_t sector_size = get_sector_size(device);
+    if (sector_size < 0) return sector_size;
+    uint8_t buffer[sector_size];
     int res = read_sectors(device, 0, buffer, 1);
     if (res < 0) return res;
 
@@ -76,6 +82,7 @@ int mbr_detect_partitions(block_device_t device) {
         mbr_partition_entry_t* part = (void*)(buffer + 446 + i * 16);
         if (part->partition_type == 0x00) continue; // Empty
         if (part->partition_type == 0x05 || part->partition_type == 0x0F) continue; // Extended partition
+        if (partition_count >= 1024) return -ENOSPC;
         found++;
         partition_t output;
         output.blockdev = device;
@@ -98,10 +105,12 @@ int mbr_detect_partitions(block_device_t device) {
 }
 
 int has_gpt(block_device_t device) {
-    uint8_t buffer[1024];
-    int res = read_sectors(device, 0, buffer, 2);
+    int64_t sector_size = get_sector_size(device);
+    if (sector_size < 0) return sector_size;
+    uint8_t buffer[sector_size];
+    int res = read_sectors(device, 1, buffer, 1);
     if (res < 0) return res;
-    return memcmp(&buffer[512], "EFI PART", 8) == 0;
+    return memcmp(buffer, "EFI PART", 8) == 0;
 }
 
 static int partition_name_to_ascii(const uint16_t* name, char* out) {
@@ -115,9 +124,13 @@ static int partition_name_to_ascii(const uint16_t* name, char* out) {
 }
 
 int gpt_detect_partitions(block_device_t device) {
-    if (!has_gpt(device)) return 0;
+    if (partition_count >= 1024) return -ENOSPC;
 
-    uint8_t header_buffer[512];
+    if (!has_gpt(device)) return 0;
+    int64_t sector_size = get_sector_size(device);
+    if (sector_size < 0) return sector_size;
+
+    uint8_t header_buffer[sector_size];
     int res = read_sectors(device, 1, header_buffer, 1);
     if (res < 0) return res;
 
@@ -125,12 +138,12 @@ int gpt_detect_partitions(block_device_t device) {
     if (memcmp(header->signature, "EFI PART", 8) != 0) return 0;
     if (header->size_of_partition_entry == 0 || header->num_partition_entries == 0) return 0;
 
-    uint32_t entries_per_sector = 512 / header->size_of_partition_entry;
+    uint32_t entries_per_sector = sector_size / header->size_of_partition_entry;
     if (entries_per_sector == 0) return 0;
 
     uint32_t total_entries = header->num_partition_entries;
     uint32_t sectors = (total_entries + entries_per_sector - 1) / entries_per_sector;
-    uint8_t entry_buffer[512];
+    uint8_t entry_buffer[sector_size];
     int found = 0;
 
     for (uint32_t sector_index = 0; sector_index < sectors; sector_index++) {
@@ -144,8 +157,8 @@ int gpt_detect_partitions(block_device_t device) {
         }
 
         for (uint32_t entry_index = 0; entry_index < entries_this_sector; entry_index++) {
-            uint8_t *entry_ptr = entry_buffer + entry_index * header->size_of_partition_entry;
-            gpt_entry_t *gpt_entry = (gpt_entry_t *)entry_ptr;
+            uint8_t* entry_ptr = entry_buffer + entry_index * header->size_of_partition_entry;
+            gpt_entry_t* gpt_entry = (gpt_entry_t*)entry_ptr;
 
             int empty = 1;
             for (int i = 0; i < 16; i++) {
@@ -156,7 +169,7 @@ int gpt_detect_partitions(block_device_t device) {
             }
             if (empty) continue;
             if (gpt_entry->starting_lba == 0 || gpt_entry->ending_lba < gpt_entry->starting_lba) continue;
-            if (partition_count >= 256) return -ENOSPC;
+            if (partition_count >= 1024) return -ENOSPC;
 
             partition_t output = {0};
             output.blockdev = device;

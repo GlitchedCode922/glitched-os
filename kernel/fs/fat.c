@@ -9,6 +9,22 @@
 
 static fat_data_t* data;
 
+static int fat_read_sectors(block_device_t device, uint32_t sector,
+                            uint8_t *buffer, uint32_t count) {
+    return block_read(device,
+                      (uint64_t)sector * data->bpb.bytes_per_sector,
+                      buffer,
+                      (size_t)count * data->bpb.bytes_per_sector);
+}
+
+static int fat_write_sectors(block_device_t device, uint32_t sector,
+                             const uint8_t *buffer, uint32_t count) {
+    return block_write(device,
+                       (uint64_t)sector * data->bpb.bytes_per_sector,
+                       buffer,
+                       (size_t)count * data->bpb.bytes_per_sector);
+}
+
 uint64_t fat_timestamp_to_unix(uint16_t fat_date, uint16_t fat_time) {
     // Convert FAT date and time to Unix timestamp
     datetime_t dt = {
@@ -42,7 +58,7 @@ void unix_to_fat_timestamp(uint64_t timestamp, uint16_t *fat_date, uint16_t *fat
 
 int fat_check(block_device_t device) {
     bpb_t bpb;
-    read_sectors(device, 0, (uint8_t*)&bpb, 1);
+    if (block_read(device, 0, (uint8_t*)&bpb, sizeof(bpb)) < 0) return 0;
     char f32_signature[8] = "FAT32   ";
     return memcmp(bpb.file_system_type, f32_signature, 8) == 0;
 }
@@ -60,7 +76,7 @@ void* fat_mount(block_device_t device, int flags) {
     data->last_free = data->fsinfo.next_free_cluster >= 2 && data->fsinfo.next_free_cluster < max_clusters ? data->fsinfo.next_free_cluster : 2;
     data->read_only = flags & FLAG_READ_ONLY;
     data->fat = kmalloc(data->fat_size * data->bpb.bytes_per_sector);
-    int res = read_sectors(data->backing, data->bpb.reserved_sectors, (uint8_t*)data->fat, data->fat_size);
+    int res = fat_read_sectors(data->backing, data->bpb.reserved_sectors, (uint8_t*)data->fat, data->fat_size);
     if (res < 0) {
         kfree(data->fat);
         kfree(data);
@@ -75,13 +91,15 @@ void fat_select(void* p_data) {
 
 bpb_t fat_get_bpb() {
     bpb_t bpb;
-    read_sectors(data->backing, 0, (uint8_t*)&bpb, 1);
+    block_read(data->backing, 0, (uint8_t*)&bpb, sizeof(bpb));
     return bpb;
 }
 
 fsinfo_t fat_get_fsinfo() {
     fsinfo_t fsinfo;
-    read_sectors(data->backing, data->bpb.fs_info, (uint8_t*)&fsinfo, 1);
+    block_read(data->backing,
+               (uint64_t)data->bpb.fs_info * data->bpb.bytes_per_sector,
+               (uint8_t*)&fsinfo, sizeof(fsinfo));
     return fsinfo;
 }
 
@@ -97,14 +115,14 @@ void write_fat(uint32_t cluster, uint32_t content) {
     uint32_t ent_offset = fat_offset % data->bpb.bytes_per_sector;
 
     for (uint8_t i = 0; i < data->bpb.num_fats; i++) {
-        uint8_t sector_buffer[512];
-        read_sectors(data->backing, (fat_sector + i * data->fat_size), sector_buffer, 1);
+        uint8_t sector_buffer[data->bpb.bytes_per_sector];
+        fat_read_sectors(data->backing, (fat_sector + i * data->fat_size), sector_buffer, 1);
 
         uint32_t *entry = (uint32_t*)&sector_buffer[ent_offset];
         uint32_t old = *entry;
         uint32_t newval = (old & 0xF0000000) | (content & 0x0FFFFFFF);
         *entry = newval;
-        write_sectors(data->backing, (fat_sector + i * data->fat_size), sector_buffer, 1);
+        fat_write_sectors(data->backing, (fat_sector + i * data->fat_size), sector_buffer, 1);
     }
 }
 
@@ -126,8 +144,8 @@ uint32_t fat_compute_free_cluster() {
     uint32_t start_sector = (start_cluster * 4) / data->bpb.bytes_per_sector;
 
     for (uint32_t sector = start_sector; sector < data->fat_size; sector++) {
-        uint8_t sector_buffer[512];
-        if (read_sectors(data->backing, data->bpb.reserved_sectors + sector, sector_buffer, 1) < 0) return 0;
+        uint8_t sector_buffer[data->bpb.bytes_per_sector];
+        if (fat_read_sectors(data->backing, data->bpb.reserved_sectors + sector, sector_buffer, 1) < 0) return 0;
         uint32_t *entries = (uint32_t *)sector_buffer;
         for (uint32_t i = 0; i < entries_per_sector; i++) {
             uint32_t cluster = sector * entries_per_sector + i;
@@ -141,8 +159,8 @@ uint32_t fat_compute_free_cluster() {
     }
 
     for (uint32_t sector = 0; sector < start_sector; sector++) {
-        uint8_t sector_buffer[512];
-        if (read_sectors(data->backing, data->bpb.reserved_sectors + sector, sector_buffer, 1) < 0) return 0;
+        uint8_t sector_buffer[data->bpb.bytes_per_sector];
+        if (fat_read_sectors(data->backing, data->bpb.reserved_sectors + sector, sector_buffer, 1) < 0) return 0;
         uint32_t *entries = (uint32_t *)sector_buffer;
         for (uint32_t i = 0; i < entries_per_sector; i++) {
             uint32_t cluster = sector * entries_per_sector + i;
@@ -278,7 +296,7 @@ fat_dirent_ref_t fat_get_dirent_ref(const char *path) {
         uint32_t cluster = dirent_ref.cluster;
         uint32_t bytes_per_cluster = data->bpb.sectors_per_cluster * data->bpb.bytes_per_sector;
         uint8_t cluster_buffer[bytes_per_cluster];
-        read_sectors(data->backing, get_first_cluster_sector(cluster), cluster_buffer, data->bpb.sectors_per_cluster);
+        fat_read_sectors(data->backing, get_first_cluster_sector(cluster), cluster_buffer, data->bpb.sectors_per_cluster);
 
         // Search for the next component in the path
         char component[12]; // 8.3 format
@@ -299,7 +317,7 @@ fat_dirent_ref_t fat_get_dirent_ref(const char *path) {
                 cluster = next_cluster(cluster);
                 if (cluster >= CLUSTER_CHAIN_END) break; // End of cluster chain
 
-                read_sectors(data->backing, get_first_cluster_sector(cluster), cluster_buffer, data->bpb.sectors_per_cluster);
+                fat_read_sectors(data->backing, get_first_cluster_sector(cluster), cluster_buffer, data->bpb.sectors_per_cluster);
                 offset = 0;
             }
             fat_dirent_t* dirent = (fat_dirent_t*)&cluster_buffer[offset];
@@ -317,8 +335,8 @@ fat_dirent_ref_t fat_get_dirent_ref(const char *path) {
                 dirent_ref.found = 1;
                 dirent_ref.dirent = *dirent;
                 dirent_ref.cluster = ((uint32_t)dirent->first_cluster_high << 16) | dirent->first_cluster_low;
-                dirent_ref.position[0] = get_first_cluster_sector(cluster) + offset / 512;
-                dirent_ref.position[1] = offset % 512;
+                dirent_ref.position[0] = get_first_cluster_sector(cluster) + offset / data->bpb.bytes_per_sector;
+                dirent_ref.position[1] = offset % data->bpb.bytes_per_sector;
                 found = 1;
                 break;
             }
@@ -351,8 +369,8 @@ fat_dirent_t fat_read_dirent(uint64_t handle) {
     uint32_t offset;
     sector = (uint32_t)(handle >> 32);
     offset = (uint32_t)(handle & 0xffffffff);
-    uint8_t sector_buffer[512];
-    read_sectors(data->backing, sector, sector_buffer, 1);
+    uint8_t sector_buffer[data->bpb.bytes_per_sector];
+    fat_read_sectors(data->backing, sector, sector_buffer, 1);
     return *(fat_dirent_t*)(sector_buffer + offset);
 }
 
@@ -368,7 +386,7 @@ int fat_lookup(const char* name, uint64_t parent, uint64_t* handle) {
     uint32_t cluster = ((uint32_t)dirent.first_cluster_high << 16) | dirent.first_cluster_low;
     uint32_t bytes_per_cluster = data->bpb.sectors_per_cluster * data->bpb.bytes_per_sector;
     uint8_t cluster_buffer[bytes_per_cluster];
-    read_sectors(data->backing, get_first_cluster_sector(cluster), cluster_buffer, data->bpb.sectors_per_cluster);
+    fat_read_sectors(data->backing, get_first_cluster_sector(cluster), cluster_buffer, data->bpb.sectors_per_cluster);
 
     char n_name[512];
     normalize_fat_path(name, n_name);
@@ -390,7 +408,7 @@ int fat_lookup(const char* name, uint64_t parent, uint64_t* handle) {
             cluster = next_cluster(cluster);
             if (cluster >= CLUSTER_CHAIN_END) break; // End of cluster chain
 
-            read_sectors(data->backing, get_first_cluster_sector(cluster), cluster_buffer, data->bpb.sectors_per_cluster);
+            fat_read_sectors(data->backing, get_first_cluster_sector(cluster), cluster_buffer, data->bpb.sectors_per_cluster);
             offset = 0;
         }
         fat_dirent_t* dirent = (fat_dirent_t*)&cluster_buffer[offset];
@@ -406,8 +424,8 @@ int fat_lookup(const char* name, uint64_t parent, uint64_t* handle) {
         if (memcmp(dirent_name, component, 11) == 0) {
             uint32_t position[2];
 
-            position[0] = get_first_cluster_sector(cluster) + offset / 512;
-            position[1] = offset % 512;
+            position[0] = get_first_cluster_sector(cluster) + offset / data->bpb.bytes_per_sector;
+            position[1] = offset % data->bpb.bytes_per_sector;
             *handle = (uint64_t)position[0] << 32 | position[1];
             return 0;
         }
@@ -437,7 +455,7 @@ int fat_readdir(uint64_t handle, int index, dirent_t* out) {
     while (cluster < CLUSTER_CHAIN_END) {
         uint32_t bytes_per_cluster = data->bpb.sectors_per_cluster * data->bpb.bytes_per_sector;
         uint8_t cluster_buffer[bytes_per_cluster];
-        read_sectors(data->backing, get_first_cluster_sector(cluster), cluster_buffer, data->bpb.sectors_per_cluster);
+        fat_read_sectors(data->backing, get_first_cluster_sector(cluster), cluster_buffer, data->bpb.sectors_per_cluster);
 
         // Iterate through directory entries
         uint32_t offset = 0;
@@ -502,7 +520,7 @@ int64_t fat_read(uint64_t handle, uint8_t *buffer, size_t offset, size_t size) {
     while (bytes_read < size) {
         uint32_t first_sector = ((current_cluster - 2) * data->bpb.sectors_per_cluster) + data->bpb.reserved_sectors + (data->bpb.num_fats * data->fat_size);
         uint8_t cluster_buffer[cluster_size];
-        read_sectors(data->backing, first_sector, cluster_buffer, data->bpb.sectors_per_cluster);
+        fat_read_sectors(data->backing, first_sector, cluster_buffer, data->bpb.sectors_per_cluster);
 
         while (cluster_offset < cluster_size && bytes_read < size) {
             buffer[bytes_read++] = cluster_buffer[cluster_offset++];
@@ -532,11 +550,11 @@ int fat_delete(const char* path) {
         return -ENOENT; // File not found
     }
     // Read the sector containing the dirent
-    uint8_t sector_buffer[512];
-    read_sectors(data->backing, dirent_ref.position[0], sector_buffer, 1);
+    uint8_t sector_buffer[data->bpb.bytes_per_sector];
+    fat_read_sectors(data->backing, dirent_ref.position[0], sector_buffer, 1);
     // Set first byte of name to 0xE5
     sector_buffer[dirent_ref.position[1]] = DIRENT_DELETED;
-    write_sectors(data->backing, dirent_ref.position[0], sector_buffer, 1);
+    fat_write_sectors(data->backing, dirent_ref.position[0], sector_buffer, 1);
     // Free clusters used by the file
     uint32_t cluster = ((uint32_t)dirent_ref.dirent.first_cluster_high << 16) | dirent_ref.dirent.first_cluster_low;
     while (cluster < CLUSTER_CHAIN_END) {
@@ -570,7 +588,7 @@ int fat_add_dirent(const char *path, fat_dirent_t dirent) {
         uint32_t bytes_per_cluster = data->bpb.sectors_per_cluster * data->bpb.bytes_per_sector;
         uint8_t cluster_buffer[bytes_per_cluster];
         uint32_t first_sector = get_first_cluster_sector(cluster);
-        read_sectors(data->backing, first_sector, cluster_buffer, data->bpb.sectors_per_cluster);
+        fat_read_sectors(data->backing, first_sector, cluster_buffer, data->bpb.sectors_per_cluster);
 
         // Search for free entry
         uint32_t offset = 0;
@@ -580,7 +598,7 @@ int fat_add_dirent(const char *path, fat_dirent_t dirent) {
                 // Found free entry
                 memcpy(current_dirent, &dirent, sizeof(fat_dirent_t));
                 // Write back the cluster
-                write_sectors(data->backing, first_sector, cluster_buffer, data->bpb.sectors_per_cluster);
+                fat_write_sectors(data->backing, first_sector, cluster_buffer, data->bpb.sectors_per_cluster);
                 return 0; // Success
             }
             offset += sizeof(fat_dirent_t);
@@ -600,7 +618,7 @@ int fat_add_dirent(const char *path, fat_dirent_t dirent) {
             uint32_t new_first_sector = get_first_cluster_sector(free_cluster);
             uint8_t zero_buffer[data->bpb.sectors_per_cluster * data->bpb.bytes_per_sector];
             memset(zero_buffer, 0, sizeof(zero_buffer));
-            write_sectors(data->backing, new_first_sector, zero_buffer, data->bpb.sectors_per_cluster);
+            fat_write_sectors(data->backing, new_first_sector, zero_buffer, data->bpb.sectors_per_cluster);
             next = free_cluster;
         }
         cluster = next;
@@ -700,7 +718,7 @@ int fat_create_directory(const char *path) {
     uint32_t new_first_sector = get_first_cluster_sector(free_cluster);
     uint8_t zero_buffer[data->bpb.sectors_per_cluster * data->bpb.bytes_per_sector];
     memset(zero_buffer, 0, sizeof(zero_buffer));
-    write_sectors(data->backing, new_first_sector, zero_buffer, data->bpb.sectors_per_cluster);
+    fat_write_sectors(data->backing, new_first_sector, zero_buffer, data->bpb.sectors_per_cluster);
     dirent.first_cluster_low  = free_cluster & 0xFFFF;
     dirent.first_cluster_high = free_cluster >> 16;
 
@@ -717,7 +735,7 @@ int fat_create_directory(const char *path) {
         return res; // Failed to add dirent
     }
     // Initialize the new directory cluster with '.' and '..' entries
-    uint8_t sector_buffer[512];
+    uint8_t sector_buffer[data->bpb.bytes_per_sector];
     fat_dirent_t* entries = (fat_dirent_t*)sector_buffer;
     memcpy(entries[0].name, ".          ", 11);
     entries[0].attributes = DIRENT_DIRECTORY;
@@ -738,7 +756,7 @@ int fat_create_directory(const char *path) {
     entries[1].creation_time = fat_time;
     entries[2].name[0] = DIRENT_END; // End entry
     uint32_t first_sector = get_first_cluster_sector(free_cluster);
-    res = write_sectors(data->backing, first_sector, sector_buffer, 1);
+    res = fat_write_sectors(data->backing, first_sector, sector_buffer, 1);
     if (res < 0) {
         return res; // Failed to add '.' or '..' entries
     }
@@ -781,9 +799,9 @@ int64_t fat_write_to_file(uint64_t handle, const uint8_t *buffer, size_t offset,
                 return -ENOSPC; // No free clusters available
             }
             // Clear cluster
-            uint8_t empty_cluster[data->bpb.sectors_per_cluster * 512];
-            memset(empty_cluster, 0, data->bpb.sectors_per_cluster * 512);
-            int res = write_sectors(data->backing, get_first_cluster_sector(free_cluster), empty_cluster, data->bpb.sectors_per_cluster);
+            uint8_t empty_cluster[data->bpb.sectors_per_cluster * data->bpb.bytes_per_sector];
+            memset(empty_cluster, 0, data->bpb.sectors_per_cluster * data->bpb.bytes_per_sector);
+            int res = fat_write_sectors(data->backing, get_first_cluster_sector(free_cluster), empty_cluster, data->bpb.sectors_per_cluster);
             if (res < 0) return res;
             // Update FAT to link new cluster
             write_fat(previous_cluster, free_cluster & 0x0FFFFFFF);
@@ -814,12 +832,12 @@ int64_t fat_write_to_file(uint64_t handle, const uint8_t *buffer, size_t offset,
         uint8_t cluster_buffer[cluster_size];
 
         if (cluster_offset) {
-            int res = read_sectors(data->backing, first_sector, cluster_buffer, data->bpb.sectors_per_cluster);
+            int res = fat_read_sectors(data->backing, first_sector, cluster_buffer, data->bpb.sectors_per_cluster);
             if (res < 0) {
                 return res; // Failed to read cluster
             }
-        } else if (size - bytes_written < data->bpb.sectors_per_cluster * 512) {
-            memset(cluster_buffer, 0, data->bpb.sectors_per_cluster * 512);
+        } else if (size - bytes_written < data->bpb.sectors_per_cluster * data->bpb.bytes_per_sector) {
+            memset(cluster_buffer, 0, data->bpb.sectors_per_cluster * data->bpb.bytes_per_sector);
         }
 
         while (cluster_offset < cluster_size && bytes_written < size) {
@@ -827,7 +845,7 @@ int64_t fat_write_to_file(uint64_t handle, const uint8_t *buffer, size_t offset,
         }
 
         // Write back the modified cluster
-        write_sectors(data->backing, first_sector, cluster_buffer, data->bpb.sectors_per_cluster);
+        fat_write_sectors(data->backing, first_sector, cluster_buffer, data->bpb.sectors_per_cluster);
 
         if (bytes_written < size) {
             previous_cluster = current_cluster;
@@ -845,10 +863,10 @@ int64_t fat_write_to_file(uint64_t handle, const uint8_t *buffer, size_t offset,
     dirent.last_modification_date = fat_date;
     dirent.last_modification_time = fat_time;
     // Write back updated dirent
-    uint8_t sector_buffer[512];
-    read_sectors(data->backing, (uint32_t)(handle >> 32), sector_buffer, 1);
+    uint8_t sector_buffer[data->bpb.bytes_per_sector];
+    fat_read_sectors(data->backing, (uint32_t)(handle >> 32), sector_buffer, 1);
     memcpy(&sector_buffer[(uint32_t)(handle & 0xFFFFFFFF)], &dirent, sizeof(fat_dirent_t));
-    write_sectors(data->backing, (uint32_t)(handle >> 32), sector_buffer, 1);
+    fat_write_sectors(data->backing, (uint32_t)(handle >> 32), sector_buffer, 1);
     return bytes_written;
 }
 
@@ -888,11 +906,11 @@ int fat_rename(const char *old_path, const char *new_path) {
     }
     // Delete old dirent
     // Read the sector containing the dirent
-    uint8_t sector_buffer[512];
-    read_sectors(data->backing, old_dirent_ref.position[0], sector_buffer, 1);
+    uint8_t sector_buffer[data->bpb.bytes_per_sector];
+    fat_read_sectors(data->backing, old_dirent_ref.position[0], sector_buffer, 1);
     // Set first byte of name to 0xE5
     sector_buffer[old_dirent_ref.position[1]] = DIRENT_DELETED;
-    write_sectors(data->backing, old_dirent_ref.position[0], sector_buffer, 1);
+    fat_write_sectors(data->backing, old_dirent_ref.position[0], sector_buffer, 1);
     return 0;
 }
 
@@ -923,8 +941,8 @@ int fat_truncate(uint64_t handle, uint64_t new_size) {
         (uint8_t)dirent.name[0] == 0x00)
         return -ENOENT;
 
-    uint64_t original_cluster_count = (dirent.file_size + data->bpb.sectors_per_cluster * 512 - 1) / (data->bpb.sectors_per_cluster * 512);
-    uint64_t required_cluster_count = (new_size + data->bpb.sectors_per_cluster * 512 - 1) / (data->bpb.sectors_per_cluster * 512);
+    uint64_t original_cluster_count = (dirent.file_size + data->bpb.sectors_per_cluster * data->bpb.bytes_per_sector - 1) / (data->bpb.sectors_per_cluster * data->bpb.bytes_per_sector);
+    uint64_t required_cluster_count = (new_size + data->bpb.sectors_per_cluster * data->bpb.bytes_per_sector - 1) / (data->bpb.sectors_per_cluster * data->bpb.bytes_per_sector);
     dirent.file_size = new_size;
     uint16_t fat_date, fat_time;
     unix_to_fat_timestamp(get_time(), &fat_date, &fat_time);
@@ -940,9 +958,9 @@ int fat_truncate(uint64_t handle, uint64_t new_size) {
                 return -ENOSPC; // No free clusters available
             }
             // Clear cluster
-            uint8_t empty_cluster[data->bpb.sectors_per_cluster * 512];
-            memset(empty_cluster, 0, data->bpb.sectors_per_cluster * 512);
-            int res = write_sectors(data->backing, get_first_cluster_sector(free_cluster), empty_cluster, data->bpb.sectors_per_cluster);
+            uint8_t empty_cluster[data->bpb.sectors_per_cluster * data->bpb.bytes_per_sector];
+            memset(empty_cluster, 0, data->bpb.sectors_per_cluster * data->bpb.bytes_per_sector);
+            int res = fat_write_sectors(data->backing, get_first_cluster_sector(free_cluster), empty_cluster, data->bpb.sectors_per_cluster);
             if (res < 0) return res;
             write_fat(free_cluster, CLUSTER_CHAIN_END);
             dirent.first_cluster_high = free_cluster >> 16;
@@ -962,9 +980,9 @@ int fat_truncate(uint64_t handle, uint64_t new_size) {
                 return -ENOSPC; // No free clusters available
             }
             // Clear cluster
-            uint8_t empty_cluster[data->bpb.sectors_per_cluster * 512];
-            memset(empty_cluster, 0, data->bpb.sectors_per_cluster * 512);
-            int res = write_sectors(data->backing, get_first_cluster_sector(free_cluster), empty_cluster, data->bpb.sectors_per_cluster);
+            uint8_t empty_cluster[data->bpb.sectors_per_cluster * data->bpb.bytes_per_sector];
+            memset(empty_cluster, 0, data->bpb.sectors_per_cluster * data->bpb.bytes_per_sector);
+            int res = fat_write_sectors(data->backing, get_first_cluster_sector(free_cluster), empty_cluster, data->bpb.sectors_per_cluster);
             if (res < 0) return res;
             // Update FAT to link new cluster
             write_fat(last_cluster, free_cluster & 0x0FFFFFFF);
@@ -986,14 +1004,14 @@ int fat_truncate(uint64_t handle, uint64_t new_size) {
         uint32_t new_end = last_clusters[(head + 1) % (difference + 1)];
         if (new_end) {
             write_fat(new_end, CLUSTER_CHAIN_END);
-            if (new_size % (data->bpb.sectors_per_cluster * 512)) {
-                uint8_t cluster_buffer[data->bpb.sectors_per_cluster * 512];
-                read_sectors(data->backing, get_first_cluster_sector(new_end), cluster_buffer, data->bpb.sectors_per_cluster);
+            if (new_size % (data->bpb.sectors_per_cluster * data->bpb.bytes_per_sector)) {
+                uint8_t cluster_buffer[data->bpb.sectors_per_cluster * data->bpb.bytes_per_sector];
+                fat_read_sectors(data->backing, get_first_cluster_sector(new_end), cluster_buffer, data->bpb.sectors_per_cluster);
                 memset(
-                    cluster_buffer + (new_size % (data->bpb.sectors_per_cluster * 512)), 0,
-                    data->bpb.sectors_per_cluster * 512 - (new_size % (data->bpb.sectors_per_cluster * 512))
+                    cluster_buffer + (new_size % (data->bpb.sectors_per_cluster * data->bpb.bytes_per_sector)), 0,
+                    data->bpb.sectors_per_cluster * data->bpb.bytes_per_sector - (new_size % (data->bpb.sectors_per_cluster * data->bpb.bytes_per_sector))
                 );
-                write_sectors(data->backing, get_first_cluster_sector(new_end), cluster_buffer, data->bpb.sectors_per_cluster);
+                fat_write_sectors(data->backing, get_first_cluster_sector(new_end), cluster_buffer, data->bpb.sectors_per_cluster);
             }
         } else {
             dirent.first_cluster_high = 0;
@@ -1005,10 +1023,10 @@ int fat_truncate(uint64_t handle, uint64_t new_size) {
         }
     }
 
-    uint8_t sector_buffer[512];
-    read_sectors(data->backing, (uint32_t)(handle >> 32), sector_buffer, 1);
+    uint8_t sector_buffer[data->bpb.bytes_per_sector];
+    fat_read_sectors(data->backing, (uint32_t)(handle >> 32), sector_buffer, 1);
     memcpy(&sector_buffer[(uint32_t)(handle & 0xFFFFFFFF)], &dirent, sizeof(fat_dirent_t));
-    write_sectors(data->backing, (uint32_t)(handle >> 32), sector_buffer, 1);
+    fat_write_sectors(data->backing, (uint32_t)(handle >> 32), sector_buffer, 1);
 
     return 0;
 }
