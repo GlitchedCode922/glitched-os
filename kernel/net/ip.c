@@ -4,6 +4,7 @@
 #include "net/icmp.h"
 #include "net/udp.h"
 #include "memory/mman.h"
+#include "util/string.h"
 #include "drivers/net.h"
 #include "error.h"
 #include "vfs.h"

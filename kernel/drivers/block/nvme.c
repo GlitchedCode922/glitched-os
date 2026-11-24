@@ -4,6 +4,7 @@
 #include "io/pci.h"
 #include "memory/paging.h"
 #include "memory/mman.h"
+#include "util/string.h"
 #include "error.h"
 #include "spin.h"
 #include "log.h"
@@ -217,30 +218,6 @@ int64_t nvme_get_block_size(int drive_number) {
     if (drive_number < 0 || drive_number >= namespace_count) return -ENODEV;
     nvme_namespace_t* ns = namespaces + drive_number;
     return ns->block_size;
-}
-
-static int digits_u64(uint64_t v) {
-    int d = 1;
-    while (v >= 10) {
-        v /= 10;
-        d++;
-    }
-    return d;
-}
-
-static void itoa(uint64_t value, char* buffer) {
-    int len = digits_u64(value);
-    buffer[len] = '\0';
-
-    if (value == 0) {
-        buffer[0] = '0';
-        return;
-    }
-
-    while (len--) {
-        buffer[len] = '0' + (value % 10);
-        value /= 10;
-    }
 }
 
 void nvme_init(pci_device_t device) {

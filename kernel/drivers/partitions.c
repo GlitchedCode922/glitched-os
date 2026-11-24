@@ -4,55 +4,13 @@
 #include "fs/devfs.h"
 #include "memory/mman.h"
 #include "uapi/dirent.h"
+#include "util/string.h"
 #include "vfs.h"
 #include <stdint.h>
 
 partition_t partitions[1024] = {0};
 int partition_count = 0;
 int partition_driver_index = 0;
-
-static size_t strlen(const char *s) {
-    size_t len = 0;
-    while (s[len] != '\0') {
-        len++;
-    }
-    return len;
-}
-
-static char* strncpy(char *dest, const char *src, size_t n) {
-    char* orig_dest = dest;
-    int s = 0;
-    while (s < n && src[s] != 0) {
-        dest[s] = src[s];
-        s++;
-    }
-    if (s < n) dest[s] = '\0';
-    return dest;
-}
-
-static int digits_u64(uint64_t v) {
-    int d = 1;
-    while (v >= 10) {
-        v /= 10;
-        d++;
-    }
-    return d;
-}
-
-static void itoa(uint64_t value, char* buffer) {
-    int len = digits_u64(value);
-    buffer[len] = '\0';
-
-    if (value == 0) {
-        buffer[0] = '0';
-        return;
-    }
-
-    while (len--) {
-        buffer[len] = '0' + (value % 10);
-        value /= 10;
-    }
-}
 
 int has_mbr(block_device_t device) {
     int64_t sector_size = get_sector_size(device);

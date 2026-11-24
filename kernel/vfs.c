@@ -10,6 +10,7 @@
 #include "uapi/stat.h"
 #include "usermode/scheduler.h"
 #include "error.h"
+#include "util/string.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -18,73 +19,12 @@ mountpoint_t* root = NULL;
 
 int filesystem_count = 0;
 
-static size_t strlen(const char *s) {
-    size_t len = 0;
-    while (s[len] != '\0') {
-        len++;
-    }
-    return len;
-}
-
 int register_filesystem(filesystem_t fs) {
     if (filesystem_count >= 24) {
         return -ENOSPC; // Maximum number of filesystems reached
     }
     filesystems[filesystem_count++] = fs;
     return 0; // Success
-}
-
-static int strcmp(const char *s1, const char *s2) {
-    while (*s1 && *s2 && (*s1 == *s2)) {
-        s1++;
-        s2++;
-    }
-    return *(unsigned char *)s1 - *(unsigned char *)s2;
-}
-
-static char *strcpy(char *dest, const char *src) {
-    char *ret = dest;
-    while ((*dest++ = *src++)); // copy until '\0'
-    return ret;
-}
-
-static char *strncpy(char *dest, const char *src, size_t len) {
-    char *ret = dest;
-    int i = 0;
-    while ((i++ < len) && (*dest++ = *src++)); // copy until '\0'
-    return ret;
-}
-
-static void strcat(char *dest, const char *src) {
-    while (*dest) dest++;
-    while (*src) *dest++ = *src++;
-    *dest = '\0';
-}
-
-static int strncmp(const char *s1, const char *s2, size_t n) {
-    for (size_t i = 0; i < n; i++) {
-        if (s1[i] != s2[i]) {
-            return (unsigned char)s1[i] - (unsigned char)s2[i];
-        }
-        if (s1[i] == '\0') {
-            return 0;
-        }
-    }
-    return 0;
-}
-
-static int strncasecmp(const char *s1, const char *s2, size_t n) {
-    for (size_t i = 0; i < n; i++) {
-        char c1 = (s1[i] >= 'A' && s1[i] <= 'Z') ? (s1[i] + 32) : s1[i];
-        char c2 = (s2[i] >= 'A' && s2[i] <= 'Z') ? (s2[i] + 32) : s2[i];
-        if (c1 != c2) {
-            return (unsigned char)c1 - (unsigned char)c2;
-        }
-        if (c1 == '\0') {
-            return 0;
-        }
-    }
-    return 0;
 }
 
 static void make_absolute(const char *path, char *out) {

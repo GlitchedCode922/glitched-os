@@ -3,6 +3,7 @@
 #include "net/ethernet.h"
 #include "net/socket.h"
 #include "memory/mman.h"
+#include "util/string.h"
 #include "error.h"
 #include <stdint.h>
 

@@ -1,6 +1,7 @@
 #include "usermode/pipe.h"
-#include "memory/mman.h"
 #include "usermode/scheduler.h"
+#include "util/string.h"
+#include "memory/mman.h"
 #include "error.h"
 #include <stdint.h>
 

@@ -19,6 +19,7 @@
 #include "uacpi/event.h"
 #include "uacpi/status.h"
 #include "uacpi/utilities.h"
+#include "util/string.h"
 #include "vfs.h"
 #include "gdt.h"
 #include "idt.h"
@@ -35,18 +36,6 @@ char rootfs_device[MAX_PATH] = "";
 int console_specified = 0;
 char console_device[MAX_PATH] = "tty1";
 char init_binary_path[MAX_PATH] = "/bin/init";
-
-static int strncmp(const char *s1, const char *s2, size_t n) {
-    for (size_t i = 0; i < n; i++) {
-        if (s1[i] != s2[i]) {
-            return (unsigned char)s1[i] - (unsigned char)s2[i];
-        }
-        if (s1[i] == '\0') {
-            return 0;
-        }
-    }
-    return 0;
-}
 
 void parse_kernel_cmdline() {
     uint8_t root_readonly = 0;

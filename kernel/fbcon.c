@@ -2,6 +2,7 @@
 #include "drivers/ps2_keyboard.h"
 #include "drivers/tty.h"
 #include "memory/mman.h"
+#include "util/string.h"
 #include "font/default_font.h"
 #include "limine.h"
 #include <stdint.h>

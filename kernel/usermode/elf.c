@@ -1,5 +1,5 @@
 #include "usermode/elf.h"
-#include "memory/mman.h"
+#include "util/string.h"
 #include "memory/paging.h"
 #include "vfs.h"
 #include <stdint.h>

@@ -1,5 +1,6 @@
 #include "fs/fat.h"
 #include "memory/mman.h"
+#include "util/string.h"
 #include "error.h"
 #include "vfs.h"
 #include "drivers/block.h"

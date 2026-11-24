@@ -7,6 +7,7 @@
 #include "usermode/fd.h"
 #include "usermode/syscalls.h"
 #include "usermode/elf.h"
+#include "util/string.h"
 #include "memory/mman.h"
 #include "memory/paging.h"
 #include "drivers/fpu.h"
@@ -303,14 +304,6 @@ int fork(iframe_t* iframe) {
     current_task->iframe->rax = new_task->pid;
     new_task->iframe->rax = 0;
     return new_task->pid;
-}
-
-static int strlen(char* s) {
-    int len = 0;
-    while (*s++) {
-        len++;
-    }
-    return len;
 }
 
 int add_task(char* path, char** argv, char** envp, task_t* parent, int pid, spawn_action_t** actions, task_t** taskptr, iframe_t* iframe) {

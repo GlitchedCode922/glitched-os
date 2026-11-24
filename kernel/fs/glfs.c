@@ -6,6 +6,7 @@
 #include "drivers/timer.h"
 #include "error.h"
 #include "memory/mman.h"
+#include "util/string.h"
 #include <stddef.h>
 #include <stdint.h>
 

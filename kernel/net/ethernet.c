@@ -3,6 +3,7 @@
 #include "net/ip.h"
 #include "drivers/net.h"
 #include "memory/mman.h"
+#include "util/string.h"
 #include "error.h"
 #include <stdint.h>
 

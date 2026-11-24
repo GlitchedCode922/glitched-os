@@ -2,7 +2,7 @@
 #include "net/ethernet.h"
 #include "drivers/net.h"
 #include "drivers/timer.h"
-#include "memory/mman.h"
+#include "util/string.h"
 #include "error.h"
 #include "usermode/scheduler.h"
 #include <stdint.h>

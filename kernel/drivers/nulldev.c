@@ -1,7 +1,7 @@
 #include "drivers/nulldev.h"
 #include "drivers/chrdev.h"
 #include "fs/devfs.h"
-#include "memory/mman.h"
+#include "util/string.h"
 #include "error.h"
 #include <stdint.h>
 

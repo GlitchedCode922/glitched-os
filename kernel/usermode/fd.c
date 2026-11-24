@@ -2,19 +2,12 @@
 #include "uapi/fd.h"
 #include "usermode/scheduler.h"
 #include "usermode/pipe.h"
+#include "util/string.h"
 #include "vfs.h"
 #include "error.h"
 #include <stdint.h>
 
 file_description_t file_descriptions[MAX_FILES] = {0};
-
-static int strlen(const char* str) {
-    int len = 0;
-    while (str[len] != '\0') {
-        len++;
-    }
-    return len;
-}
 
 int fd_open(const char *path, uint16_t flags) {
     if (flags & O_WRONLY && flags & O_RDWR) return -EINVAL;

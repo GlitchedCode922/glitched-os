@@ -5,6 +5,7 @@
 #include "console.h"
 #include "log.h"
 #include "drivers/tty.h"
+#include "util/string.h"
 #include "usermode/scheduler.h"
 #include "usermode/syscalls.h"
 #include "memory/paging.h"
@@ -167,14 +168,6 @@ void decode_pfec_flags(log_level_t log_level, char* subsystem, uint64_t error_co
 
     #undef APPEND
     #undef NEWLINE
-}
-
-static int strcmp(char* p1, char* p2) {
-    while (*p1 && *p2 && *p1 == *p2) {
-        p1++;
-        p2++;
-    };
-    return (unsigned char)*p1 - (unsigned char)*p2;
 }
 
 void breakpoint_debugger(iframe_t* iframe) {

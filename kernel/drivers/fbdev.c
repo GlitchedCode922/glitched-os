@@ -2,36 +2,13 @@
 #include "drivers/chrdev.h"
 #include "fs/devfs.h"
 #include "memory/mman.h"
+#include "util/string.h"
 #include "error.h"
 #include "memory/paging.h"
 #include "uapi/fb.h"
 #include "uapi/ioctl.h"
 
 static volatile struct limine_framebuffer_response* fb_response;
-
-static int digits_u64(uint64_t v) {
-    int d = 1;
-    while (v >= 10) {
-        v /= 10;
-        d++;
-    }
-    return d;
-}
-
-static void itoa(uint64_t value, char* buffer) {
-    int len = digits_u64(value);
-    buffer[len] = '\0';
-
-    if (value == 0) {
-        buffer[0] = '0';
-        return;
-    }
-
-    while (len--) {
-        buffer[len] = '0' + (value % 10);
-        value /= 10;
-    }
-}
 
 void fbdev_init(volatile struct limine_framebuffer_request *req) {
     fb_response = req->response;

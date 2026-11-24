@@ -1,6 +1,7 @@
 #include "net/icmp.h"
 #include "net/ip.h"
 #include "memory/mman.h"
+#include "util/string.h"
 #include "ethernet.h"
 #include "drivers/timer.h"
 #include "usermode/scheduler.h"

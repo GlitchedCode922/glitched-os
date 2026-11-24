@@ -3,7 +3,7 @@
 #include "drivers/chrdev.h"
 #include <stddef.h>
 #include <stdint.h>
-#include "memory/mman.h"
+#include "util/string.h"
 #include "memory/paging.h"
 #include "uapi/ioctl.h"
 #include "uapi/netif.h"
@@ -15,23 +15,6 @@ int net_interface_count = 0;
 net_driver_t net_drivers[10];
 int net_driver_count = 0;
 int net_driver_index = 0;
-
-static int strcmp(const char *s1, const char *s2) {
-    while (*s1 && *s2 && (*s1 == *s2)) {
-        s1++;
-        s2++;
-    }
-    return *(unsigned char *)s1 - *(unsigned char *)s2;
-}
-
-static int strncpy(char *dest, const char *src, size_t n) {
-    size_t i;
-    for (i = 0; i < n - 1 && src[i] != '\0'; i++) {
-        dest[i] = src[i];
-    }
-    dest[i] = '\0'; // Null-terminate the destination string
-    return i;
-}
 
 int get_global_if_index(int driver, int driver_local_index) {
     for (int i = 0; i < net_interface_count; i++) {

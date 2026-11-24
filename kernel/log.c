@@ -1,6 +1,6 @@
 #include "log.h"
 #include "io/ports.h"
-#include "memory/mman.h"
+#include "util/string.h"
 #include "console.h"
 #include <stddef.h>
 #include <stdint.h>
@@ -14,12 +14,6 @@ int log_head = 0;
 
 const size_t level_field_len = 5;
 const size_t subsystem_field_len = 8;
-
-static size_t strlen(const char* s) {
-    size_t len = 0;
-    while (s[len] != '\0') len++;
-    return len;
-}
 
 void klog(log_level_t level, const char* subsystem, const char* string) {
     if (level < minimum_level) return;

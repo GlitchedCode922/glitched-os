@@ -1,5 +1,6 @@
 #include "memory/mman.h"
 #include "memory/paging.h"
+#include "util/string.h"
 #include "panic.h"
 #include <stddef.h>
 #include <stdint.h>
@@ -21,80 +22,6 @@ void init_mman(size_t executable_size) {
     map[0].pages = 0xFFFFFFFFF - (kernel_heap_start/PAGE_SIZE);
     map[0].free = 1;
     map_index = 1;
-}
-
-int memcmp(const void *ptr1, const void *ptr2, size_t n){
-    const unsigned char *p1 = (const unsigned char *)ptr1;
-    const unsigned char *p2 = (const unsigned char *)ptr2;
-
-    for (size_t i = 0; i < n; i++) {
-        if (p1[i] != p2[i]) {
-            return p1[i] - p2[i];
-        }
-    }
-    return 0; // Memory regions are equal
-}
-
-void* memcpy(void* restrict dest, const void* restrict src, size_t n) {
-    unsigned char *d = (unsigned char *)dest;
-    const unsigned char *s = (const unsigned char *)src;
-
-    while (n && ((uint64_t)d & 7)) {
-        *d++ = *s++;
-        n--;
-    }
-
-    while (n >= 8) {
-        *(uint64_t*)d = *(const uint64_t*)s;
-        d += 8;
-        s += 8;
-        n -= 8;
-    }
-
-    while (n--) *d++ = *s++;
-    return dest;
-}
-
-void* memset(void* ptr, int value, size_t n) {
-    unsigned char *p = (unsigned char *)ptr;
-    unsigned char c = (unsigned char)value;
-
-    while (n && ((uintptr_t)p & sizeof((uintptr_t) - 1))) {
-        *p++ = c;
-        n--;
-    }
-
-    uint64_t word = 0;
-    for (size_t i = 0; i < 8; i++) {
-        word = (word << 8) | c;
-    }
-
-    uint64_t* w = (uint64_t*)p;
-    while (n >= 8) {
-        *w++ = word;
-        n -= 8;
-    }
-
-    p = (unsigned char*)w;
-    while (n--) *p++ = c;
-
-    return ptr;
-}
-
-void* memmove(void* dest, const void* src, size_t n) {
-    unsigned char *d = (unsigned char *)dest;
-    const unsigned char *s = (const unsigned char *)src;
-
-    if (d < s || d >= s + n) {
-        // Non-overlapping regions
-        return memcpy(dest, src, n);
-    } else {
-        // Overlapping regions
-        for (size_t i = n; i > 0; i--) {
-            d[i - 1] = s[i - 1];
-        }
-    }
-    return dest;
 }
 
 void kfree(void *ptr) {

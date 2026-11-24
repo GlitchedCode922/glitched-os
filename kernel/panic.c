@@ -1,7 +1,7 @@
 #include "panic.h"
 #include "console.h"
 #include "log.h"
-#include "memory/mman.h"
+#include "util/string.h"
 #include "uacpi/sleep.h"
 #include "uacpi/acpi.h"
 #include "uacpi/tables.h"
