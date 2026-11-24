@@ -3,6 +3,7 @@
 #include "io/8259pic.h"
 #include "panic.h"
 #include "console.h"
+#include "log.h"
 #include "drivers/tty.h"
 #include "usermode/scheduler.h"
 #include "usermode/syscalls.h"
@@ -115,17 +116,21 @@ idt_ptr_t idt_ptr = {
     .base = (uint64_t)&idt
 };
 
-void decode_pfec_flags(uint64_t error_code, char buffer[128]) {
+void decode_pfec_flags(log_level_t log_level, char* subsystem, uint64_t error_code, char buffer[128]) {
     int pos = 0;
 
     #define APPEND(str) do { \
-        const char* s = str; \
-        while (*s && pos < 127) { \
-            buffer[pos++] = *s++; \
+        if (buffer) { \
+            const char* s = str; \
+            while (*s && pos < 127) { \
+                buffer[pos++] = *s++; \
+            } \
+        } else {\
+            klogf(log_level, subsystem, "%s\n", str); \
         } \
     } while (0)
 
-    #define NEWLINE() do { if (pos < 127) buffer[pos++] = '\n'; } while(0)
+    #define NEWLINE() do { if (buffer && pos < 127) buffer[pos++] = '\n'; } while(0)
 
     if (error_code & 0x1) {
         APPEND(" - Page present: Yes");
@@ -158,7 +163,7 @@ void decode_pfec_flags(uint64_t error_code, char buffer[128]) {
         NEWLINE();
     }
 
-    buffer[pos] = '\0';
+    if (buffer) buffer[pos] = '\0';
 
     #undef APPEND
     #undef NEWLINE
@@ -173,13 +178,18 @@ static int strcmp(char* p1, char* p2) {
 }
 
 void breakpoint_debugger(iframe_t* iframe) {
+    if (console_tty_id < 0) {
+        klogf(LOG_WARN, "debug", "Breakpoint hit at 0x%x\n", iframe->rip - 1);
+        while (*(uint8_t*)(iframe->rip) == 0xCC) iframe->rip++;
+        return;
+    }
     kprintf("Breakpoint hit at 0x%x\n", iframe->rip - 1);
     char buffer[4096];
     if (tty_count == 0) {
         while (*(uint8_t*)(iframe->rip) == 0xCC) iframe->rip++;
         return;
     }
-    asm volatile ("sti");
+    asm volatile("sti");
     termios_t term = ttys[console_tty_id]->termios;
     ttys[console_tty_id]->termios.c_lflag = ICANON | ECHO | ECHOE;
     while (1) {
@@ -217,18 +227,19 @@ void interrupt_handler(iframe_t* iframe) {
         uint64_t cr2;
         asm volatile("mov %%cr2, %0" : "=r"(cr2));
         if (error_code & 0x2 && cow_handler((void*)(cr2 & PAGE_MASK))) return; // CoW page
-        char flags[128] = {0};
-        decode_pfec_flags(error_code, flags);
         if (iframe->cs == USER_CS) {
-            kprintf("Page fault in process with PID %d at address 0x%x, error code: 0x%x\n%s", current_task->pid, cr2, error_code, flags);
+            klogf(LOG_ERROR, "process", "Page fault in process with PID %d at address 0x%x, error code: 0x%x\n", current_task->pid, cr2, error_code);
+            decode_pfec_flags(LOG_ERROR, "process", error_code, NULL);
             raise(SIGSEGV);
         } else {
+            char flags[128] = {0};
+            decode_pfec_flags(0, NULL, error_code, flags);
             panic_int(iframe->rip, iframe->rbp, "Page fault in kernel at address: 0x%x, error code: 0x%x\n%s", cr2, error_code, flags);
         }
     } else if (vector == 13) {
         // General protection fault
         if (iframe->cs == USER_CS) {
-            kprintf("#GP in process with PID %d, error code: 0x%x\n", current_task->pid, error_code);
+            klogf(LOG_ERROR, "process", "#GP in process with PID %d, error code: 0x%x\n", current_task->pid, error_code);
             raise(SIGSEGV);
         } else {
             panic_int(iframe->rip, iframe->rbp, "#GP in kernel, error code: 0x%x\n", error_code);
@@ -239,7 +250,7 @@ void interrupt_handler(iframe_t* iframe) {
         panic_int(iframe->rip, iframe->rbp, "%s with error code: 0x%x\n", exception_names[vector], error_code);
     } else if (vector < 32) {
         if (iframe->cs == USER_CS) {
-            kprintf("%s in process with PID %d, error code: 0x%x\n", exception_names[vector], current_task->pid, error_code);
+            klogf(LOG_ERROR, "process", "%s in process with PID %d, error code: 0x%x\n", exception_names[vector], current_task->pid, error_code);
             if (exception_signals[vector]) {
                 raise(exception_signals[vector]);
             } else {

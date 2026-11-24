@@ -7,7 +7,7 @@
 #include "vfs.h"
 #include <stdint.h>
 
-int console_tty_id = 0; // Set to first registered TTY for early kernel panics
+int console_tty_id = -1;
 
 void console_init(const char *device) {
     uint64_t handle;
@@ -28,17 +28,17 @@ void console_init(const char *device) {
 }
 
 void putchar(char c) {
-    if (tty_count == 0) return;
+    if (console_tty_id < 0) return;
     tty_write(console_tty_id, 0, (uint8_t*)&c, 1);
 }
 
 void puts(const char *str) {
-    if (tty_count == 0) return;
+    if (console_tty_id < 0) return;
     while (*str) putchar(*str++);
 }
 
 void kprintf(const char *fmt, ...) {
-    if (tty_count == 0) return;
+    if (console_tty_id < 0) return;
     va_list args;
     va_start(args, fmt);
     kvprintf(fmt, args);
@@ -46,7 +46,7 @@ void kprintf(const char *fmt, ...) {
 }
 
 void kvprintf(const char *fmt, va_list args){
-    if (tty_count == 0) return;
+    if (console_tty_id < 0) return;
     while (*fmt) {
         if (*fmt == '%') {
             fmt++;
@@ -82,7 +82,7 @@ void kvprintf(const char *fmt, va_list args){
 }
 
 void kprintf_hex(uint64_t value) {
-    if (tty_count == 0) return;
+    if (console_tty_id < 0) return;
     char buffer[17]; // 16 hex digits + null terminator
     int i = 16;
     buffer[i--] = '\0'; // null terminator at the end
@@ -100,7 +100,7 @@ void kprintf_hex(uint64_t value) {
 }
 
 void kprintf_dec(uint64_t value) {
-    if (tty_count == 0) return;
+    if (console_tty_id < 0) return;
     char buffer[21]; // 20 digits + null terminator
     int i = 20;
     buffer[i--] = '\0';
@@ -116,7 +116,7 @@ void kprintf_dec(uint64_t value) {
 }
 
 void kprintf_dec_signed(int64_t value) {
-    if (tty_count == 0) return;
+    if (console_tty_id < 0) return;
     if (value < 0) {
         putchar('-');
         kprintf_dec(-value);

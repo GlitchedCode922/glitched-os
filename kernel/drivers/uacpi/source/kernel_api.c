@@ -5,6 +5,7 @@
 #include "memory/paging.h"
 #include "memory/mman.h"
 #include "uacpi/log.h"
+#include "log.h"
 #include "console.h"
 #include "uacpi/status.h"
 #include "uacpi/types.h"
@@ -26,8 +27,15 @@ void uacpi_kernel_unmap(void *addr, uacpi_size len) {
 }
 
 void uacpi_kernel_log(uacpi_log_level ll, const uacpi_char* string) {
-    if (ll > UACPI_LOG_ERROR) return;
-    kprintf("%s", string);
+    log_level_t level;
+    switch (ll) {
+        case UACPI_LOG_TRACE: return;
+        case UACPI_LOG_DEBUG: level = LOG_DEBUG; break;
+        case UACPI_LOG_INFO:  level = LOG_INFO;  break;
+        case UACPI_LOG_WARN:  level = LOG_WARN;  break;
+        case UACPI_LOG_ERROR: level = LOG_ERROR; break;
+    }
+    klog(level, "acpi", string);
 }
 
 uacpi_status uacpi_kernel_pci_device_open(uacpi_pci_address address, uacpi_handle *out_handle) {

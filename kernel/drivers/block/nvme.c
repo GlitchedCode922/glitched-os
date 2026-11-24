@@ -6,6 +6,7 @@
 #include "memory/mman.h"
 #include "error.h"
 #include "spin.h"
+#include "log.h"
 #include <stdint.h>
 
 typedef volatile struct {
@@ -245,6 +246,7 @@ static void itoa(uint64_t value, char* buffer) {
 void nvme_init(pci_device_t device) {
     if (controller_count >= 512) return;
     if (namespace_count >= 1024) return;
+    klogf(LOG_INFO, "nvme", "Found a NVMe controller (index %d)\n", controller_count);
 
     // Read PCI BARs and map the controller registers
     uint16_t command = pci_config_read16(device.bus, device.device, device.function, 0x04);
@@ -325,6 +327,7 @@ void nvme_init(pci_device_t device) {
     }
 
     if (namespaces_in_controller == 0) return;
+    klogf(LOG_INFO, "nvme", "Found %d NVMe namespaces on controller %d\n", namespaces_in_controller, controller_count - 1);
 
     // Create IO queue
     nvme_queue_t* io = &controller->io;
@@ -346,7 +349,10 @@ void nvme_init(pci_device_t device) {
     cmd.cdw10 = ((NVME_QUEUE_LENGTH - 1) << 16) | io_qid;
     cmd.cdw11 = 1;
     res = nvme_submit(admin, cmd);
-    if (res < 0) return;
+    if (res < 0) {
+        klogf(LOG_ERROR, "nvme", "Failed to create IO completion queue for controller %d\n", controller_count - 1);
+    }
+    klogf(LOG_INFO, "nvme", "Created IO completion queue for controller %d\n", controller_count - 1);
 
     memset(&cmd, 0, sizeof(cmd));
     cmd.cdw0 = 0x01;
@@ -354,7 +360,10 @@ void nvme_init(pci_device_t device) {
     cmd.cdw10 = ((NVME_QUEUE_LENGTH - 1) << 16) | io_qid;
     cmd.cdw11 = (io_qid << 16) | 1;
     res = nvme_submit(admin, cmd);
-    if (res < 0) return;
+    if (res < 0) {
+        klogf(LOG_ERROR, "nvme", "Failed to create IO submission queue for controller %d\n", controller_count - 1);
+    }
+    klogf(LOG_INFO, "nvme", "Created IO submission queue for controller %d\n", controller_count - 1);
 
     // Register namespaces as block devices
     for (int i = original_ns_count; i < namespace_count; i++) {

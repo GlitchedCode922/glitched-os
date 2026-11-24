@@ -1,6 +1,5 @@
 #include <stddef.h>
 #include <stdint.h>
-#include "console.h"
 #include "error.h"
 #include "io/ports.h"
 #include "io/8259pic.h"

@@ -1,9 +1,11 @@
+#include "panic.h"
 #include "console.h"
+#include "log.h"
+#include "memory/mman.h"
 #include "uacpi/sleep.h"
 #include "uacpi/acpi.h"
 #include "uacpi/tables.h"
 #include "limine_requests.h"
-#include "panic.h"
 #include "drivers/ps2_keyboard.h"
 #include "drivers/tty.h"
 #include "error.h"
@@ -12,6 +14,18 @@
 
 panic_state_t panic_state = OPERATIONAL;
 static const uint16_t invalid_idtptr[5] = {0};
+
+void stack_trace_log(uint64_t rip, uint64_t rbp) {
+    if (rbp == 0) asm volatile("mov %%rbp, %0" : "=r"(rbp));
+    klogf(LOG_FATAL, "panic", "  #0: 0x%x\n", rip);
+    for (int i = 1; ; i++) {
+        uint64_t return_address = *((uint64_t*)(rbp + 8));
+        if (return_address == 0) break;
+        klogf(LOG_FATAL, "panic", "  #%d: 0x%x\n", i, return_address);
+        rbp = *((uint64_t*)rbp);
+        if (rbp == 0) break;
+    }
+}
 
 void stack_trace(uint64_t rip, uint64_t rbp) {
     if (rbp == 0) asm volatile("mov %%rbp, %0" : "=r"(rbp));
@@ -32,7 +46,7 @@ __attribute__((noreturn)) void vpanic_int(uint64_t rip, uint64_t rbp, const char
             goto operational;
         case STACK_TRACE:
             panic_state = WAITING_INPUT;
-            kprintf("Cannot unwind stack further\n");
+            klogf(LOG_FATAL, "panic", "Cannot unwind stack further\n");
             goto stack_trace_failed;
         case PANIC:
         case WAITING_INPUT:
@@ -42,34 +56,40 @@ __attribute__((noreturn)) void vpanic_int(uint64_t rip, uint64_t rbp, const char
                 asm volatile ("hlt");
             }
     }
-operational:
+operational:;
 
     // Print the panic message
-    kprintf(":( Kernel panic: ");
-    kvprintf(fmt, args);
-    kprintf("\n\n");
+    {
+        int len = 0;
+        while (fmt[len] != '\0') len++;
+        char buffer[14 + len];
+        memcpy(buffer, "Kernel Panic: ", 14);
+        memcpy(buffer + 14, fmt, len + 1);
+        kvlogf(LOG_FATAL, "panic", buffer, args);
+        klogf(LOG_FATAL, "panic", "");
+    }
 
     // Stack trace
     panic_state = STACK_TRACE;
-    kprintf("Stack trace:\n");
-    stack_trace(rip, rbp);
+    klogf(LOG_FATAL, "panic", "Stack trace:\n");
+    stack_trace_log(rip, rbp);
 
 stack_trace_failed:
     panic_state = WAITING_INPUT;
-    kprintf("\nPress any button to reboot...\n");
+    if (console_tty_id >= 0) kprintf("\nPress any button to reboot...\n");
 
     char c = 0;
     asm volatile ("sti");
     input_disabled = 0;
-    if (tty_count != 0) ttys[console_tty_id]->termios.c_lflag = 0;
-    if (tty_count != 0) while (tty_read(console_tty_id, 0, (uint8_t*)&c, 1) == -EAGAIN);
+    if (console_tty_id >= 0) ttys[console_tty_id]->termios.c_lflag = 0;
+    if (console_tty_id >= 0) while (tty_read(console_tty_id, 0, (uint8_t*)&c, 1) == -EAGAIN);
     if (rsdp_request.response->address) {
         struct acpi_fadt* fadt;
         uacpi_table_fadt(&fadt);
         if (fadt->flags & ACPI_RESET_REG_SUP) {
             uacpi_status res = uacpi_reboot();
             if (uacpi_unlikely_error(res)) {
-                kprintf("Reboot failed: ACPI error: %s", uacpi_status_to_string(res));
+                klogf(LOG_FATAL, "acpi", "Reboot failed: %s\n", uacpi_status_to_string(res));
             }
         }
     }
