@@ -62,11 +62,13 @@ operational:;
     {
         int len = 0;
         while (fmt[len] != '\0') len++;
-        char buffer[14 + len];
+        char buffer[14 + len + 2];
         memcpy(buffer, "Kernel Panic: ", 14);
-        memcpy(buffer + 14, fmt, len + 1);
+        memcpy(buffer + 14, fmt, len);
+        buffer[14 + len] = '\n';
+        buffer[14 + len + 1] = '\0';
         kvlogf(LOG_FATAL, "panic", buffer, args);
-        klogf(LOG_FATAL, "panic", "");
+        klogf(LOG_FATAL, "panic", "\n");
     }
 
     // Stack trace
