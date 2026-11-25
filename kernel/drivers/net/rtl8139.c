@@ -3,7 +3,6 @@
 #include "net/ethernet.h"
 #include "io/pci.h"
 #include "io/ports.h"
-#include "memory/mman.h"
 #include "memory/paging.h"
 #include "error.h"
 #include "spin.h"
@@ -33,9 +32,9 @@ void rtl8139_init(pci_device_t device) {
     uint32_t command = pci_config_read32(device.bus, device.device, device.function, 0x04);
     command |= 0x07; // Set the bus mastering bit
     pci_config_write32(device.bus, device.device, device.function, 0x04, command);
-    rx_buffers[cards_existing] = kmalloc(8192 + 16); // Allocate buffer for receiving packets
-    for (int i = 0; i < 512; i++) received_packets[cards_existing][i] = kmalloc(2048);
-    for (int i = 0; i < 4; i++) transmitter_buffers[cards_existing][i] = kmalloc(2048);
+    rx_buffers[cards_existing] = hhdm_base + allocate_physical_region(3); // Allocate buffer for receiving packets
+    for (int i = 0; i < 512; i++) received_packets[cards_existing][i] = hhdm_base + allocate_physical_page();
+    for (int i = 0; i < 4; i++) transmitter_buffers[cards_existing][i] = hhdm_base + allocate_physical_page();
     turn_on_rtl8139(cards_existing);
     cards_existing++;
     register_net_interface(driver_index, cards_existing - 1);

@@ -57,6 +57,7 @@ void* alloc_zero_region(uintptr_t vaddr, size_t size, uint64_t flags);
 uintptr_t get_available_address();
 uintptr_t get_physical_address(uintptr_t virtual_address);
 uintptr_t allocate_physical_page();
+uintptr_t allocate_physical_region(uint64_t pages);
 int validate_user_pointer(void* ptr, uint64_t len, int write);
 int validate_user_string(const char *str, uint64_t max_len);
 int free_page(void* page);

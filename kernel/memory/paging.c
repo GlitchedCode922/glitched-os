@@ -129,6 +129,36 @@ uintptr_t allocate_physical_page() {
     return addr;
 }
 
+uintptr_t allocate_physical_region(uint64_t pages) {
+    if (pages == 0) return 0;
+    uintptr_t addr = 0;
+
+    for (uintptr_t i = first_usable; i <= usable_page_count - pages;) {
+        int found = 1;
+
+        for (uint64_t j = 0; j < pages; j++) {
+            if (memory_bitmap[i + j] != 0) {
+                found = 0;
+                i += j + 1;
+                break;
+            }
+        }
+
+        if (found) {
+            addr = i * PAGE_SIZE;
+            break;
+        }
+    }
+
+    if (!addr) panic("Out of memory: No available region found");
+
+    size_t page = addr / PAGE_SIZE;
+    for (uint64_t j = 0; j < pages; j++) memory_bitmap[page + j]++;
+
+    memset(add_hhdm_to((void*)addr), 0, pages * PAGE_SIZE);
+    return addr;
+}
+
 static inline void flush_tlb(void) {
     uintptr_t cr3;
 
