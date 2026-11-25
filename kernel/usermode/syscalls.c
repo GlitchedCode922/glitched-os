@@ -215,7 +215,7 @@ void syscall(iframe_t* iframe) {
             ret = validate_user_pointer((void*)arg2, sizeof(int), 1);
             if (ret < 0) break;
         }
-        ret = waitpid(arg1, (int*)arg2, arg3, iframe);
+        ret = waitpid(arg1, (int*)arg2, arg3);
         break;
     case SYSCALL_SPAWN:
         ret = validate_user_string((void*)arg1, MAX_PATH);

@@ -124,7 +124,7 @@ void yield_current();
 uint64_t sleep_current(uint64_t ms);
 void kworker_exit();
 uint64_t sleep(uint64_t ms, iframe_t* iframe);
-int waitpid(int pid, int* wstatus, int options, iframe_t* iframe);
+int waitpid(int pid, int* wstatus, int options);
 int kill(int pid, int sig);
 int raise(int sig);
 int sigaction(int sig, const sigaction_t* new, sigaction_t* old);

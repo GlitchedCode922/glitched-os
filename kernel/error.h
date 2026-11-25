@@ -33,3 +33,4 @@
 #define EPERM 1
 #define EINTR 4
 #define ENOMEDIUM 123
+#define ECHILD 10
