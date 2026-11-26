@@ -24,19 +24,21 @@ int main() {
     if (tcsetattr(STDIN_FILENO, &term) < 0) return -1;
 
     while (1) {
-        pid_t sh = spawn(
-            "/bin/sh",
-            (char*[]){"/bin/sh", NULL},
-            (char*[]){"PATH=/usr/bin:/bin", NULL},
-            (spawn_action_t*[]){&(spawn_action_t){.action = SPAWN_SETSID}, NULL}
-        );
+        pid_t sh = fork();
 
-        if (sh <= 0) {
+        if (sh < 0) {
             printf("init: failed to start shell\n");
             sleep(1);
             continue;
+        } else if (sh == 0) {
+            setsid();
+            tcsetpgrp(STDIN_FILENO, getpgrp());
+            execve(
+                "/bin/sh",
+                (char*[]){"/bin/sh", NULL},
+                (char*[]){"PATH=/usr/bin:/bin", NULL}
+            );
         }
-        tcsetpgrp(STDIN_FILENO, sh);
 
         pid_t pid;
 
