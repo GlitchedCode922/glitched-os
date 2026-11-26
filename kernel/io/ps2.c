@@ -5,6 +5,7 @@
 #include "drivers/ps2_keyboard.h"
 #include "drivers/ps2_mouse.h"
 #include "spin.h"
+#include "log.h"
 
 static int dual_channel = 0;
 static int mouse_present = 0;
@@ -19,53 +20,96 @@ void ps2_init() {
     outb(0x64, 0xA7);
     inb(0x60); // Discard any data in the buffer
     outb(0x64, 0x20); // Read command byte
-    if (spin(!(inb(0x64) & 0x01), 500,) < 0) return;
+    if (spin(!(inb(0x64) & 0x01), 500,) < 0) {
+        klog(LOG_ERROR, "ps2", "Failed to initialize PS/2 controller, command timed out\n");
+        return;
+    }
     uint8_t command_byte = inb(0x60);
     outb(0x64, 0x60); // Write command byte
-    if (spin(inb(0x64) & 0x02, 500,) < 0) return;
+    if (spin(inb(0x64) & 0x02, 500,) < 0) {
+        klog(LOG_ERROR, "ps2", "Failed to initialize PS/2 controller (command timed out)\n");
+        return;
+    }
     outb(0x60, command_byte & ~(0x01 | 0x10) | 0x40);
     outb(0x64, 0xAA); // Self-test
-    if (spin(!(inb(0x64) & 0x01), 500,) < 0) return;
-    if (inb(0x60) != 0x55) return; // Self-test failed
+    if (spin(!(inb(0x64) & 0x01), 500,) < 0) {
+        klog(LOG_ERROR, "ps2", "Failed to initialize PS/2 controller (command timed out)\n");
+        return;
+    }
+    if (inb(0x60) != 0x55) {
+        klog(LOG_ERROR, "ps2", "Failed to initialize PS/2 controller (self-test failed)\n");
+        return;
+    }
     // Check if second PS/2 port is available
     outb(0x64, 0xA8); // Enable second PS/2 port
     outb(0x64, 0x20); // Read command byte
-    if (spin(!(inb(0x64) & 0x01), 500,) < 0) return;
+    if (spin(!(inb(0x64) & 0x01), 500,) < 0) {
+        klog(LOG_ERROR, "ps2", "Failed to initialize PS/2 controller (self-test failed)\n");
+        return;
+    }
     command_byte = inb(0x60);
     if (command_byte & 0x20) {
         // Second PS/2 port is not available
+        klog(LOG_INFO, "ps2", "Found single-channel PS/2 controller\n");
     } else {
         // Second PS/2 port is available
+        klog(LOG_INFO, "ps2", "Found dual-channel PS/2 controller\n");
         dual_channel = 1;
         outb(0x64, 0xA7);
         outb(0x64, 0x20); // Read command byte
-        if (spin(!(inb(0x64) & 0x01), 500,) < 0) return;
+        if (spin(!(inb(0x64) & 0x01), 500,) < 0) {
+            klog(LOG_ERROR, "ps2", "Failed to initialize PS/2 controller (command timed out)\n");
+            return;
+        }
         command_byte = inb(0x60);
         outb(0x64, 0x60);
-        if (spin(inb(0x64) & 0x02, 500,) < 0) return;
+        if (spin(inb(0x64) & 0x02, 500,) < 0) {
+            klog(LOG_ERROR, "ps2", "Failed to initialize PS/2 controller (command timed out)\n");
+            return;
+        }
         outb(0x60, command_byte & ~0x22);
     }
     // Enable both devices
     outb(0x64, 0xAE);
     if (dual_channel) outb(0x64, 0xA8);
     outb(0x64, 0x20); // Read command byte
-    if (spin(!(inb(0x64) & 0x01), 500,) < 0) return;
+    if (spin(!(inb(0x64) & 0x01), 500,) < 0) {
+        klog(LOG_ERROR, "ps2", "Failed to initialize PS/2 controller (command timed out)\n");
+        return;
+    }
     command_byte = inb(0x60);
     outb(0x64, 0x60);
-    if (spin(inb(0x64) & 0x02, 500,) < 0) return;
+    if (spin(inb(0x64) & 0x02, 500,) < 0) {
+        klog(LOG_ERROR, "ps2", "Failed to initialize PS/2 controller (command timed out)\n");
+        return;
+    }
     outb(0x60, command_byte | 0x01 | (dual_channel ? 0x02 : 0));
     ps2_keyboard_init();
     // Check for a mouse
     if (!dual_channel) return;
     outb(0x64, 0xD4);
     outb(0x60, 0xF2); // Identify command
-    if (spin(!(inb(0x64) & 0x01), 500,) < 0) return;
-    if (inb(0x60) != 0xFA) return;
-    if (spin(!(inb(0x64) & 0x01), 500,) < 0) return;
+    if (spin(!(inb(0x64) & 0x01), 500,) < 0) {
+        klog(LOG_ERROR, "ps2", "Failed to initialize PS/2 controller (command timed out)\n");
+        return;
+    }
+    if (inb(0x60) != 0xFA) {
+        klog(LOG_ERROR, "ps2", "Failed to initialize PS/2 controller (received invalid command response)\n");
+        return;
+    }
+    if (spin(!(inb(0x64) & 0x01), 500,) < 0) {
+        klog(LOG_ERROR, "ps2", "Failed to initialize PS/2 controller (command timed out)\n");
+        return;
+    }
     char mouse_id = inb(0x60);
     if (mouse_id == 0x00) {
         mouse_present = 1;
-        ps2_mouse_init();
+        int res = ps2_mouse_init();
+        if (res < 0) {
+            klog(LOG_ERROR, "ps2", "Failed to initialize PS/2 mouse\n");
+        } else {
+            klog(LOG_INFO, "ps2", "Successfully initialized PS/2 mouse\n");
+        }
     }
 }
 

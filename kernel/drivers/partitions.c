@@ -6,6 +6,7 @@
 #include "uapi/dirent.h"
 #include "util/string.h"
 #include "vfs.h"
+#include "log.h"
 #include <stdint.h>
 
 partition_t partitions[1024] = {0};
@@ -55,8 +56,8 @@ int mbr_detect_partitions(block_device_t device) {
         strncpy(output_device.name, device.name, 244);
         if (output_device.name[strlen(output_device.name) - 1] >= '0' &&
         output_device.name[strlen(output_device.name) - 1] <= '9')
-        output_device.name[strlen(output_device.name)] = 'p';
-            itoa(i + 1, &output_device.name[strlen(output_device.name)]);
+            output_device.name[strlen(output_device.name)] = 'p';
+        itoa(i + 1, &output_device.name[strlen(output_device.name)]);
         register_block_device(&output_device);
     }
     return found;
@@ -161,9 +162,21 @@ int gpt_detect_partitions(block_device_t device) {
 
 int detect_partitions(block_device_t device) {
     if (has_gpt(device)) {
-        return gpt_detect_partitions(device);
+        int res = gpt_detect_partitions(device);
+        if (res < 0) {
+            klogf(LOG_ERROR, "partition", "Failed to detect partitions on drive %s (GPT)\n", device.name);
+            return res;
+        }
+        klogf(LOG_INFO, "partition", "Detected %d partitions on drive %s (GPT)\n", res, device.name);
+        return res;
     } else if (has_mbr(device)) {
-        return mbr_detect_partitions(device);
+        int res = mbr_detect_partitions(device);
+        if (res < 0) {
+            klogf(LOG_ERROR, "partition", "Failed to detect partitions on drive %s (MBR)\n", device.name);
+            return res;
+        }
+        klogf(LOG_INFO, "partition", "Detected %d partitions on drive %s (MBR)\n", res, device.name);
+        return res;
     } else {
         return 0;
     }

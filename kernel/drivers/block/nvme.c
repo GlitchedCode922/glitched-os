@@ -251,7 +251,10 @@ void nvme_init(pci_device_t device) {
     nvme_controller_t* controller = controllers + controller_count;
     controller->regs = regs;
     regs->cc &= ~CC_EN;
-    if (nvme_wait_ready(regs, 0) < 0) return;
+    if (nvme_wait_ready(regs, 0) < 0) {
+        klog(LOG_ERROR, "nvme", "Controller IO error\n");
+        return;
+    }
 
     // Create admin queue
     nvme_queue_t* admin = &controller->admin;
@@ -271,7 +274,10 @@ void nvme_init(pci_device_t device) {
     regs->acq = admin->cq_phys;
 
     regs->cc = CC_EN | CC_CSS(0) | CC_MPS(0) | CC_AMS(0) | CC_IOSQES(6) | CC_IOCQES(4);
-    nvme_wait_ready(regs, 1);
+    if (nvme_wait_ready(regs, 1) < 0) {
+        klog(LOG_ERROR, "nvme", "Controller IO error\n");
+        return;
+    }
     controller_count++;
 
     // Find namespaces
@@ -371,7 +377,10 @@ void nvme_register() {
         .get_sector_size = nvme_get_block_size,
     };
     nvme_block_driver_index = register_block_driver(&nvme_block);
-    if (nvme_block_driver_index < 0) return;
+    if (nvme_block_driver_index < 0) {
+        klogf(LOG_ERROR, "nvme", "Failed to register the NVMe block driver, errno: %d\n", nvme_block_driver_index);
+        return;
+    }
     pci_driver_t nvme_pci = {
         .init = nvme_init,
         .mode = 1,

@@ -13,6 +13,7 @@
 #include "drivers/fpu.h"
 #include "vfs.h"
 #include "gdt.h"
+#include "log.h"
 #include "panic.h"
 #include "error.h"
 #include <stddef.h>
@@ -133,6 +134,7 @@ void run_init(char* path) {
     init_task.signal_interrupted_fpu_state = kzalloc(fpu_memory_size);
     current_task = &init_task;
     scheduler_initialized = 1;
+    klog(LOG_INFO, "scheduler", "Boot completed, running init\n");
     jump_to_user(addr, (char*)0x10000000000 + 4096 * 128 - 16);
 }
 

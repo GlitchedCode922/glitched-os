@@ -13,7 +13,7 @@ char log_buffer[4096];
 int log_head = 0;
 
 const size_t level_field_len = 5;
-const size_t subsystem_field_len = 8;
+const size_t subsystem_field_len = 12;
 
 void klog(log_level_t level, const char* subsystem, const char* string) {
     if (level < minimum_level) return;

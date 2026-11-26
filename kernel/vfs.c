@@ -5,6 +5,7 @@
 #include "fs/glfs.h"
 #include "fs/ramfs.h"
 #include "fs/devfs.h"
+#include "log.h"
 #include "memory/mman.h"
 #include "uapi/dirent.h"
 #include "uapi/stat.h"
@@ -310,9 +311,15 @@ int mount_root_filesystem(const char* device, int flags) {
     uint64_t handle;
     stat_t st;
     int res = lookup_device(device, &handle);
-    if (res < 0) return res;
+    if (res < 0) {
+        klogf(LOG_ERROR, "vfs", "Failed to find rootfs device (%s)\n", device);
+        return res;
+    }
     res = devfs_stat(handle, &st);
-    if (res < 0) return res;
+    if (res < 0) {
+        klogf(LOG_ERROR, "vfs", "Failed to stat rootfs device (%s)\n", device);
+        return res;
+    }
     if (st.type != DT_BLOCK) return -ENOTBLK;
     block_device_t dev = {
         .major_number = major(st.rdev),
@@ -326,8 +333,10 @@ int mount_root_filesystem(const char* device, int flags) {
         }
     }
     if (fs_index == -1) {
+        klog(LOG_ERROR, "vfs", "Couldn't find type of root filesystem\n");
         return -ENOSYS; // Filesystem type not found
     }
+    klogf(LOG_INFO, "vfs", "Mounting rootfs from %s as %s\n", device, filesystems[fs_index].name);
 
     root = (mountpoint_t*)kmalloc(sizeof(mountpoint_t));
     root->fs_data = filesystems[fs_index].mount(dev, flags);

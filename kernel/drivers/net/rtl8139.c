@@ -6,6 +6,7 @@
 #include "memory/paging.h"
 #include "error.h"
 #include "spin.h"
+#include "log.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -35,13 +36,19 @@ void rtl8139_init(pci_device_t device) {
     rx_buffers[cards_existing] = hhdm_base + allocate_physical_region(3); // Allocate buffer for receiving packets
     for (int i = 0; i < 512; i++) received_packets[cards_existing][i] = hhdm_base + allocate_physical_page();
     for (int i = 0; i < 4; i++) transmitter_buffers[cards_existing][i] = hhdm_base + allocate_physical_page();
-    turn_on_rtl8139(cards_existing);
+    int res = turn_on_rtl8139(cards_existing);
+    if (res < 0) {
+        klog(LOG_ERROR, "rtl8139", "Failed to initialize an RTL8139 network card\n");
+        return;
+    } else {
+        klog(LOG_INFO, "rtl8139", "Found an RTL8139 network card\n");
+    }
     cards_existing++;
     register_net_interface(driver_index, cards_existing - 1);
 }
 
-void turn_on_rtl8139(int card) {
-    if (card > cards_existing) return; // Invalid card index
+int turn_on_rtl8139(int card) {
+    if (card > cards_existing) return -ENODEV; // Invalid card index
 
     uint16_t io_base = base_io_addresses[card];
 
@@ -50,7 +57,7 @@ void turn_on_rtl8139(int card) {
 
     // Reset the RTL8139
     outb(io_base + 0x37, 0x10); // Issue a reset command
-    if (spin(inb(io_base + 0x37) & 0x10, 5000,) < 0) return;
+    if (spin(inb(io_base + 0x37) & 0x10, 5000,) < 0) return -EIO;
 
     // Interrupt setup
     outw(io_base + 0x3C, 0x0005); // Set the TOK and ROK bits high
@@ -70,6 +77,7 @@ void turn_on_rtl8139(int card) {
 
     // Enable the receiver and transmitter
     outb(io_base + 0x37, 0x0C); // Enable receiver and transmitter
+    return 0;
 }
 
 void rtl8139_irq_handler(uint8_t irq) {

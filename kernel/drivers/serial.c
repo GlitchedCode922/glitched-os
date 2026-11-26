@@ -5,6 +5,7 @@
 #include "io/8259pic.h"
 #include "error.h"
 #include "spin.h"
+#include "log.h"
 #include "drivers/tty.h"
 
 const uint16_t serial_ports[] = {COM1_PORT, COM2_PORT, COM3_PORT, COM4_PORT};
@@ -56,6 +57,7 @@ void serial_init() {
         irq_handlers[interrupt_numbers[i]].handler = serial_interrupt_handler;
         pic_enable_irq(interrupt_numbers[i]);
         enabled[i] = 1;
+        klogf(LOG_INFO, "serial", "Initialized serial port #%d\n", i);
 next:
         continue;
     }

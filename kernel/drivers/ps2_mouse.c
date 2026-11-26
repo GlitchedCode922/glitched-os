@@ -7,6 +7,7 @@
 #include "usermode/pipe.h"
 #include "drivers/chrdev.h"
 #include "fs/devfs.h"
+#include "log.h"
 
 uint8_t packet[4];
 int packet_index = 0;
@@ -45,7 +46,10 @@ int ps2_mouse_init() {
     if (spin(!(inb(0x64) & 0x01), 500,) < 0) return -1;
     char mouse_id = inb(0x60);
     if (mouse_id == 0x03) {
+        klog(LOG_INFO, "ps2-mouse", "Mouse supports IntelliMouse packets (scroll wheel)\n");
         supports_intellimouse = 1;
+    } else {
+        klog(LOG_INFO, "ps2-mouse", "Mouse does not support IntelliMouse packets (scroll wheel)\n");
     }
     // Enable data reporting
     outb(0x64, 0xD4);

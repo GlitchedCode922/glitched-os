@@ -7,6 +7,7 @@
 #include "panic.h"
 #include "error.h"
 #include "spin.h"
+#include "log.h"
 #include "uapi/ioctl.h"
 #include "util/string.h"
 #include <stddef.h>
@@ -426,6 +427,7 @@ int ahci_ioctl(int drive, uint64_t request, uint64_t arg) {
 
 void ahci_init(pci_device_t device) {
     if (drive_count >= 1024) return;
+    klog(LOG_INFO, "ahci", "Found an AHCI controller\n");
 
     uint32_t command = pci_config_read32(device.bus, device.device, device.function, 0x04);
     pci_config_write32(device.bus, device.device, device.function, 0x04, command | 0x06);
@@ -456,16 +458,24 @@ void ahci_init(pci_device_t device) {
         int is_atapi;
         if (port->sig == 0x00000101) {
             is_atapi = 0;
+            klog(LOG_INFO, "ahci", "Found an AHCI SATA drive\n");
         } else if (port->sig == 0xEB140101) {
             is_atapi = 1;
+            klog(LOG_INFO, "ahci", "Found an AHCI ATAPI device\n");
         } else {
             continue; // Other device types are not implemented
         }
 
         port->cmd &= ~HBA_CMD_ST;
-        if (spin(port->cmd & HBA_CMD_CR, 1000,) < 0) continue;
+        if (spin(port->cmd & HBA_CMD_CR, 1000,) < 0) {
+            klog(LOG_ERROR, "ahci", "Failed to stop port engine\n");
+            continue;
+        }
         port->cmd &= ~HBA_CMD_FRE;
-        if (spin(port->cmd & HBA_CMD_FR, 1000,) < 0) continue;
+        if (spin(port->cmd & HBA_CMD_FR, 1000,) < 0) {
+            klog(LOG_ERROR, "ahci", "Failed to stop port engine\n");
+            continue;
+        }
 
         if (is_atapi) port->cmd |= HBA_CMD_ATAPI;
         else port->cmd &= ~HBA_CMD_ATAPI;
@@ -489,9 +499,15 @@ void ahci_init(pci_device_t device) {
         port->is = 0xFFFFFFFF;
 
         port->cmd |= HBA_CMD_FRE;
-        if (spin(!(port->cmd & HBA_CMD_FR), 1000,) < 0) continue;
+        if (spin(!(port->cmd & HBA_CMD_FR), 1000,) < 0) {
+            klog(LOG_ERROR, "ahci", "Failed to start port engine\n");
+            continue;
+        }
         port->cmd |= HBA_CMD_ST;
-        if (spin(!(port->cmd & HBA_CMD_CR), 1000,) < 0) continue;
+        if (spin(!(port->cmd & HBA_CMD_CR), 1000,) < 0) {
+            klog(LOG_ERROR, "ahci", "Failed to start port engine\n");
+            continue;
+        }
 
         drives[drive_count].controller = hba;
         drives[drive_count].port = port;
@@ -501,7 +517,10 @@ void ahci_init(pci_device_t device) {
         uint16_t id[256];
         uintptr_t data_phys = get_physical_address((uintptr_t)id);
         int res = ahci_ata_issue(port, 0, is_atapi ? 0xA1 : 0xEC, 0, 0, data_phys, 512, 0, sclo);
-        if (res < 0) continue;
+        if (res < 0) {
+            klog(LOG_ERROR, "ahci", "Failed to identify device\n");
+            continue;
+        }
 
         if (is_atapi) {
             drives[drive_count].sector_count = 0;
@@ -547,7 +566,10 @@ void ahci_register() {
         .get_sector_size = ahci_get_sector_size,
     };
     ahci_driver_index = register_block_driver(&ahci_driver_block);
-    if (ahci_driver_index < 0) return;
+    if (ahci_driver_index < 0) {
+        klogf(LOG_ERROR, "ahci", "Failed to register the AHCI block driver, errno: %d\n", ahci_driver_index);
+        return;
+    }
     bounce_phys = allocate_physical_page();
     bounce = hhdm_base + bounce_phys;
     pci_driver_t ahci_driver = {
