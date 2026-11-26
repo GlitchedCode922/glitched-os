@@ -7,7 +7,7 @@
 #include "panic.h"
 #include "error.h"
 #include "spin.h"
-#include "log.h"
+#include "util/log.h"
 #include "uapi/ioctl.h"
 #include "util/string.h"
 #include <stddef.h>

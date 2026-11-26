@@ -13,7 +13,7 @@
 #include "drivers/fpu.h"
 #include "vfs.h"
 #include "gdt.h"
-#include "log.h"
+#include "util/log.h"
 #include "panic.h"
 #include "error.h"
 #include <stddef.h>

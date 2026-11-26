@@ -7,7 +7,7 @@
 #include "util/string.h"
 #include "error.h"
 #include "spin.h"
-#include "log.h"
+#include "util/log.h"
 #include <stdint.h>
 
 typedef volatile struct {

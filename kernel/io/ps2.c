@@ -5,7 +5,7 @@
 #include "drivers/ps2_keyboard.h"
 #include "drivers/ps2_mouse.h"
 #include "spin.h"
-#include "log.h"
+#include "util/log.h"
 
 static int dual_channel = 0;
 static int mouse_present = 0;

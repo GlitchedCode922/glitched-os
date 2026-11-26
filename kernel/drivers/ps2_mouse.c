@@ -7,7 +7,7 @@
 #include "usermode/pipe.h"
 #include "drivers/chrdev.h"
 #include "fs/devfs.h"
-#include "log.h"
+#include "util/log.h"
 
 uint8_t packet[4];
 int packet_index = 0;

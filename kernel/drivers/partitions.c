@@ -6,7 +6,7 @@
 #include "uapi/dirent.h"
 #include "util/string.h"
 #include "vfs.h"
-#include "log.h"
+#include "util/log.h"
 #include <stdint.h>
 
 partition_t partitions[1024] = {0};

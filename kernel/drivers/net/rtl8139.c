@@ -6,7 +6,7 @@
 #include "memory/paging.h"
 #include "error.h"
 #include "spin.h"
-#include "log.h"
+#include "util/log.h"
 #include <stddef.h>
 #include <stdint.h>
 

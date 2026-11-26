@@ -5,7 +5,7 @@
 #include "io/8259pic.h"
 #include "error.h"
 #include "spin.h"
-#include "log.h"
+#include "util/log.h"
 #include "drivers/tty.h"
 
 const uint16_t serial_ports[] = {COM1_PORT, COM2_PORT, COM3_PORT, COM4_PORT};

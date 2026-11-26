@@ -5,7 +5,7 @@
 #include "fs/glfs.h"
 #include "fs/ramfs.h"
 #include "fs/devfs.h"
-#include "log.h"
+#include "util/log.h"
 #include "memory/mman.h"
 #include "uapi/dirent.h"
 #include "uapi/stat.h"

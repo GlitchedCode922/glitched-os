@@ -3,7 +3,7 @@
 #include "io/8259pic.h"
 #include "panic.h"
 #include "console.h"
-#include "log.h"
+#include "util/log.h"
 #include "drivers/tty.h"
 #include "util/string.h"
 #include "usermode/scheduler.h"

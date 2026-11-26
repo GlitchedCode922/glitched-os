@@ -1,4 +1,4 @@
-#include "log.h"
+#include "util/log.h"
 #include "io/ports.h"
 #include "util/string.h"
 #include "console.h"

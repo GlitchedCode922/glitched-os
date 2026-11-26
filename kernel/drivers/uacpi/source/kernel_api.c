@@ -5,7 +5,7 @@
 #include "memory/paging.h"
 #include "memory/mman.h"
 #include "uacpi/log.h"
-#include "log.h"
+#include "util/log.h"
 #include "console.h"
 #include "uacpi/status.h"
 #include "uacpi/types.h"
