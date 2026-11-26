@@ -16,7 +16,7 @@ typedef struct {
 mapped_region map[ALLOC_MAP_SIZE] = {0};
 uint64_t map_index = 0;
 
-void init_mman(size_t executable_size) {
+void mman_init(size_t executable_size) {
     kernel_heap_start = PAGE_ALIGN(0xFFFFFFFF80000000ULL + executable_size);
     map[0].start = kernel_heap_start;
     map[0].pages = 0xFFFFFFFFF - (kernel_heap_start/PAGE_SIZE);

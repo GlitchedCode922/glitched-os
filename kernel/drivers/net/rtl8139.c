@@ -190,7 +190,7 @@ int rtl8139_send_packet(int card, void* buffer, int length) {
     return 0;
 }
 
-void register_rtl8139_driver() {
+void rtl8139_register() {
     pci_driver_t rtl8139_driver = {
         .mode = 0,
         .vendor = 0x10EC, // Realtek

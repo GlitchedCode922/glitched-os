@@ -7,10 +7,10 @@ has_xsave db 0
 fpu_memory_size dd 0
 
 section .text
-global init_fpu
+global fpu_init
 global save_fpu
 global restore_fpu
-init_fpu:
+fpu_init:
 
     ; ----------------------
     ; 1. Initialize x87 FPU

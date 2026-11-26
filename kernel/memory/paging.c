@@ -38,8 +38,8 @@ uintptr_t get_physical_address(uintptr_t va) {
     return (x & ~FLAGS_MASK) | (va & 0xFFF);
 }
 
-void init_paging(uintptr_t cr3, struct limine_memmap_response *memmap, uintptr_t hhdm) {
-    if (cr3 == 0 || memmap == NULL) panic("init_paging failed");
+void paging_init(uintptr_t cr3, struct limine_memmap_response *memmap, uintptr_t hhdm) {
+    if (cr3 == 0 || memmap == NULL) panic("paging_init failed");
 
     pml4_physical = cr3;
     hhdm_base = (void*)hhdm;

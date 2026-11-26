@@ -12,4 +12,4 @@ void* krealloc(void* ptr, size_t old_size, size_t new_size);
 void kfree(void* ptr);
 void* find_available_va(size_t size);
 
-void init_mman(size_t executable_size);
+void mman_init(size_t executable_size);

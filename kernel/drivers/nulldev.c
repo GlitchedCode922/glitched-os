@@ -29,7 +29,7 @@ int64_t null_read(int minor_number, uint64_t offset, uint8_t *buffer, uint64_t s
     }
 }
 
-int register_null_devices() {
+int nulldev_register() {
     char_driver_t null_driver = {
         .read = null_read,
         .write = null_write,

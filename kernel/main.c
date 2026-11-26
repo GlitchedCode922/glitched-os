@@ -103,11 +103,11 @@ void kernel_main() {
         "mov %%cr3, %0"
         : "=r"(cr3)
     );
-    init_paging(cr3, memmap_request.response, hhdm_request.response->offset);
-    init_mman((size_t)__size);
+    paging_init(cr3, memmap_request.response, hhdm_request.response->offset);
+    mman_init((size_t)__size);
     gdt_init();
     idt_init();
-    init_fpu();
+    fpu_init();
     scheduler_init();
     syscall_init();
     register_intree_filesystems();
@@ -130,10 +130,10 @@ void kernel_main() {
     }
     partition_init();
     net_init();
-    register_rtl8139_driver();
+    rtl8139_register();
     ahci_register();
     nvme_register();
-    register_null_devices();
+    nulldev_register();
     enumerate_pci();
     ata_register();
     vvar_vaddr->boot_time = rtc_get_timestamp();

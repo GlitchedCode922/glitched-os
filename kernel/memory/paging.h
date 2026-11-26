@@ -50,7 +50,7 @@ static inline uint64_t* page_table_to_address(uint64_t entry) {
     return (uint64_t*)(entry & ~FLAGS_MASK);
 }
 
-void init_paging(uintptr_t cr3, struct limine_memmap_response *memmap, uintptr_t hhdm);
+void paging_init(uintptr_t cr3, struct limine_memmap_response *memmap, uintptr_t hhdm);
 void* alloc_region(uintptr_t vaddr, size_t size, uint64_t flags);
 void* alloc_mmio_region(uintptr_t vaddr, uintptr_t paddr, size_t size, uint64_t flags);
 void* alloc_zero_region(uintptr_t vaddr, size_t size, uint64_t flags);
