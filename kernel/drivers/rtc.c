@@ -1,7 +1,7 @@
 #include "drivers/rtc.h"
 #include "drivers/timer.h"
 #include "io/ports.h"
-#include "spin.h"
+#include "util/spin.h"
 #include <stdint.h>
 
 static uint8_t rtc_read(uint8_t reg) {

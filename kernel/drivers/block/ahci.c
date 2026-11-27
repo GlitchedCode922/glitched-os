@@ -6,7 +6,7 @@
 #include "memory/paging.h"
 #include "panic.h"
 #include "error.h"
-#include "spin.h"
+#include "util/spin.h"
 #include "util/log.h"
 #include "uapi/ioctl.h"
 #include "util/string.h"

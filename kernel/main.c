@@ -2,6 +2,7 @@
 #include "drivers/block/ahci.h"
 #include "drivers/block/ata.h"
 #include "drivers/block/nvme.h"
+#include "drivers/net/e1000.h"
 #include "drivers/net/rtl8139.h"
 #include "drivers/partitions.h"
 #include "drivers/nulldev.h"
@@ -109,6 +110,8 @@ void kernel_main() {
     idt_init();
     fpu_init();
     scheduler_init();
+    vvar_vaddr->boot_time = rtc_get_timestamp();
+    timer_init();
     syscall_init();
     register_intree_filesystems();
     parse_kernel_cmdline();
@@ -131,13 +134,12 @@ void kernel_main() {
     partition_init();
     net_init();
     rtl8139_register();
+    e1000_register();
     ahci_register();
     nvme_register();
     nulldev_register();
     enumerate_pci();
     ata_register();
-    vvar_vaddr->boot_time = rtc_get_timestamp();
-    timer_init();
 
     if (rsdp_request.response->address) {
         uacpi_status ret;

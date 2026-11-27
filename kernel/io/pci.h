@@ -21,11 +21,16 @@ typedef struct {
 } pci_device_t;
 
 typedef struct {
-    void (*init)(pci_device_t);
-    void (*isr)(uint8_t);
-    int mode; // 0: device ID, 1: class
     uint16_t vendor;
     uint16_t device;
+} pci_device_id_t;
+
+typedef struct {
+    void (*init)(pci_device_t);
+    void (*isr)(uint8_t);
+    int mode; // 0: device IDs, 1: class
+    pci_device_id_t* device_ids;
+    int device_id_count;
     uint8_t class_code;
     uint8_t subclass;
     uint8_t prog_if;

@@ -6,7 +6,7 @@
 #include "memory/mman.h"
 #include "util/string.h"
 #include "error.h"
-#include "spin.h"
+#include "util/spin.h"
 #include "util/log.h"
 #include <stdint.h>
 

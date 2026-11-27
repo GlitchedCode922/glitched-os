@@ -5,7 +5,7 @@
 #include "io/ports.h"
 #include "memory/paging.h"
 #include "error.h"
-#include "spin.h"
+#include "util/spin.h"
 #include "util/log.h"
 #include <stddef.h>
 #include <stdint.h>
@@ -14,14 +14,11 @@ static uint16_t base_io_addresses[4] = {0};
 static uint8_t irqs[4] = {0};
 static uint8_t* rx_buffers[4] = {0};
 static size_t rx_offsets[4] = {0};
-static void* received_packets[4][512] = {0};
 static void* transmitter_buffers[4][4] = {0};
 static int tx_buffer_in_use[4] = {0};
-static int received_packet_lengths[4][512] = {0};
-static int received_packet_read_head[4] = {0};
-static int received_packet_write_head[4] = {0};
-int cards_existing = 0;
+static int cards_existing = 0;
 static int driver_index;
+pci_device_id_t rtl8139_device_id = {0x10EC, 0x8139};
 
 void rtl8139_init(pci_device_t device) {
     if (cards_existing == 4) return;
@@ -34,7 +31,6 @@ void rtl8139_init(pci_device_t device) {
     command |= 0x07; // Set the bus mastering bit
     pci_config_write32(device.bus, device.device, device.function, 0x04, command);
     rx_buffers[cards_existing] = hhdm_base + allocate_physical_region(3); // Allocate buffer for receiving packets
-    for (int i = 0; i < 512; i++) received_packets[cards_existing][i] = hhdm_base + allocate_physical_page();
     for (int i = 0; i < 4; i++) transmitter_buffers[cards_existing][i] = hhdm_base + allocate_physical_page();
     int res = turn_on_rtl8139(cards_existing);
     if (res < 0) {
@@ -107,21 +103,17 @@ void rtl8139_irq_handler(uint8_t irq) {
                 }
 
                 // Copy the packet
-                void* packet = received_packets[i][received_packet_write_head[i]];
+                uint8_t packet[packet_length];
                 uint8_t* frame = rx_buffer + offset + 4;
                 for (int j = 0; j < packet_length; j++) {
-                    ((uint8_t*)packet)[j] = *frame;
+                    packet[j] = *frame;
                     frame++;
                     // Wrap check
                     if ((offset + 4 + j) >= 8192) frame = rx_buffer + ((offset + 4 + j) % 8192);
                 }
 
-                received_packet_lengths[i][received_packet_write_head[i]] = packet_length;
-
-                received_packet_write_head[i] = (received_packet_write_head[i] + 1) % 512;
-
                 // Inform network stack
-                frame_received(get_global_if_index(driver_index, i));
+                frame_received(get_global_if_index(driver_index, i), packet, packet_length);
 
                 offset = (offset + packet_length + 4 + 3) & ~3; // Align to 4 bytes
                 rx_offsets[i] = offset % 8192; // Wrap around the buffer
@@ -134,36 +126,15 @@ void rtl8139_irq_handler(uint8_t irq) {
     }
 }
 
-uint8_t* rtl8139_get_mac_address(int card) {
-    static uint8_t mac[6] = {0};
-
-    if (card >= cards_existing) {
-        for (int i = 0; i < 6; i++) mac[i] = 0;
-        return mac; // Invalid card index
-    }
+int rtl8139_get_mac_address(int card, uint8_t mac[6]) {
+    if (card < 0 || card >= cards_existing) return -ENODEV;
 
     uint16_t io_base = base_io_addresses[card];
     for (int i = 0; i < 6; i++) {
         mac[i] = inb(io_base + i);
     }
 
-    return mac;
-}
-
-int rtl8139_read_packet(int card, void** buffer) {
-    if (card >= cards_existing) return -ENODEV; // Invalid card index
-    if (received_packet_read_head[card] == received_packet_write_head[card]) {
-        // No packets available
-        return -EAGAIN;
-    }
-
-    void* packet = received_packets[card][received_packet_read_head[card]];
-    *buffer = packet;
-
-    int length = received_packet_lengths[card][received_packet_read_head[card]];
-
-    received_packet_read_head[card] = (received_packet_read_head[card] + 1) % 512;
-    return length;
+    return 0;
 }
 
 int rtl8139_send_packet(int card, void* buffer, int length) {
@@ -193,15 +164,14 @@ int rtl8139_send_packet(int card, void* buffer, int length) {
 void rtl8139_register() {
     pci_driver_t rtl8139_driver = {
         .mode = 0,
-        .vendor = 0x10EC, // Realtek
-        .device = 0x8139, // RTL8139
+        .device_ids = &rtl8139_device_id,
+        .device_id_count = 1,
         .init = rtl8139_init,
         .isr = rtl8139_irq_handler,
     };
     register_pci_driver(rtl8139_driver);
     driver_index = register_net_driver((net_driver_t){
         .send_packet = rtl8139_send_packet,
-        .read_packet = rtl8139_read_packet,
         .get_mac_address = rtl8139_get_mac_address,
     });
 }

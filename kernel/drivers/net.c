@@ -53,21 +53,6 @@ int send_packet(int if_index, void* data, int length) {
     return driver->send_packet(iface->driver_local_index, data, length);
 }
 
-int receive_packet(int if_index, void **buffer) {
-    if (if_index < 0 || if_index >= net_interface_count) {
-        return -ENODEV; // Invalid interface index
-    }
-    net_if_t* iface = &net_interfaces[if_index];
-    if (iface->driver < 0 || iface->driver >= net_driver_count) {
-        return -ENODEV; // Invalid driver index
-    }
-    net_driver_t* driver = &net_drivers[iface->driver];
-    if (driver->read_packet == NULL) {
-        return -ENOSYS; // Driver does not support reading packets
-    }
-    return driver->read_packet(iface->driver_local_index, buffer);
-}
-
 int does_exist(int if_index) {
     return if_index >= 0 && if_index < net_interface_count;
 }
@@ -141,20 +126,7 @@ int register_net_interface(int driver, int driver_local_index) {
     // Get the MAC address from the driver
     net_driver_t* drv = &net_drivers[driver];
     if (drv->get_mac_address != NULL) {
-        uint8_t* mac = drv->get_mac_address(driver_local_index);
-        if (mac != NULL) {
-            for (int i = 0; i < 6; i++) {
-                iface->mac[i] = mac[i];
-            }
-        } else {
-            for (int i = 0; i < 6; i++) {
-                iface->mac[i] = 0;
-            }
-        }
-    } else {
-        for (int i = 0; i < 6; i++) {
-            iface->mac[i] = 0;
-        }
+        drv->get_mac_address(driver_local_index, iface->mac);
     }
     net_interface_count++;
     return net_interface_count - 1; // Return the index of the newly added interface

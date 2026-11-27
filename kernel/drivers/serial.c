@@ -4,7 +4,7 @@
 #include "io/ports.h"
 #include "io/8259pic.h"
 #include "error.h"
-#include "spin.h"
+#include "util/spin.h"
 #include "util/log.h"
 #include "drivers/tty.h"
 

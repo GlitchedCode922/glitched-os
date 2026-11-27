@@ -29,9 +29,7 @@ uint32_t ntohl(uint32_t val) {
            ((val << 24) & 0xFF000000);
 }
 
-void frame_received(int card) {
-    uint8_t* frame;
-    int frame_length = receive_packet(card, (void**)&frame);
+void frame_received(int card, uint8_t* frame, int frame_length) {
     if (frame_length > 0) {
         char* src_mac = (char*)(frame + 6);
         char* dst_mac = (char*)frame;

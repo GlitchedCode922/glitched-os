@@ -14,13 +14,11 @@ typedef struct {
 
 typedef struct {
     int (*send_packet)(int card, void* buffer, int length);
-    int (*read_packet)(int card, void** buffer);
-    uint8_t* (*get_mac_address)(int card);
+    int (*get_mac_address)(int card, uint8_t mac[6]);
 } net_driver_t;
 
 int get_global_if_index(int driver, int driver_local_index);
 int send_packet(int if_index, void* data, int length);
-int receive_packet(int if_index, void** buffer);
 int get_ip(int if_index, uint8_t* ip);
 int get_subnet(int if_index, uint8_t* subnet);
 int get_mac(int if_index, uint8_t* mac);

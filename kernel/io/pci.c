@@ -116,12 +116,15 @@ void enumerate_pci() {
         pci_device_t dev = pci_devices[i];
         for (size_t j = 0; j < pci_driver_count; j++) {
             if (pci_drivers[j].mode == 0) {
-                if (pci_drivers[j].vendor == dev.vendor_id &&
-                    pci_drivers[j].device == dev.device_id) {
-                    // Enable the IRQ
-                    pic_enable_irq(dev.irq);
-                    if (pci_drivers[j].init) {
-                        pci_drivers[j].init(dev);
+                for (int k = 0; k < pci_drivers[j].device_id_count; k++) {
+                    if (pci_drivers[j].device_ids[k].vendor == dev.vendor_id &&
+                        pci_drivers[j].device_ids[k].device == dev.device_id) {
+                        // Enable the IRQ
+                        pic_enable_irq(dev.irq);
+                        if (pci_drivers[j].init) {
+                            pci_drivers[j].init(dev);
+                        }
+                        break;
                     }
                 }
             } else {

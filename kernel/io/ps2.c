@@ -4,7 +4,7 @@
 #include "io/8259pic.h"
 #include "drivers/ps2_keyboard.h"
 #include "drivers/ps2_mouse.h"
-#include "spin.h"
+#include "util/spin.h"
 #include "util/log.h"
 
 static int dual_channel = 0;

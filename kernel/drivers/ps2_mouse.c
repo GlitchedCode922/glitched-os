@@ -3,7 +3,7 @@
 #include "error.h"
 #include "io/ports.h"
 #include "io/8259pic.h"
-#include "spin.h"
+#include "util/spin.h"
 #include "usermode/pipe.h"
 #include "drivers/chrdev.h"
 #include "fs/devfs.h"
