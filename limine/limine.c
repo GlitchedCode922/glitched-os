@@ -223,10 +223,10 @@ static bool bigendian = false;
     sizeof(VALUE) == 8 ? endswap64(VALUE) : (abort(), 1) \
 ) : (VALUE))
 
-static enum {
-    CACHE_CLEAN,
-    CACHE_DIRTY
-} cache_state;
+#define CACHE_CLEAN 0
+#define CACHE_DIRTY 1
+
+static int cache_state;
 static uint64_t cached_block;
 static uint8_t *cache  = NULL;
 static FILE    *device = NULL;
@@ -1999,8 +1999,8 @@ cleanup:
     return ret;
 }
 
-#define LIMINE_VERSION "12.9.6"
-#define LIMINE_COPYRIGHT "Copyright (C) 2019-2026 Mintsuki, 2026 Kamila Szewczyk, and contributors."
+#define LIMINE_VERSION "12.11.2"
+#define LIMINE_COPYRIGHT "Copyright (C) 2019-2026 Mintsuki and contributors."
 
 static void version_usage(void) {
     printf("usage: %s version [options...]\n", program_name);

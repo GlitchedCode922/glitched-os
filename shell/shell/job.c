@@ -117,9 +117,8 @@ void job_destroy(struct mrsh_job *job) {
 }
 
 void job_add_process(struct mrsh_job *job, struct mrsh_process *proc) {
-	if (job->pgid <= 0) {
-		job->pgid = proc->pid;
-	}
+	if (job->pgid <= 0) job->pgid = proc->pid;
+	if (kill(-job->pgid, 0) < 0 && errno == ESRCH) job->pgid = proc->pid;
 	// This can fail because we do it both in the parent and the child
 	if (setpgid(proc->pid, job->pgid) != 0 && errno != EPERM) {
 		perror("setpgid");

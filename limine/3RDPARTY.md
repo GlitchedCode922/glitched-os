@@ -63,7 +63,7 @@ of freestanding-lgrt, stb_image, and pdgzip, which keep their notices.
 
 - The `multiboot2.h` header of the
 [Multiboot2 Specification](https://www.gnu.org/software/grub/manual/multiboot2/)
-(MIT) is copied to `common/protos/multiboot2.h`.
+(MIT) is adapted in `common/protos/multiboot2.h`.
 
 - The [QOI reference decoder](https://github.com/phoboslab/qoi) (MIT) is
 adapted in `common/lib/qoi.c`, for wallpaper image loading.
@@ -310,7 +310,7 @@ PERFORMANCE OF THIS SOFTWARE.
 
 ### Multiboot2 Specification
 
-`common/protos/multiboot2.h` is copied from the Multiboot2 Specification, and
+`common/protos/multiboot2.h` is adapted from the Multiboot2 Specification, and
 used to build Limine's BIOS and UEFI binaries.
 
 ```
@@ -642,14 +642,41 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Micro LZMA decoder
+### Micro LZMA decoder and limlz
 
 Limine's BIOS stage 1 decompressor (`stage1/decompressor.asm`) decodes limlz,
 an LZMA-based format, and is a modified version of the Micro LZMA decoder for
 x86 (static) by Ilya Kurdyukov, from
 https://github.com/ilyakurdyukov/micro-lzmadec. It is built into the BIOS boot
-sector images, and so into the `limine` tool. The original decoder is covered
-by the notice below, whose license follows it.
+sector images, and so into the `limine` tool. The modifications are covered by
+the first notice below, and the original decoder by the second, whose license
+follows it.
+
+```
+limlz: Copyright (C) 2026 Kamila Szewczyk <k@iczelia.net>
+limine: Copyright (C) 2019-2026 Mintsuki and contributors.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```
 
 ```
 Copyright (c) 2022, Ilya Kurdyukov
